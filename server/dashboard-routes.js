@@ -20,6 +20,22 @@ export async function loadDashboardOverview(connection, workspaceId) {
   };
 }
 
+export async function loadWorkspaceJobs(connection, workspaceId, { limit = 50 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const [rows] = await connection.execute(
+    `SELECT j.id, j.job_type, j.agent_id, j.status, j.created_at, j.finished_at, j.error, c.name AS client_name
+       FROM jobs j LEFT JOIN clients c ON c.id = j.client_id AND c.workspace_id = ?
+      WHERE j.workspace_id = ? ORDER BY j.id DESC LIMIT ${safeLimit}`,
+    [workspaceId, workspaceId],
+  );
+  return rows.map((job) => ({
+    id: job.id, jobType: job.job_type, agentId: job.agent_id, status: job.status,
+    createdAt: job.created_at, finishedAt: job.finished_at, clientName: job.client_name || null,
+    // Do not return internal error details to the dashboard.
+    failed: job.status === 'failed',
+  }));
+}
+
 export function installDashboardRoutes(app, { getPool, requireTenant }) {
   app.get('/api/dashboard/overview', requireTenant, async (req, res) => {
     let connection;
@@ -27,6 +43,16 @@ export function installDashboardRoutes(app, { getPool, requireTenant }) {
       connection = await getPool()?.getConnection();
       if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
       res.json(await loadDashboardOverview(connection, req.tenantContext.workspaceId));
+    } catch {
+      res.status(503).json({ error: 'Dashboard service unavailable.' });
+    } finally { connection?.release(); }
+  });
+  app.get('/api/dashboard/jobs', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
+      res.json({ jobs: await loadWorkspaceJobs(connection, req.tenantContext.workspaceId) });
     } catch {
       res.status(503).json({ error: 'Dashboard service unavailable.' });
     } finally { connection?.release(); }
