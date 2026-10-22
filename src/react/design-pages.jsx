@@ -1,70 +1,94 @@
-import React, { useEffect, useState } from 'react';
-import './design-system.css';
+import React, { useCallback, useEffect, useState } from 'react';
+import './reference/reset.css';
+import { LandingDesign } from './reference/landing.jsx';
+import { OnboardingDesign } from './reference/onboarding.jsx';
+import { DashboardDesign } from './reference/dashboard.jsx';
 
-const Icon = ({ children }) => <span className="vo-icon" aria-hidden="true">{children}</span>;
-const Brand = ({ onClick }) => <button onClick={onClick} className="vo-brand"><Icon>▣</Icon><span>Virtual Office</span></button>;
-
-export function AppSplash({ label = 'Menyiapkan kantor…' }) {
-  return <div className="vo-splash" aria-hidden="true"><div><div className="vo-splash-grid">{['#4f7cff','#ff8a3d','#ff5fa2','#2fbf71','#8a5cf6','#14b8a6','#f5b82e','#64748b','transparent'].map((color, index) => <i key={index} style={{ background: color, animationDelay: `${index * 70}ms` }} />)}</div><b><Icon>▣</Icon> Virtual Office</b><small>{label}</small><span className="vo-splash-progress"><i /></span></div></div>;
+export function LandingPage() {
+  return <LandingDesign />;
 }
-
-function LandingNav({ onNavigate, dark, onTheme }) {
-  return <header className="vo-nav"><Brand onClick={() => onNavigate('/')} /><nav><a href="#fitur">Fitur</a><a href="#kantor">Kantor 3D</a><a href="#harga">Harga</a><a href="#faq">FAQ</a><a href="#dokumentasi">Dokumentasi</a></nav><div><button onClick={onTheme} className="vo-square" aria-label="Ganti tema">{dark ? '☀' : '◐'}</button><button onClick={() => window.location.assign('/auth/login')} className="vo-login">Masuk</button><button onClick={() => onNavigate('/onboarding')} className="vo-primary">Mulai sekarang <b>→</b></button></div></header>;
-}
-
-function OfficeIllustration() {
-  const rooms = [['Proposal','#4f7cff'],['Ads','#ff8a3d'],['Social','#ff5fa2'],['QA','#2fbf71'],['Developer','#8a5cf6'],['Reporting','#14b8a6'],['Account','#f5b82e'],['Finance','#64748b']];
-  return <div className="vo-product-preview"><div className="vo-window-bar"><i/><i/><i/><span>Kantor · Workspace Contoh</span></div><div className="vo-office-illustration">{rooms.map(([name, color], index) => <article key={name} style={{ '--room': color }}><span>{name.slice(0, 1)}</span><b>{name}</b><small>AI specialist</small><i/></article>)}</div></div>;
-}
-
-function LandingFeature({ icon, title, children }) { return <article className="vo-feature-card"><Icon>{icon}</Icon><h3>{title}</h3><p>{children}</p><span>Pelajari lebih lanjut →</span></article>; }
-
-export function LandingPage({ onNavigate }) {
-  const [dark, setDark] = useState(false); const [splash, setSplash] = useState(true);
-  useEffect(() => { const id = setTimeout(() => setSplash(false), 2100); return () => clearTimeout(id); }, []);
-  return <div className={`vo vo-marketing ${dark ? 'dark' : ''}`}><>{splash && <AppSplash />}</><LandingNav onNavigate={onNavigate} dark={dark} onTheme={() => setDark(!dark)} /><main>
-    <section className="vo-hero"><div className="vo-grid-bg"/><i className="vo-orb orb-a"/><i className="vo-orb orb-b"/><div className="vo-hero-copy"><span className="vo-kicker"><i/> Kantor virtual berbasis AI untuk tim dan agensi</span><h1>Satu kantor virtual untuk seluruh <em>tim AI Anda.</em></h1><p>Virtual Office mengumpulkan agent, perintah, dan hasil kerja di satu ruang kerja 3D. Beri perintah, pantau prosesnya, lalu tinjau dan setujui hasilnya.</p><div className="vo-hero-actions"><button onClick={() => onNavigate('/onboarding')} className="vo-primary">Mulai sekarang <b>→</b></button><button onClick={() => onNavigate('/app/office')} className="vo-secondary">Lihat kantor 3D</button></div><small>Semua hasil AI berupa draft. Selalu ditinjau manusia sebelum dipakai.</small></div><OfficeIllustration /></section>
-    <section className="vo-agents-strip"><p>DIDUKUNG OLEH DELAPAN DIVISI AI</p><div>{['Proposal Writer','Ads Copywriter','Social Media','Web QA','Developer Helper','Reporting','Account Manager','Finance'].map((name, index) => <span key={name}><i style={{ background: ['#4f7cff','#ff8a3d','#ff5fa2','#2fbf71','#8a5cf6','#14b8a6','#f5b82e','#64748b'][index] }}/>{name}</span>)}</div></section>
-    <section className="vo-stats"><article><b>8</b><span>divisi AI siap membantu</span></article><article><b>1</b><span>tempat untuk semua pekerjaan</span></article><article><b>100%</b><span>hasil dikontrol tim Anda</span></article></section>
-    <section id="fitur" className="vo-section"><header><span>YANG ANDA DAPATKAN</span><h2>Semua yang dibutuhkan untuk menjalankan kerja berbasis AI.</h2><p>Dibuat untuk tim yang ingin bekerja lebih cepat tanpa kehilangan konteks, kontrol, atau standar kualitas.</p></header><div className="vo-feature-grid"><LandingFeature icon="⌘" title="Satu tempat untuk perintah">Buat perintah, sertakan konteks, dan arahkan pekerjaan ke specialist yang tepat.</LandingFeature><LandingFeature icon="◌" title="Kantor 3D yang hidup">Lihat siapa yang bekerja, apa yang sedang berjalan, dan hasil yang menunggu review.</LandingFeature><LandingFeature icon="✓" title="Review sebelum terkirim">AI menyiapkan draft. Tim Anda tetap memutuskan apa yang disetujui dan dipakai.</LandingFeature></div></section>
-    <section className="vo-how"><div><span>CARA KERJA</span><h2>Dari perintah ke hasil dalam tiga langkah.</h2></div><ol><li><b>01</b><div><h3>Tulis arah pekerjaan</h3><p>Masukkan tujuan, konteks client, dan detail yang dibutuhkan.</p></div></li><li><b>02</b><div><h3>Pilih AI specialist</h3><p>Setiap divisi punya fokus dan alur kerja yang jelas.</p></div></li><li><b>03</b><div><h3>Review hasilnya</h3><p>Terima, minta revisi, atau lanjutkan ke pekerjaan berikutnya.</p></div></li></ol></section>
-    <section id="kantor" className="vo-section vo-office-section"><header><span>KANTOR 3D</span><h2>Satu kantor, delapan divisi.</h2><p>Kunjungi kantor untuk melihat kerja digital team Anda tanpa mengubah desain Three.js yang sudah ada.</p><button onClick={() => onNavigate('/app/office')} className="vo-primary">Masuk ke kantor <b>→</b></button></header><OfficeIllustration /></section>
-    <section id="harga" className="vo-pricing"><header><span>HARGA</span><h2>Mulai dari template, berkembang sesuai kebutuhan.</h2></header><div>{[['Mulai','Untuk mencoba alur kerja baru','Gratis'],['Workspace','Untuk tim yang bergerak cepat','Rp 299rb'],['Agency','Untuk operasi yang lebih besar','Hubungi kami']].map(([name, desc, price], index) => <article className={index === 1 ? 'featured' : ''} key={name}><h3>{name}</h3><p>{desc}</p><b>{price}</b><button onClick={() => onNavigate('/onboarding')} className={index === 1 ? 'vo-primary' : 'vo-secondary'}>Pilih paket</button></article>)}</div></section>
-    <section id="dokumentasi" className="vo-security"><span>AMAN & TERKENDALI</span><h2>Data tim Anda tetap milik tim Anda.</h2><p>Setiap hasil, konteks, dan keputusan tetap berada di workspace organisasi. Tidak ada pekerjaan yang dikirim tanpa review manusia.</p></section>
-    <section id="faq" className="vo-faq"><header><span>FAQ</span><h2>Pertanyaan yang sering muncul.</h2></header>{['Apakah saya harus mengerti AI untuk memakai Virtual Office?','Apakah hasil AI langsung dikirim ke client?','Apakah saya bisa mulai dengan satu workspace?'].map((question) => <details key={question}><summary>{question}<b>+</b></summary><p>Tidak. Virtual Office dirancang agar tim tetap bekerja dengan konteks dan keputusan yang jelas.</p></details>)}</section>
-    <section className="vo-final"><h2>Buka kantor virtual Anda hari ini.</h2><p>Mulai dari satu workspace dan lihat bagaimana kerja berbasis AI bisa terasa lebih tenang.</p><button onClick={() => onNavigate('/onboarding')} className="vo-primary">Mulai sekarang <b>→</b></button></section>
-  </main><footer className="vo-footer"><Brand onClick={() => onNavigate('/')} /><span>© 2026 Virtual Office</span><span>Untuk tim yang bekerja dengan penuh pertimbangan.</span></footer></div>;
-}
-
-const onboardingSteps = [['01','Organisasi','Nama dan ukuran tim'],['02','Workspace','Ruang kerja pertama Anda'],['03','Divisi','Pilih tempat Anda mulai']];
-const divisions = [['Proposal Writer','#4f7cff'],['Ads Copywriter','#ff8a3d'],['Social Media','#ff5fa2'],['Web QA','#2fbf71'],['Developer Helper','#8a5cf6'],['Reporting','#14b8a6'],['Account Manager','#f5b82e'],['Finance','#64748b']];
-
-function OnboardingSidebar({ step, onNavigate, dark, onTheme }) { return <aside className="vo-onboarding-side"><Brand onClick={() => onNavigate('/')} /><div><h1>Siapkan kantor virtual Anda.</h1><p>Tiga langkah singkat. Anda bisa mengubah semuanya nanti di dashboard.</p></div><ol>{onboardingSteps.map(([number, title, text], index) => <li key={title} className={step === index + 1 ? 'active' : step > index + 1 ? 'done' : ''}><b>{step > index + 1 ? '✓' : number}</b><span><strong>{title}</strong><small>{text}</small></span></li>)}</ol><div className="vo-onboarding-tools"><button onClick={onTheme}>{dark ? '☀ Mode terang' : '◐ Mode gelap'}</button></div></aside>; }
 
 export function OnboardingPage({ onNavigate }) {
-  const [step, setStep] = useState(1); const [dark, setDark] = useState(false); const [splash, setSplash] = useState(true); const [form, setForm] = useState({ org: '', workspace: '', client: '', brief: '' }); const [selected, setSelected] = useState(['Proposal Writer','Social Media']);
-  useEffect(() => { const id = setTimeout(() => setSplash(false), 1900); return () => clearTimeout(id); }, []);
-  const set = (key) => (event) => setForm({ ...form, [key]: event.target.value }); const toggle = (name) => setSelected((items) => items.includes(name) ? items.filter((item) => item !== name) : [...items, name]);
-  return <div className={`vo vo-onboarding ${dark ? 'dark' : ''}`}>{splash && <AppSplash label="Menyiapkan kantor…"/>}<OnboardingSidebar step={step} onNavigate={onNavigate} dark={dark} onTheme={() => setDark(!dark)} /><main><i className="vo-orb orb-a"/><i className="vo-orb orb-b"/><section className="vo-onboarding-card"><span>LANGKAH {step} DARI 3</span>{step === 1 && <><h2>Ceritakan tentang organisasi Anda</h2><p>Organisasi adalah wadah untuk anggota, workspace, dan paket langganan.</p><label>Nama organisasi<input value={form.org} onChange={set('org')} placeholder="mis. Studio Kreatif Nusantara"/></label><fieldset><legend>Ukuran tim</legend><div className="vo-choice-row">{['1–5 orang','6–20 orang','21–50 orang','50+ orang'].map((item, index) => <button key={item} className={index === 0 ? 'selected' : ''}>{item}</button>)}</div></fieldset></>}{step === 2 && <><h2>Buat workspace pertama</h2><p>Workspace memisahkan pekerjaan, misalnya per tim atau per client.</p><label>Nama workspace<input value={form.workspace} onChange={set('workspace')} placeholder="mis. Tim Kreatif"/></label><label>Client pertama <small>(opsional)</small><input value={form.client} onChange={set('client')} placeholder="Nama brand atau perusahaan"/></label><label>Brief client <small>(opsional)</small><textarea value={form.brief} onChange={set('brief')} placeholder="Brand voice, produk, dan target audiens" rows="4"/></label></>}{step === 3 && <><h2>Pilih divisi untuk dimulai</h2><p>Semua divisi tetap ada di kantor. Pilihan ini hanya menentukan tempat Anda mulai.</p><div className="vo-division-grid">{divisions.map(([name, color]) => <button onClick={() => toggle(name)} className={selected.includes(name) ? 'selected' : ''} key={name}><i style={{ background: color }}/><span>{name}</span>{selected.includes(name) && <b>✓</b>}</button>)}</div></>}<div className="vo-form-actions">{step > 1 && <button className="vo-secondary" onClick={() => setStep(step - 1)}>Kembali</button>}<button className="vo-primary" onClick={() => step === 3 ? onNavigate('/app') : setStep(step + 1)}>{step === 3 ? 'Buka kantor' : 'Lanjut'} <b>→</b></button></div></section></main></div>;
+  const [form, setForm] = useState({ organizationName: '', workspaceName: '', clientName: '', clientBrief: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const decorate = (values, design) => ({
+    ...values, form, submitting, error,
+    updateField: (field, value) => setForm((current) => ({ ...current, [field]: value })),
+    submitOnboarding: async (event) => {
+      event.preventDefault();
+      if (submitting) return;
+      setSubmitting(true); setError('');
+      try {
+        const response = await fetch('/api/onboarding', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, teamSize: ['1-5', '6-20', '21-50', '50+'][design.state.size] }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'Onboarding belum dapat diselesaikan.');
+        onNavigate('/app');
+      } catch (failure) {
+        setError(failure.message); setSubmitting(false);
+      }
+    },
+  });
+  return <OnboardingDesign decorate={decorate} />;
 }
 
-const dashboardNav = [
-  ['Overview', '/app', '⌂'], ['Kantor 3D', '/app/office', '◫'], ['Workers', '/app/workers', '◌'], ['Clients', '/app/clients', '◇'], ['Board kerja', '/app/board', '▦'], ['Jobs', '/app/jobs', '✓'], ['Settings', '/app/settings', '⚙'],
-];
-const sampleJobs = [
-  ['Q4 launch narrative', 'Nara · Strategist', 'Dalam proses', 'N', '#eee8ff'],
-  ['Founder story: first draft', 'Rina · Writer', 'Menunggu review', 'R', '#ffe9f3'],
-  ['Homepage visual system', 'Dio · Designer', 'Selesai', 'D', '#e2f3ff'],
-  ['October performance recap', 'Maya · Reporting', 'Dijadwalkan', 'M', '#fff2dc'],
-];
-
 export function DashboardPage({ onNavigate }) {
-  const [dark, setDark] = useState(false); const [splash, setSplash] = useState(true); const [profile, setProfile] = useState(null); const [overview, setOverview] = useState(null); const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  useEffect(() => { const id = setTimeout(() => setSplash(false), 1700); return () => clearTimeout(id); }, []);
-  useEffect(() => { let stopped = false; fetch('/auth/me', { credentials: 'same-origin' }).then((response) => response.ok ? response.json() : null).then((value) => { if (!stopped) setProfile(value); }).catch(() => {}); return () => { stopped = true; }; }, []);
-  useEffect(() => { if (!profile?.activeWorkspace?.id) return undefined; let stopped = false; fetch('/api/dashboard/overview', { credentials: 'same-origin' }).then((response) => response.ok ? response.json() : null).then((value) => { if (!stopped) setOverview(value); }).catch(() => {}); return () => { stopped = true; }; }, [profile?.activeWorkspace?.id]);
-  const workspace = profile?.activeWorkspace?.name || 'Workspace Contoh'; const organization = profile?.activeWorkspace?.organization?.name || 'Organisasi Contoh'; const name = profile?.user?.displayName || 'Nama'; const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0,2).toUpperCase() || 'NP';
-  const jobs = overview?.recentJobs?.length ? overview.recentJobs.map((job, index) => [job.clientName ? `${job.jobType} · ${job.clientName}` : job.jobType, job.agentId || 'AI specialist', job.status === 'done' ? 'Selesai' : job.status === 'generating' ? 'Dalam proses' : job.status, (job.agentId || 'A').slice(0,1).toUpperCase(), ['#eee8ff','#ffe9f3','#e2f3ff','#fff2dc'][index % 4]]) : sampleJobs;
-  const stats = overview ? [[overview.metrics.totalJobs,'Total perintah','Workspace aktif'],[overview.metrics.activeJobs,'Sedang berjalan','Live'],[overview.metrics.approvedItems,'Hasil disetujui','Siap dipakai'],[overview.metrics.totalClients,'Client aktif','Tersimpan']] : [['48','Total perintah','Bulan ini'],['12','Sedang berjalan','Live'],['34','Hasil disetujui','+8%'],['06','Client aktif','Workspace']];
-  return <div className={`vo vo-dashboard ${dark ? 'dark' : ''}`}>{splash && <AppSplash label="Menyiapkan dashboard…"/>}<aside className="vo-dashboard-side"><Brand onClick={() => onNavigate('/')} /><div className="vo-workspace-switch"><button onClick={() => setWorkspaceOpen(!workspaceOpen)}><span>{workspace.slice(0,2).toUpperCase()}</span><i><b>{workspace}</b><small>{organization}</small></i><em>↕</em></button>{workspaceOpen && <div className="vo-workspace-menu">{(profile?.workspaces?.length ? profile.workspaces : [{ id:'demo', name:workspace, organization:{ name:organization } }]).map((item) => <button key={item.id}><b>{item.name}</b><small>{item.organization.name}</small></button>)}<small>Workspace aktif ditentukan server melalui sesi.</small></div>}</div><nav>{dashboardNav.map(([label, path, icon]) => <button onClick={() => onNavigate(path)} className={path === '/app' ? 'active' : ''} key={path}><span>{icon}</span>{label}{label === 'Workers' && <b>04</b>}</button>)}</nav><section className="vo-plan-card"><div><b>Paket Dasar</b><span>62%</span></div><i><em/></i><p>Kuota periode ini terpakai 62%.</p></section><footer><span>{initials}</span><div><b>{name}</b><small>{profile?.activeWorkspace?.role || 'Owner'} · {organization}</small></div><button onClick={() => window.location.assign('/auth/logout')}>⇥</button></footer></aside><div className="vo-dashboard-main"><header className="vo-dashboard-top"><div><small>{workspace}</small><b>Overview</b></div><label><span>⌕</span><input placeholder="Cari agent, perintah, atau item…"/></label><div><span>Data contoh</span><button onClick={() => setDark(!dark)}>{dark ? '☀' : '◐'}</button><button aria-label="Notifikasi">♧<i/></button></div></header><main><section className="vo-dashboard-welcome"><div><h1>Selamat siang, {name.split(/\s+/)[0]}.</h1><p>Ringkasan aktivitas workspace Anda bulan ini.</p></div><button onClick={() => onNavigate('/app/jobs')} className="vo-primary">＋ Perintah baru</button></section><section className="vo-kpi-grid">{stats.map(([value,label,note]) => <article key={label}><small>{label}</small><div><b>{String(value).padStart(2,'0')}</b><span>{note}</span></div></article>)}</section><section className="vo-dashboard-grid"><div className="vo-dashboard-stack"><article className="vo-panel vo-chart"><header><div><h2>Perintah per hari</h2><p>7 hari terakhir</p></div><b>Total {overview?.metrics?.totalJobs || 48}</b></header><div className="vo-bars">{[28,54,43,78,65,88,57].map((height,index) => <div key={index}><b>{Math.round(height/3)}</b><i style={{ height: `${height}%` }}/><small>{['Sen','Sel','Rab','Kam','Jum','Sab','Min'][index]}</small></div>)}</div></article><article className="vo-panel vo-recent"><header><h2>Perintah terbaru</h2><button onClick={() => onNavigate('/app/board')}>Lihat board</button></header>{jobs.map(([title, agent, status, mark, color]) => <div className="vo-job-row" key={title}><span style={{ background: color }}>{mark}</span><div><b>{title}</b><small>{agent} · baru saja</small></div><em className={status === 'Selesai' ? 'done' : status === 'Menunggu review' ? 'review' : ''}>{status}</em></div>)}</article></div><div className="vo-dashboard-stack"><article className="vo-panel vo-quota"><header><h2>Kuota periode ini</h2><small>Reset 1 Nov</small></header><div className="vo-quota-ring"><b>62<small>%</small></b><span>terpakai</span></div><p>3.720 dari 6.000 kredit tersedia untuk workspace ini.</p><button onClick={() => onNavigate('/app/settings')} className="vo-secondary">Lihat penggunaan</button></article><article className="vo-panel vo-quick"><h2>Mulai cepat</h2><button onClick={() => onNavigate('/app/jobs')}><span>＋</span><div><b>Buat perintah baru</b><small>Pilih specialist AI untuk mulai.</small></div>→</button><button onClick={() => onNavigate('/app/office')}><span>◫</span><div><b>Masuk ke kantor 3D</b><small>Lihat aktivitas tim Anda.</small></div>→</button><button onClick={() => onNavigate('/app/clients')}><span>◇</span><div><b>Tambah client</b><small>Simpan konteks pekerjaan baru.</small></div>→</button></article><article className="vo-panel vo-office-mini"><header><h2>Kantor 3D</h2><span>● 8 divisi aktif</span></header><div className="vo-mini-rooms">{['#4f7cff','#ff8a3d','#ff5fa2','#2fbf71','#8a5cf6','#14b8a6','#f5b82e','#64748b'].map((color,index) => <i style={{ background: color }} key={index}/>)}</div><button onClick={() => onNavigate('/app/office')}>Buka kantor <b>→</b></button></article></div></section></main></div></div>;
+  const [profile, setProfile] = useState(null);
+  const [overview, setOverview] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/auth/me', { credentials: 'same-origin', signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then(setProfile).catch(() => {});
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!profile?.activeWorkspace?.id) return undefined;
+    const controller = new AbortController();
+    fetch('/api/dashboard/overview', { credentials: 'same-origin', signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then(setOverview).catch(() => {});
+    return () => controller.abort();
+  }, [profile?.activeWorkspace?.id]);
+  const logout = useCallback(async (event) => {
+    event.preventDefault();
+    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    if (response.ok) onNavigate('/');
+  }, [onNavigate]);
+  const decorate = (values) => {
+    // Prototype role controls affect preview state only; real permissions always come from the session.
+    const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => ({
+      ...item, go: item.id === 'office' ? () => onNavigate('/app/office') : item.go,
+    })) }));
+    const result = { ...values, navGroups, goOffice: () => onNavigate('/app/office'), logout };
+    if (!profile) return result;
+    const workspace = profile.activeWorkspace;
+    result.workspaceName = workspace?.name || 'Pilih workspace';
+    result.organizationName = workspace?.organization?.name || '';
+    result.userName = profile.user.displayName || profile.user.email;
+    result.greeting = `Selamat siang, ${result.userName.split(/\s+/)[0]}`;
+    result.roleLabel = workspace?.role || 'Tanpa workspace';
+    result.asAdmin = result.asOwner = () => {};
+    // Customer sessions do not gain platform admin capabilities via the design preview switch.
+    result.navGroups = navGroups.filter((group) => group.title !== 'Admin platform');
+    result.isAdmin = false; result.isOwner = workspace?.role === 'owner';
+    result.kpis = overview ? [
+      { label: 'Total perintah', value: String(overview.metrics.totalJobs), note: 'Workspace', bg: 'var(--accentSoft)', ink: 'var(--accentText)' },
+      { label: 'Sedang berjalan', value: String(overview.metrics.activeJobs), note: 'Aktif', bg: 'var(--warnSoft)', ink: 'var(--warn)' },
+      { label: 'Disetujui', value: String(overview.metrics.approvedItems), note: 'Item', bg: 'var(--okSoft)', ink: 'var(--ok)' },
+      { label: 'Client', value: String(overview.metrics.totalClients), note: 'Workspace', bg: 'var(--accentSoft)', ink: 'var(--accentText)' },
+    ] : values.kpis.map((kpi) => ({ ...kpi, value: '—', note: 'Belum tersedia' }));
+    result.recent = (overview?.recentJobs || []).map((job) => ({
+      title: job.clientName ? `${job.jobType} · ${job.clientName}` : job.jobType,
+      agent: job.agentId || 'Agent', when: job.createdAt, ini: (job.agentId || 'AI').slice(0, 2).toUpperCase(),
+      tint: 'var(--accentSoft)', status: job.status, sbg: 'var(--accentSoft)', sink: 'var(--accentText)',
+    }));
+    result.goJobs = () => onNavigate('/app/board');
+    result.goAgents = () => onNavigate('/app/jobs');
+    return result;
+  };
+  return <DashboardDesign decorate={decorate} />;
 }

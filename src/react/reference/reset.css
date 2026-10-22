@@ -1,0 +1,12 @@
+/* Match the exports' browser defaults without letting Tailwind preflight restyle their SVGs or type. */
+@layer reference-reset {
+  .reference-page, .reference-page :not(svg, svg *) { all: revert; }
+  .reference-page { display: block; line-height: normal; }
+  .reference-page svg { display: inline; vertical-align: baseline; }
+}
+
+/* These must outrank Tailwind's layered placeholder rule to retain browser-default colors. */
+.reference-page input::placeholder, .reference-page textarea::placeholder {
+  color: revert;
+  opacity: revert;
+}
