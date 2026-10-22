@@ -126,6 +126,17 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       res.status(503).json({ error: 'Dashboard service unavailable.' });
     } finally { connection?.release(); }
   });
+  app.get('/api/dashboard/items/:id/revisions', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Item service unavailable.' });
+      const { loadTenantItemRevisions } = await import('./tenant-items.js');
+      res.json({ revisions: await loadTenantItemRevisions(connection, { tenantContext: req.tenantContext, itemId: Number(req.params.id) }) });
+    } catch {
+      res.status(503).json({ error: 'Item service unavailable.' });
+    } finally { connection?.release(); }
+  });
   app.get('/api/dashboard/workers', requireTenant, async (req, res) => {
     let connection;
     try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' }); res.json({ workers: await loadWorkspaceWorkerLoads(connection, req.tenantContext.workspaceId) }); } catch { res.status(503).json({ error: 'Dashboard service unavailable.' }); } finally { connection?.release(); }
