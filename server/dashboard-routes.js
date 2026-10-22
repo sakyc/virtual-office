@@ -44,6 +44,16 @@ export async function loadWorkspaceClients(connection, workspaceId) {
   return rows.map((client) => ({ id: client.id, name: client.name }));
 }
 
+export async function loadWorkspaceItems(connection, workspaceId) {
+  const [rows] = await connection.execute(
+    `SELECT id, type, title, status FROM items
+      WHERE workspace_id = ? AND deleted_at IS NULL
+      ORDER BY updated_at DESC, id DESC LIMIT 100`,
+    [workspaceId],
+  );
+  return rows.map((item) => ({ id: item.id, type: item.type, title: item.title, status: item.status }));
+}
+
 export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob }) {
   app.get('/api/dashboard/overview', requireTenant, async (req, res) => {
     let connection;
@@ -71,6 +81,16 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       connection = await getPool()?.getConnection();
       if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
       res.json({ clients: await loadWorkspaceClients(connection, req.tenantContext.workspaceId) });
+    } catch {
+      res.status(503).json({ error: 'Dashboard service unavailable.' });
+    } finally { connection?.release(); }
+  });
+  app.get('/api/dashboard/items', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
+      res.json({ items: await loadWorkspaceItems(connection, req.tenantContext.workspaceId) });
     } catch {
       res.status(503).json({ error: 'Dashboard service unavailable.' });
     } finally { connection?.release(); }

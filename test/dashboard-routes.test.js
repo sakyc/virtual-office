@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceJobs } from '../server/dashboard-routes.js';
+import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs } from '../server/dashboard-routes.js';
 
 test('dashboard overview scopes every query to the active workspace and excludes legacy rows', async () => {
   const calls = [];
@@ -34,5 +34,13 @@ test('workspace client list only returns clients owned by the active workspace',
   const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 2, name: 'Acme' }]]; } };
   assert.deepEqual(await loadWorkspaceClients(connection, 22), [{ id: 2, name: 'Acme' }]);
   assert.match(calls[0].sql, /workspace_id = \?/);
+  assert.deepEqual(calls[0].values, [22]);
+});
+
+test('workspace item picker excludes deleted and cross-workspace items', async () => {
+  const calls = [];
+  const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved' }]]; } };
+  assert.deepEqual(await loadWorkspaceItems(connection, 22), [{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved' }]);
+  assert.match(calls[0].sql, /workspace_id = \? AND deleted_at IS NULL/);
   assert.deepEqual(calls[0].values, [22]);
 });
