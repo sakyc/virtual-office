@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { JOBS } from '../../shared/jobs.js';
 
 const navItems = [['Overview', '/app', '⌂'], ['Office', '/app/office', '◫'], ['Workers', '/app/workers', '◌'], ['Jobs', '/app/jobs', '✓']];
 const people = [
@@ -29,23 +30,52 @@ export function JobsPage({ onNavigate }) {
   const [usingLiveJobs, setUsingLiveJobs] = useState(false);
   const [filter, setFilter] = useState('All');
   const [showComposer, setShowComposer] = useState(false);
-  const [title, setTitle] = useState('');
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/dashboard/jobs', { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : null)
-      .then((body) => {
-        if (cancelled || !Array.isArray(body?.jobs)) return;
-        setJobs(body.jobs.map((job) => [job.clientName ? `${job.jobType} · ${job.clientName}` : job.jobType, job.jobType, job.agentId || 'Unassigned', job.status, job.status === 'done' ? 100 : job.status === 'generating' ? 50 : 0]));
-        setUsingLiveJobs(true);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  const [selectedJobId, setSelectedJobId] = useState(JOBS[0].id);
+  const [params, setParams] = useState(() => defaultParams(JOBS[0]));
+  const [submitState, setSubmitState] = useState({ busy: false, error: '' });
+  const refreshJobs = async () => {
+    const response = await fetch('/api/dashboard/jobs', { credentials: 'same-origin' });
+    if (!response.ok) return false;
+    const body = await response.json();
+    if (!Array.isArray(body?.jobs)) return false;
+    setJobs(body.jobs.map((job) => [job.clientName ? `${job.jobType} · ${job.clientName}` : job.jobType, job.jobType, job.agentId || 'Unassigned', job.status, job.status === 'done' ? 100 : job.status === 'generating' ? 50 : 0]));
+    setUsingLiveJobs(true);
+    return true;
+  };
+  useEffect(() => { void refreshJobs(); }, []);
+  const selectedDefinition = JOBS.find((job) => job.id === selectedJobId) || JOBS[0];
   const visible = filter === 'All' ? jobs : jobs.filter(([, , , status]) => status === filter);
-  const addJob = (event) => { event.preventDefault(); if (!title.trim()) return; setJobs((items) => [[title.trim(), 'General', 'Angga Saputra', 'Queued', 0], ...items]); setTitle(''); setShowComposer(false); };
+  const chooseJobType = (event) => { const definition = JOBS.find((job) => job.id === event.target.value) || JOBS[0]; setSelectedJobId(definition.id); setParams(defaultParams(definition)); setSubmitState({ busy: false, error: '' }); };
+  const submitJob = async (event) => {
+    event.preventDefault(); setSubmitState({ busy: true, error: '' });
+    try {
+      const response = await fetch('/api/dashboard/jobs', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobType: selectedDefinition.id, params }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Job tidak dapat dibuat.');
+      await refreshJobs(); setShowComposer(false);
+    } catch (error) { setSubmitState({ busy: false, error: error.message }); }
+  };
   const statusOptions = usingLiveJobs ? ['All', 'generating', 'done', 'failed'] : ['All', 'In progress', 'Review', 'Queued'];
-  return <Shell active="Jobs" onNavigate={onNavigate} eyebrow="WORK IN MOTION" title="Jobs" action={<button onClick={() => setShowComposer(true)} disabled={usingLiveJobs} title={usingLiveJobs ? 'Pembuatan job tenant belum diintegrasikan.' : undefined} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-55">+ New job</button>}><section className="grid gap-4 sm:grid-cols-3"><Stat value={String(jobs.length).padStart(2, '0')} label="Total jobs"/><Stat value={String(jobs.filter(([, , , status]) => status === (usingLiveJobs ? 'generating' : 'In progress')).length).padStart(2, '0')} label="In progress"/><Stat value={String(jobs.filter(([, , , status]) => status === (usingLiveJobs ? 'done' : 'Review')).length).padStart(2, '0')} label="Completed"/></section>{usingLiveJobs && <p className="mt-5 rounded-xl border border-[#c8daf3] bg-[#eef5ff] px-4 py-3 text-xs leading-5 text-[#3d5d8a]">Menampilkan job dengan ownership pada workspace aktif. Pembuatan job tenant akan tersedia setelah route mutasi dan permission selesai diintegrasikan.</p>}<div className="mt-7 flex flex-wrap gap-2">{statusOptions.map((option) => <button onClick={() => setFilter(option)} key={option} className={`rounded-full border px-3 py-2 text-xs font-bold ${filter === option ? 'border-[#3b63e0] bg-[#3b63e0] text-white' : 'border-[#e4e8f0] bg-white text-[#667085]'}`}>{option}</button>)}</div><section className="mt-4 overflow-hidden rounded-2xl border border-[#e4e8f0] bg-white"><div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_110px] gap-5 border-b border-[#e4e8f0] px-6 py-4 text-[10px] font-extrabold tracking-[.1em] text-[#98a2b3] md:grid"><span>JOB</span><span>ASSIGNEE</span><span>STATUS</span><span>PROGRESS</span></div>{visible.length ? visible.map(([job, team, assignee, status, progress]) => <article key={job} className="grid gap-3 border-b border-[#edf0f4] px-5 py-5 last:border-0 md:grid-cols-[minmax(0,2fr)_1fr_1fr_110px] md:items-center md:gap-5 md:px-6"><div><b className="block text-sm">{job}</b><small className="mt-1 block text-xs text-[#667085]">{team}</small></div><p className="text-sm text-[#475467]">{assignee}</p><span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${status === 'failed' || status === 'Review' ? 'bg-[#fff0d5] text-[#925e08]' : status === 'Queued' ? 'bg-[#f0f2f5] text-[#667085]' : 'bg-[#e8f5e9] text-[#28753d]'}`}>{status}</span><div><b className="text-xs text-[#3b63e0]">{progress}%</b><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#e9edf3]"><i className="block h-full rounded-full bg-[#3b63e0]" style={{ width: `${progress}%` }} /></div></div></article>) : <p className="px-6 py-10 text-sm text-[#667085]">Belum ada job dengan ownership pada workspace ini.</p>}</section>{showComposer && <div className="fixed inset-0 z-50 grid place-items-center bg-[#101827]/45 p-4" onMouseDown={() => setShowComposer(false)}><form onSubmit={addJob} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><p className="text-[11px] font-extrabold tracking-[.12em] text-[#667085]">NEW JOB</p><h2 className="mt-1 font-serif text-3xl tracking-[-.05em]">Apa yang perlu dikerjakan?</h2><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className="mt-5 w-full rounded-xl border border-[#dce1e9] bg-[#f8fafc] px-4 py-3 outline-none" placeholder="Nama pekerjaan"/><div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowComposer(false)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#667085]">Batal</button><button className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white">Buat job</button></div></form></div>}</Shell>;
+  return <Shell active="Jobs" onNavigate={onNavigate} eyebrow="WORK IN MOTION" title="Jobs" action={<button onClick={() => setShowComposer(true)} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white">+ New job</button>}><section className="grid gap-4 sm:grid-cols-3"><Stat value={String(jobs.length).padStart(2, '0')} label="Total jobs"/><Stat value={String(jobs.filter(([, , , status]) => status === (usingLiveJobs ? 'generating' : 'In progress')).length).padStart(2, '0')} label="In progress"/><Stat value={String(jobs.filter(([, , , status]) => status === (usingLiveJobs ? 'done' : 'Review')).length).padStart(2, '0')} label="Completed"/></section>{usingLiveJobs && <p className="mt-5 rounded-xl border border-[#c8daf3] bg-[#eef5ff] px-4 py-3 text-xs leading-5 text-[#3d5d8a]">Data ini hanya memuat job yang dimiliki workspace aktif.</p>}<div className="mt-7 flex flex-wrap gap-2">{statusOptions.map((option) => <button onClick={() => setFilter(option)} key={option} className={`rounded-full border px-3 py-2 text-xs font-bold ${filter === option ? 'border-[#3b63e0] bg-[#3b63e0] text-white' : 'border-[#e4e8f0] bg-white text-[#667085]'}`}>{option}</button>)}</div><section className="mt-4 overflow-hidden rounded-2xl border border-[#e4e8f0] bg-white"><div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_110px] gap-5 border-b border-[#e4e8f0] px-6 py-4 text-[10px] font-extrabold tracking-[.1em] text-[#98a2b3] md:grid"><span>JOB</span><span>ASSIGNEE</span><span>STATUS</span><span>PROGRESS</span></div>{visible.length ? visible.map(([job, team, assignee, status, progress]) => <article key={job} className="grid gap-3 border-b border-[#edf0f4] px-5 py-5 last:border-0 md:grid-cols-[minmax(0,2fr)_1fr_1fr_110px] md:items-center md:gap-5 md:px-6"><div><b className="block text-sm">{job}</b><small className="mt-1 block text-xs text-[#667085]">{team}</small></div><p className="text-sm text-[#475467]">{assignee}</p><span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${status === 'failed' || status === 'Review' ? 'bg-[#fff0d5] text-[#925e08]' : status === 'Queued' ? 'bg-[#f0f2f5] text-[#667085]' : 'bg-[#e8f5e9] text-[#28753d]'}`}>{status}</span><div><b className="text-xs text-[#3b63e0]">{progress}%</b><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#e9edf3]"><i className="block h-full rounded-full bg-[#3b63e0]" style={{ width: `${progress}%` }} /></div></div></article>) : <p className="px-6 py-10 text-sm text-[#667085]">Belum ada job dengan ownership pada workspace ini.</p>}</section>{showComposer && <TenantJobComposer definition={selectedDefinition} selectedJobId={selectedJobId} params={params} setParams={setParams} chooseJobType={chooseJobType} submitState={submitState} onCancel={() => setShowComposer(false)} onSubmit={submitJob}/>}</Shell>;
+}
+
+function defaultParams(definition) {
+  return Object.fromEntries(definition.fields.map((field) => [field.name, field.type === 'multi' ? field.default || [] : field.default ?? (field.type === 'number' ? field.min || 1 : '')]));
+}
+
+function TenantJobComposer({ definition, selectedJobId, params, setParams, chooseJobType, submitState, onCancel, onSubmit }) {
+  const setValue = (name, value) => setParams((current) => ({ ...current, [name]: value }));
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-[#101827]/45 p-4" onMouseDown={onCancel}><form onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()} className="mx-auto my-8 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl"><p className="text-[11px] font-extrabold tracking-[.12em] text-[#667085]">NEW TENANT JOB</p><h2 className="mt-1 font-serif text-3xl tracking-[-.05em]">Mulai pekerjaan baru</h2><label className="mt-5 block text-sm font-bold">Jenis pekerjaan<select value={selectedJobId} onChange={chooseJobType} className="mt-2 w-full rounded-xl border border-[#dce1e9] bg-[#f8fafc] px-4 py-3 outline-none">{JOBS.map((job) => <option key={job.id} value={job.id}>{job.label}</option>)}</select></label><p className="mt-2 text-sm leading-5 text-[#667085]">{definition.desc}</p><div className="mt-6 grid gap-4 sm:grid-cols-2">{definition.fields.map((field) => <JobField key={field.name} field={field} value={params[field.name]} setValue={setValue}/>)}</div>{submitState.error && <p className="mt-5 rounded-xl bg-[#fff0ef] p-3 text-sm font-semibold text-[#a53d35]">{submitState.error}</p>}<div className="mt-7 flex justify-end gap-2"><button type="button" onClick={onCancel} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#667085]">Batal</button><button disabled={submitState.busy} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">{submitState.busy ? 'Memulai…' : 'Buat job'}</button></div></form></div>;
+}
+
+function JobField({ field, value, setValue }) {
+  const base = 'mt-2 w-full rounded-xl border border-[#dce1e9] bg-[#f8fafc] px-4 py-3 outline-none';
+  const label = <span className="text-sm font-bold">{field.label}{field.required && <b className="ml-1 text-[#b54740]">*</b>}</span>;
+  if (field.type === 'textarea') return <label className="block sm:col-span-2">{label}<textarea value={value || ''} onChange={(event) => setValue(field.name, event.target.value)} className={base} rows="4" placeholder={field.placeholder}/></label>;
+  if (field.type === 'select') return <label className="block">{label}<select value={value || ''} onChange={(event) => setValue(field.name, event.target.value)} className={base}>{field.options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+  if (field.type === 'multi') return <fieldset className="block sm:col-span-2">{label}<div className="mt-2 flex flex-wrap gap-2">{field.options.map((option) => { const checked = Array.isArray(value) && value.includes(option); return <button type="button" onClick={() => setValue(field.name, checked ? value.filter((item) => item !== option) : [...(value || []), option])} className={`rounded-full border px-3 py-2 text-xs font-bold ${checked ? 'border-[#3b63e0] bg-[#eaf0ff] text-[#3159cc]' : 'border-[#dce1e9] text-[#667085]'}`} key={option}>{option}</button>; })}</div></fieldset>;
+  const type = field.type === 'number' || field.type === 'item' ? 'number' : field.type === 'month' ? 'month' : 'text';
+  return <label className="block">{label}<input type={type} min={field.min} max={field.max} value={value ?? ''} onChange={(event) => setValue(field.name, event.target.value)} className={base} placeholder={field.placeholder || (field.type === 'item' ? 'ID item dari board (opsional)' : undefined)}/></label>;
 }
 
 export function SettingsPage({ onNavigate }) {
