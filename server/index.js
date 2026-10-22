@@ -9,6 +9,7 @@ import { buildSystemPrompt } from './prompts.js';
 import { initDb, pool } from './db.js';
 import { createApiRouter } from './api.js';
 import { installAuthRoutes } from './auth/auth-routes.js';
+import { installOnboardingRoutes } from './auth/onboarding-routes.js';
 import { createTenantGate } from './auth/tenant-gate.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
@@ -31,6 +32,7 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
 // Auth0 remains opt-in for the local PoC; legacy API authorization is unchanged.
 installAuthRoutes(app, { getPool: () => pool });
+installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
 
 // ---------- Pembatas: akses, rate limit per IP, batas harian ----------
