@@ -11,6 +11,7 @@ import { createApiRouter } from './api.js';
 import { installAuthRoutes } from './auth/auth-routes.js';
 import { installOnboardingRoutes } from './auth/onboarding-routes.js';
 import { createTenantGate } from './auth/tenant-gate.js';
+import { installDashboardRoutes } from './dashboard-routes.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -34,6 +35,8 @@ app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menem
 installAuthRoutes(app, { getPool: () => pool });
 installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
+const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true });
+installDashboardRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
 
 // ---------- Pembatas: akses, rate limit per IP, batas harian ----------
 function safeEqual(a, b) {
