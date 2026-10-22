@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Virtual Office — Dashboard</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.vo{--bg:#f6f8fb;--surface:#ffffff;--surface2:#f1f4f9;--line:#e4e8f0;--ink:#141a29;--soft:#4b5568;--mute:#667085;--accent:#3b63e0;--accentText:#3b63e0;--onAccent:#ffffff;--accentSoft:#eaf0ff;--floor:#eef2f8;--floor2:#d9e0ec;--desk:#ffffff;--ok:#0f7a45;--okSoft:#e3f6ec;--warn:#8a5300;--warnSoft:#fff1d6;--err:#b4231f;--errSoft:#fde8e7;--shadow:0 1px 2px rgba(20,26,41,.04),0 8px 24px -12px rgba(30,45,80,.14);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.vo.dark{--bg:#0b0f17;--surface:#121926;--surface2:#18212f;--line:#233047;--ink:#eef1f7;--soft:#b4bdcd;--mute:#98a3b8;--accent:#7f9fff;--accentText:#9db6ff;--onAccent:#0b1020;--accentSoft:#18213a;--floor:#18202e;--floor2:#0e1420;--desk:#212b3d;--ok:#5fd59a;--okSoft:#12301f;--warn:#ffcb6b;--warnSoft:#33280f;--err:#ff9a94;--errSoft:#3a1716;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.6)}
+.vo *{box-sizing:border-box}
+/* ---------- modern layer: tokens, motion, splash ---------- */
+.vo{position:relative;--glass:rgba(255,255,255,.78);--grad:linear-gradient(135deg,#3b63e0,#5a4de0);--glow:0 12px 28px -12px rgba(59,99,224,.65)}
+.vo.dark{--glass:rgba(11,15,23,.74);--grad:linear-gradient(135deg,#9bb8ff,#b4a6ff);--glow:0 12px 28px -12px rgba(127,159,255,.5)}
+.vo *{transition:background-color .35s ease,border-color .35s ease,color .25s ease,box-shadow .3s ease,transform .3s cubic-bezier(.2,.7,.2,1),opacity .3s ease,filter .2s ease}
+.vo .btnp{background:var(--grad) !important;box-shadow:var(--glow)}
+.vo .btnp:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.vo .btns:hover{transform:translateY(-1px)}
+.vo button:active{transform:scale(.97)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes tilein{0%{opacity:0;transform:scale(.3)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes tp{0%,100%{filter:brightness(1)}50%{filter:brightness(1.2)}}
+@keyframes barfill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes fillw{from{width:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(95,213,154,.55)}100%{box-shadow:0 0 0 8px rgba(95,213,154,0)}}
+.vo main > *{animation:fadeUp .55s cubic-bezier(.2,.7,.2,1) backwards}
+.vo main > *:nth-child(2){animation-delay:.06s}.vo main > *:nth-child(3){animation-delay:.12s}.vo main > *:nth-child(4){animation-delay:.18s}
+.vo .kpi{animation:fadeUp .6s cubic-bezier(.2,.7,.2,1) backwards}
+.vo .kpi:nth-child(2){animation-delay:.07s}.vo .kpi:nth-child(3){animation-delay:.14s}.vo .kpi:nth-child(4){animation-delay:.21s}
+.vo .kpi:hover,.vo .agc:hover{transform:translateY(-3px);border-color:var(--accent) !important}
+.vo .bar{transform-origin:bottom;animation:grow .8s cubic-bezier(.2,.8,.2,1) backwards}
+.vo .fill{animation:fillw 1.1s cubic-bezier(.3,.6,.2,1) .15s backwards}
+.vo .live{animation:ping 1.8s ease-out infinite}
+.scn circle[r="8"],.scn rect[height="22"]{animation:bob 2.8s ease-in-out infinite}
+.scn [cx="480"][cy="114"],.scn [x="471"][y="123"]{animation-delay:-.2s}
+.scn [cx="587"][cy="176"],.scn [x="578"][y="185"]{animation-delay:-.7s}
+.scn [cx="695"][cy="238"],.scn [x="686"][y="247"]{animation-delay:-1.2s}
+.scn [cx="373"][cy="176"],.scn [x="364"][y="185"]{animation-delay:-1.7s}
+.scn [cx="480"][cy="238"],.scn [x="471"][y="247"]{animation-delay:-2.2s}
+.scn [cx="587"][cy="300"],.scn [x="578"][y="309"]{animation-delay:-.4s}
+.scn [cx="265"][cy="238"],.scn [x="256"][y="247"]{animation-delay:-1s}
+.scn [cx="373"][cy="300"],.scn [x="364"][y="309"]{animation-delay:-1.5s}
+.vo .splash{position:absolute;top:0;left:0;right:0;height:100vh;max-height:1000px;min-height:480px;z-index:300;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:opacity .6s ease,visibility .6s}
+.vo .splash.out{opacity:0;visibility:hidden}
+.vo .sp-in{display:flex;flex-direction:column;align-items:center}
+.vo .sp-iso{display:grid;grid-template-columns:repeat(3,38px);gap:9px;transform:rotateX(58deg) rotateZ(45deg);margin:34px 0 46px}
+.vo .sp-iso i{display:block;width:38px;height:38px;border-radius:9px;animation:tilein .6s cubic-bezier(.2,.9,.3,1.3) backwards,tp 1.8s ease-in-out 1s infinite}
+.vo .sp-word{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.02em;animation:fadeUp .7s .3s backwards}
+.vo .sp-mark{width:32px;height:32px;border-radius:9px;background:#4f7cff;display:inline-flex;align-items:center;justify-content:center}
+.vo .sp-msg{margin-top:8px;font-size:13px;font-weight:600;color:var(--mute);animation:fadeIn .6s .5s backwards}
+.vo .sp-bar{margin-top:22px;width:180px;height:4px;border-radius:99px;background:var(--line);overflow:hidden}
+.vo .sp-bar i{display:block;height:100%;background:var(--grad);transform-origin:left;animation:barfill 1.9s cubic-bezier(.4,0,.2,1) backwards}
+@media (prefers-reduced-motion:reduce){.vo *,.vo *::before{animation-duration:.01ms !important;animation-iteration-count:1 !important;animation-delay:0s !important;transition-duration:.01ms !important}}
+.vo a{color:inherit;text-decoration:none}
+.vo button{font-family:inherit;cursor:pointer}
+.vo input,.vo select{font-family:inherit}
+.vo .navb:hover{background:var(--surface2)}
+.vo .rowb:hover{background:var(--surface2)}
+.vo .btnp:hover{filter:brightness(1.08)}
+.vo .btns:hover{background:var(--surface2)}
+.vo .chip:hover{border-color:var(--mute)}
+.vo :focus-visible{outline:2px solid var(--accentText);outline-offset:2px}
+@media (max-width:860px){.vo .sbar{max-width:none !important;border-right:0 !important;border-bottom:1px solid var(--line)}.vo .hide-sm{display:none !important}}
+</style>
+</helmet>
+
+<div class="{{rootClass}}" style="position:relative">
+
+<sc-if value="{{splashOn}}" hint-placeholder-val="{{ false }}">
+<div class="{{splashClass}}" aria-hidden="true">
+  <div class="sp-in">
+    <div class="sp-iso">
+      <i style="background:#4f7cff;animation-delay:.05s"></i><i style="background:#ff8a3d;animation-delay:.15s"></i><i style="background:#ff5fa2;animation-delay:.25s"></i>
+      <i style="background:#2fbf71;animation-delay:.15s"></i><i style="background:#8a5cf6;animation-delay:.25s"></i><i style="background:#14b8a6;animation-delay:.35s"></i>
+      <i style="background:#f5b82e;animation-delay:.25s"></i><i style="background:#64748b;animation-delay:.35s"></i><i style="border:2px dashed var(--mute);animation-delay:.45s"></i>
+    </div>
+    <div class="sp-word"><span class="sp-mark"><svg width="18" height="18" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="#fff"></rect><rect x="11" y="24" width="10" height="3" rx="1.5" fill="#fff"></rect></svg></span>Virtual Office</div>
+    <div class="sp-msg">Menyiapkan dashboard…</div>
+    <div class="sp-bar"><i></i></div>
+  </div>
+</div>
+</sc-if>
+<div style="display:flex;flex-wrap:wrap;align-items:stretch;min-height:1100px">
+
+<!-- ================= SIDEBAR ================= -->
+<aside class="sbar" style="flex:1 1 248px;max-width:272px;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:18px" aria-label="Navigasi dashboard">
+  <a href="Main.dc.html" style="display:flex;align-items:center;gap:10px;padding:0 8px;font-weight:800;font-size:17px;letter-spacing:-.01em">
+    <span style="width:30px;height:30px;border-radius:9px;background:#4f7cff;display:inline-flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="#fff"></rect><rect x="11" y="24" width="10" height="3" rx="1.5" fill="#fff"></rect></svg></span>
+    Virtual Office
+  </a>
+
+  <button type="button" aria-label="Ganti workspace" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-align:left">
+    <span style="width:32px;height:32px;border-radius:9px;background:var(--accentSoft);color:var(--accentText);font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center">WC</span>
+    <span style="flex:1;line-height:1.25;min-width:0"><span style="display:block;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Workspace Contoh</span><span style="display:block;font-size:12px;font-weight:600;color:var(--mute)">Organisasi Contoh</span></span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"></path></svg>
+  </button>
+
+  <nav style="display:flex;flex-direction:column;gap:20px;flex:1">
+    <sc-for list="{{navGroups}}" as="g" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="padding:0 12px 6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)">{{g.title}}</div>
+        <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+          <button class="navb" type="button" onClick="{{n.go}}" aria-current="{{n.current}}" style="display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:0;border-radius:10px;background:{{n.bg}};color:{{n.ink}};font-size:14px;font-weight:{{n.weight}};text-align:left;box-shadow:{{n.shadow}}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>
+            <span style="flex:1">{{n.label}}</span>
+            <sc-if value="{{n.badge}}" hint-placeholder-val="{{ false }}"><span style="padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--onAccent);font-size:11px;font-weight:800">{{n.badge}}</span></sc-if>
+            <sc-if value="{{n.soon}}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;color:var(--mute)">Segera</span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-for>
+  </nav>
+
+  <div style="padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface2)">
+    <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:800">Paket Dasar</span><span style="font-size:12px;font-weight:700;color:var(--mute)">62%</span></div>
+    <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--line);overflow:hidden"><div class="fill" style="width:62%;height:100%;background:var(--grad)"></div></div>
+    <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--mute)">Kuota periode ini terpakai 62%.</p>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;padding:4px 8px">
+    <span style="width:36px;height:36px;border-radius:50%;background:var(--accentSoft);color:var(--accentText);font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center">NP</span>
+    <span style="flex:1;line-height:1.3;min-width:0"><span style="display:block;font-size:13px;font-weight:800">Nama Pengguna</span><span style="display:block;font-size:12px;font-weight:600;color:var(--mute)">{{roleLabel}}</span></span>
+    <a href="Main.dc.html" aria-label="Keluar" style="width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--mute)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg></a>
+  </div>
+</aside>
+
+<!-- ================= CONTENT ================= -->
+<div style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+
+<!-- topbar -->
+<header style="position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 32px;border-bottom:1px solid var(--line);background:var(--glass);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px)">
+  <div style="min-width:0">
+    <div style="font-size:12px;font-weight:700;color:var(--mute)">Workspace Contoh</div>
+    <div style="font-size:18px;font-weight:800;letter-spacing:-.015em">{{pageTitle}}</div>
+  </div>
+  <label class="hide-sm" style="flex:1 1 240px;max-width:380px;margin-left:16px;display:flex;align-items:center;gap:10px;padding:0 14px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--mute)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+    <input type="search" placeholder="Cari agent, perintah, atau item…" aria-label="Cari" style="flex:1;border:0;background:transparent;outline:none;font-size:14px;color:var(--ink);min-width:0">
+  </label>
+  <div style="margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+    <button class="btns hide-sm" type="button" onClick="{{replaySplash}}" aria-label="Putar ulang splash screen" title="Putar ulang splash" style="width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--soft);display:inline-flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"></path></svg></button>
+    <span class="hide-sm" style="padding:5px 11px;border-radius:999px;background:var(--warnSoft);color:var(--warn);font-size:12px;font-weight:700">Data contoh</span>
+    <div role="group" aria-label="Lihat sebagai" style="display:flex;padding:3px;border-radius:11px;background:var(--surface2);border:1px solid var(--line)">
+      <button type="button" onClick="{{asOwner}}" aria-pressed="{{isOwner}}" style="padding:7px 12px;border:0;border-radius:8px;font-size:13px;font-weight:700;background:{{ownerBg}};color:{{ownerInk}}">Owner</button>
+      <button type="button" onClick="{{asAdmin}}" aria-pressed="{{isAdmin}}" style="padding:7px 12px;border:0;border-radius:8px;font-size:13px;font-weight:700;background:{{adminBg}};color:{{adminInk}}">Admin platform</button>
+    </div>
+    <button class="btns" type="button" onClick="{{toggleTheme}}" aria-label="Ganti mode tampilan" style="width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--soft);display:inline-flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{themeIcon}}"></path></svg></button>
+    <button class="btns" type="button" aria-label="Notifikasi" style="position:relative;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--soft);display:inline-flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"></path></svg><span style="position:absolute;top:9px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)"></span></button>
+  </div>
+</header>
+
+<main style="padding:28px 32px 56px;display:flex;flex-direction:column;gap:24px">
+
+<!-- ======================= OVERVIEW ======================= -->
+<sc-if value="{{v.overview}}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Selamat siang, Nama</h1>
+      <p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Ringkasan aktivitas workspace Anda bulan ini.</p>
+    </div>
+    <button class="btnp" type="button" onClick="{{goAgents}}" style="display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:12px;background:var(--accent);color:var(--onAccent);font-size:14px;font-weight:700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Perintah baru</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+      <div class="kpi" style="padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <div style="font-size:13px;font-weight:700;color:var(--mute)">{{k.label}}</div>
+        <div style="margin-top:10px;display:flex;align-items:baseline;gap:10px">
+          <span style="font-size:32px;font-weight:800;letter-spacing:-.03em">{{k.value}}</span>
+          <span style="padding:3px 8px;border-radius:999px;background:{{k.bg}};color:{{k.ink}};font-size:12px;font-weight:700">{{k.note}}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:2 1 520px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div><h2 style="margin:0;font-size:16px;font-weight:800">Perintah per hari</h2><p style="margin:4px 0 0;font-size:13px;color:var(--mute)">7 hari terakhir</p></div>
+          <span style="font-size:13px;font-weight:700;color:var(--soft)">Total 48</span>
+        </div>
+        <div style="margin-top:22px;height:190px;display:flex;align-items:flex-end;gap:14px">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%">
+              <span style="font-size:12px;font-weight:700;color:var(--soft)">{{b.v}}</span>
+              <div class="bar" style="width:100%;max-width:56px;height:{{b.h}};border-radius:8px 8px 3px 3px;background:var(--grad);opacity:{{b.o}};animation-delay:{{b.delay}}"></div>
+              <span style="font-size:12px;font-weight:600;color:var(--mute)">{{b.d}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px 14px"><h2 style="margin:0;font-size:16px;font-weight:800">Perintah terbaru</h2><button class="btns" type="button" onClick="{{goJobs}}" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:700">Lihat board</button></div>
+        <div>
+          <sc-for list="{{recent}}" as="r" hint-placeholder-count="5">
+            <div class="rowb" style="display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--line)">
+              <span style="flex:none;width:38px;height:38px;border-radius:50%;background:{{r.tint}};color:var(--ink);font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center">{{r.ini}}</span>
+              <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.title}}</div><div style="margin-top:2px;font-size:12px;color:var(--mute);font-weight:600">{{r.agent}} · {{r.when}}</div></div>
+              <span style="flex:none;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:{{r.sbg}};color:{{r.sink}};font-size:12px;font-weight:700"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{r.status}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+
+    <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:16px;font-weight:800">Kuota periode ini</h2><span style="font-size:12px;font-weight:700;color:var(--mute)">Reset 1 Nov</span></div>
+        <div style="margin-top:16px;display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:800;letter-spacing:-.03em">620.000</span><span style="font-size:14px;font-weight:600;color:var(--mute)">/ 1.000.000 token</span></div>
+        <div style="margin-top:14px;height:10px;border-radius:999px;background:var(--surface2);overflow:hidden"><div class="fill" style="width:62%;height:100%;border-radius:999px;background:var(--accent)"></div></div>
+        <p style="margin:12px 0 0;font-size:13px;line-height:1.55;color:var(--mute)">Sisa 380.000 token. Unit kuota final akan ditetapkan bersama paket.</p>
+        <button class="btns" type="button" onClick="{{goUsage}}" style="margin-top:14px;width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700">Lihat penggunaan</button>
+      </section>
+
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <h2 style="margin:0;font-size:16px;font-weight:800">Mulai cepat</h2>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--mute)">2 dari 4 langkah selesai</p>
+        <ul style="list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{todo}}" as="t" hint-placeholder-count="4">
+            <li style="display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:{{t.ink}}">
+              <span style="flex:none;width:22px;height:22px;border-radius:50%;border:2px solid {{t.ring}};background:{{t.fill}};color:var(--onAccent);display:inline-flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:{{t.tick}}"><path d="M20 6L9 17l-5-5"></path></svg></span>
+              <span style="text-decoration:{{t.dec}}">{{t.label}}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </section>
+
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:16px;font-weight:800">Kantor 3D</h2><span style="font-size:12px;font-weight:700;color:var(--ok)">8 divisi aktif</span></div>
+        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="9">
+            <div style="aspect-ratio:1;border-radius:10px;background:{{t.bg}};border:1px solid {{t.line}};display:flex;align-items:flex-end;padding:7px;font-size:11px;font-weight:800;color:var(--ink)">{{t.name}}</div>
+          </sc-for>
+        </div>
+        <button class="btns" type="button" onClick="{{goOffice}}" style="margin-top:14px;width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700">Buka kantor</button>
+      </section>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ======================= 3D OFFICE ======================= -->
+<sc-if value="{{v.office}}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="flex:1 1 560px;min-width:0;background:var(--floor);position:relative;padding:56px 12px 44px">
+      <div style="position:absolute;left:16px;top:14px;right:16px;display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{officeChips}}" as="c" hint-placeholder-count="8">
+          <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink)"><span style="width:8px;height:8px;border-radius:3px;background:{{c.color}}"></span>{{c.name}}</span>
+        </sc-for>
+      </div>
+      <svg class="scn" viewBox="0 0 960 520" role="img" aria-label="Kantor isometrik berisi delapan divisi agent" style="width:100%;height:auto;display:block">
+        <defs><g id="deskA"><rect width="52" height="26" rx="5" style="fill:var(--desk);stroke:var(--line);stroke-width:1.5"></rect><rect x="17" y="6" width="18" height="11" rx="2.5" style="fill:var(--ink);opacity:.82"></rect></g></defs>
+        <g transform="translate(480 80)">
+          <g transform="translate(0 16)"><g transform="matrix(0.866 0.5 -0.866 0.5 0 0)"><rect x="-8" y="-8" width="388" height="388" rx="18" style="fill:var(--floor2)"></rect></g></g>
+          <g transform="matrix(0.866 0.5 -0.866 0.5 0 0)">
+            <rect x="-8" y="-8" width="388" height="388" rx="18" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"></rect>
+            <rect x="0" y="0" width="112" height="112" rx="10" fill="#4f7cff" fill-opacity=".14" stroke="#4f7cff" stroke-opacity=".55" stroke-width="2"></rect>
+            <rect x="124" y="0" width="112" height="112" rx="10" fill="#ff8a3d" fill-opacity=".14" stroke="#ff8a3d" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="248" y="0" width="112" height="112" rx="10" fill="#ff5fa2" fill-opacity=".14" stroke="#ff5fa2" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="0" y="124" width="112" height="112" rx="10" fill="#2fbf71" fill-opacity=".14" stroke="#2fbf71" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="124" y="124" width="112" height="112" rx="10" fill="#8a5cf6" fill-opacity=".14" stroke="#8a5cf6" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="248" y="124" width="112" height="112" rx="10" fill="#14b8a6" fill-opacity=".14" stroke="#14b8a6" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="0" y="248" width="112" height="112" rx="10" fill="#f5b82e" fill-opacity=".16" stroke="#f5b82e" stroke-opacity=".7" stroke-width="2"></rect>
+            <rect x="124" y="248" width="112" height="112" rx="10" fill="#64748b" fill-opacity=".14" stroke="#64748b" stroke-opacity=".6" stroke-width="2"></rect>
+            <rect x="248" y="248" width="112" height="112" rx="10" style="fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 6"></rect>
+            <use href="#deskA" x="10" y="12"></use><use href="#deskA" x="50" y="62"></use>
+            <use href="#deskA" x="134" y="12"></use><use href="#deskA" x="174" y="62"></use>
+            <use href="#deskA" x="258" y="12"></use><use href="#deskA" x="298" y="62"></use>
+            <use href="#deskA" x="10" y="136"></use><use href="#deskA" x="50" y="186"></use>
+            <use href="#deskA" x="134" y="136"></use><use href="#deskA" x="174" y="186"></use>
+            <use href="#deskA" x="258" y="136"></use><use href="#deskA" x="298" y="186"></use>
+            <use href="#deskA" x="10" y="260"></use><use href="#deskA" x="50" y="310"></use>
+            <use href="#deskA" x="134" y="260"></use><use href="#deskA" x="174" y="310"></use>
+          </g>
+          <g transform="translate(-480 -80)">
+            <g font-family="Plus Jakarta Sans,system-ui,sans-serif" font-size="12" font-weight="700">
+              <circle cx="480" cy="114" r="8" fill="#e3b48a"></circle><rect x="471" y="123" width="18" height="22" rx="8" fill="#4f7cff"></rect>
+              <rect x="440" y="80" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--accent);stroke-width:2"></rect><circle cx="454" cy="92" r="4.5" fill="#4f7cff"></circle><text x="465" y="96" style="fill:var(--ink)">Proposal</text>
+              <circle cx="587" cy="176" r="8" fill="#f3d2b3"></circle><rect x="578" y="185" width="18" height="22" rx="8" fill="#ff8a3d"></rect>
+              <rect x="547" y="142" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="561" cy="154" r="4.5" fill="#ff8a3d"></circle><text x="572" y="158" style="fill:var(--ink)">Ads</text>
+              <circle cx="695" cy="238" r="8" fill="#c98f62"></circle><rect x="686" y="247" width="18" height="22" rx="8" fill="#ff5fa2"></rect>
+              <rect x="655" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="669" cy="216" r="4.5" fill="#ff5fa2"></circle><text x="680" y="220" style="fill:var(--ink)">Social</text>
+              <circle cx="373" cy="176" r="8" fill="#e3b48a"></circle><rect x="364" y="185" width="18" height="22" rx="8" fill="#2fbf71"></rect>
+              <rect x="333" y="142" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="347" cy="154" r="4.5" fill="#2fbf71"></circle><text x="358" y="158" style="fill:var(--ink)">QA</text>
+              <circle cx="480" cy="238" r="8" fill="#a97047"></circle><rect x="471" y="247" width="18" height="22" rx="8" fill="#8a5cf6"></rect>
+              <rect x="440" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="454" cy="216" r="4.5" fill="#8a5cf6"></circle><text x="465" y="220" style="fill:var(--ink)">Dev</text>
+              <circle cx="587" cy="300" r="8" fill="#f3d2b3"></circle><rect x="578" y="309" width="18" height="22" rx="8" fill="#14b8a6"></rect>
+              <rect x="547" y="266" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="561" cy="278" r="4.5" fill="#14b8a6"></circle><text x="572" y="282" style="fill:var(--ink)">Report</text>
+              <circle cx="265" cy="238" r="8" fill="#e3b48a"></circle><rect x="256" y="247" width="18" height="22" rx="8" fill="#f5b82e"></rect>
+              <rect x="225" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="239" cy="216" r="4.5" fill="#f5b82e"></circle><text x="250" y="220" style="fill:var(--ink)">Account</text>
+              <circle cx="373" cy="300" r="8" fill="#f3d2b3"></circle><rect x="364" y="309" width="18" height="22" rx="8" fill="#64748b"></rect>
+              <rect x="333" y="266" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="347" cy="278" r="4.5" fill="#64748b"></circle><text x="358" y="282" style="fill:var(--ink)">Finance</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <div style="position:absolute;left:16px;bottom:12px;font-size:12px;font-weight:600;color:var(--mute)">Klik karakter untuk ngobrol · geser untuk pindah · scroll untuk zoom</div>
+      <div style="position:absolute;right:16px;bottom:12px;display:flex;gap:6px">
+        <button class="btns" type="button" aria-label="Perbesar" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        <button class="btns" type="button" aria-label="Perkecil" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+      </div>
+    </div>
+
+    <aside style="flex:1 1 360px;max-width:100%;border-left:1px solid var(--line);display:flex;flex-direction:column" aria-label="Chat agent">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--line)">
+        <span style="width:42px;height:42px;border-radius:50%;background:#4f7cff;color:#fff;font-weight:800;font-size:15px;display:inline-flex;align-items:center;justify-content:center">BP</span>
+        <div style="line-height:1.3;flex:1"><div style="font-weight:800;font-size:15px">Bagas Prasetyo</div><div style="font-size:12px;color:var(--mute);font-weight:600">Client Research · Proposal Writer</div></div>
+        <button class="btns" type="button" aria-label="Mulai chat baru" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"></path></svg></button>
+      </div>
+      <div style="display:flex;gap:8px;padding:12px 16px 0">
+        <sc-for list="{{mates}}" as="m" hint-placeholder-count="4">
+          <span title="{{m.name}}" style="width:34px;height:34px;border-radius:50%;background:#4f7cff{{m.alpha}};color:var(--ink);font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;border:2px solid {{m.ring}}">{{m.ini}}</span>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:4px;padding:12px 16px 0">
+        <span style="padding:7px 14px;border-radius:9px;background:var(--accentSoft);color:var(--accentText);font-size:13px;font-weight:700">Chat</span>
+        <span style="padding:7px 14px;border-radius:9px;color:var(--mute);font-size:13px;font-weight:700">Perintah</span>
+      </div>
+      <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.55">
+        <div style="align-self:flex-end;max-width:86%;padding:11px 14px;border-radius:14px 14px 4px 14px;background:var(--accent);color:var(--onAccent)">Analisis brief client ini: toko kopi lokal butuh website dan iklan Meta.</div>
+        <div style="align-self:flex-start;max-width:90%;padding:11px 14px;border-radius:14px 14px 14px 4px;background:var(--surface2);border:1px solid var(--line)">Siap. Saya pisahkan jadi pain point, pertanyaan discovery call, dan risiko scope. Hasilnya masuk ke board sebagai draft.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          <button class="chip" type="button" style="padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:600;color:var(--soft)">Pertanyaan discovery call</button>
+          <button class="chip" type="button" style="padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:600;color:var(--soft)">Riset bisnis klien</button>
+        </div>
+      </div>
+      <div style="padding:12px 16px 8px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
+        <div style="flex:1;padding:12px 14px;border-radius:12px;border:1px solid var(--line);font-size:14px;color:var(--mute)">Tulis pesan…</div>
+        <button class="btnp" type="button" aria-label="Kirim" style="width:44px;height:44px;border-radius:12px;border:0;background:var(--accent);color:var(--onAccent);display:inline-flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+      </div>
+      <div style="padding:0 16px 14px;font-size:11px;line-height:1.5;color:var(--mute)">AI bisa keliru. Semua jawaban berupa draft, cek dulu sebelum dikirim ke klien.</div>
+    </aside>
+  </div>
+</sc-if>
+
+<!-- ======================= AGENTS ======================= -->
+<sc-if value="{{v.agents}}" hint-placeholder-val="{{ false }}">
+  <div>
+    <h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Agent</h1>
+    <p style="margin:6px 0 0;font-size:15px;color:var(--soft)">23 agent di 8 divisi. Pilih satu untuk ngobrol atau memberi perintah.</p>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <sc-for list="{{divChips}}" as="c" hint-placeholder-count="9">
+      <button class="chip" type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid {{c.line}};background:{{c.bg}};color:{{c.ink}};font-size:13px;font-weight:700">
+        <span style="width:9px;height:9px;border-radius:3px;background:{{c.color}}"></span>{{c.name}}
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px">
+    <sc-for list="{{agentCards}}" as="a" hint-placeholder-count="8">
+      <article class="agc" style="padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="flex:none;width:46px;height:46px;border-radius:50%;background:{{a.tint}};color:var(--ink);font-weight:800;font-size:15px;display:inline-flex;align-items:center;justify-content:center;border:2px solid {{a.color}}">{{a.ini}}</span>
+          <div style="min-width:0;line-height:1.3"><div style="font-size:15px;font-weight:800">{{a.name}}</div><div style="font-size:13px;font-weight:600;color:var(--mute)">{{a.role}}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--surface2);font-size:12px;font-weight:700;color:var(--soft)"><span style="width:8px;height:8px;border-radius:3px;background:{{a.color}}"></span>{{a.division}}</span>
+          <sc-if value="{{a.lead}}" hint-placeholder-val="{{ false }}"><span style="padding:4px 10px;border-radius:999px;background:var(--accentSoft);color:var(--accentText);font-size:12px;font-weight:700">Lead</span></sc-if>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:auto">
+          <button class="btns" type="button" onClick="{{goOffice}}" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:700">Chat</button>
+          <button class="btnp" type="button" onClick="{{goJobs}}" style="flex:1;padding:10px;border:0;border-radius:10px;background:var(--accent);color:var(--onAccent);font-size:13px;font-weight:700">Perintah</button>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</sc-if>
+
+<!-- ======================= JOBS / BOARD ======================= -->
+<sc-if value="{{v.jobs}}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Board kerja</h1>
+      <p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Tinjau hasil kerja agent. Setujui, minta revisi, atau tolak.</p>
+    </div>
+    <button class="btnp" type="button" onClick="{{goAgents}}" style="display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:12px;background:var(--accent);color:var(--onAccent);font-size:14px;font-weight:700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Perintah baru</button>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <section style="flex:2 1 520px;min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;padding:12px 14px 0;border-bottom:1px solid var(--line)" role="tablist">
+        <sc-for list="{{jobTabs}}" as="t" hint-placeholder-count="4">
+          <button type="button" role="tab" onClick="{{t.pick}}" aria-selected="{{t.on}}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:0;border-bottom:2px solid {{t.line}};background:transparent;color:{{t.ink}};font-size:14px;font-weight:700;margin-bottom:-1px">{{t.label}}<span style="padding:1px 8px;border-radius:999px;background:var(--surface2);font-size:12px;font-weight:700;color:var(--mute)">{{t.count}}</span></button>
+        </sc-for>
+      </div>
+      <div style="overflow-x:auto">
+        <div style="min-width:560px">
+          <sc-for list="{{jobRows}}" as="j" hint-placeholder-count="6">
+            <button class="rowb" type="button" onClick="{{j.pick}}" aria-pressed="{{j.on}}" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 18px;border:0;border-bottom:1px solid var(--line);border-left:3px solid {{j.edge}};background:{{j.bg}};text-align:left;color:var(--ink)">
+              <span style="flex:none;width:38px;height:38px;border-radius:50%;background:{{j.tint}};font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center">{{j.ini}}</span>
+              <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{j.title}}</span><span style="display:block;margin-top:2px;font-size:12px;font-weight:600;color:var(--mute)">{{j.agent}} · {{j.type}} · v{{j.ver}}</span></span>
+              <span style="flex:none;font-size:12px;font-weight:600;color:var(--mute)">{{j.when}}</span>
+              <span style="flex:none;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:{{j.sbg}};color:{{j.sink}};font-size:12px;font-weight:700"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{j.status}}</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{jobsEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding:48px 24px;text-align:center;color:var(--mute);font-size:14px;font-weight:600">Belum ada item di tab ini.</div></sc-if>
+        </div>
+      </div>
+    </section>
+
+    <aside style="flex:1 1 340px;min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:16px" aria-label="Detail item">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="padding:4px 10px;border-radius:999px;background:var(--surface2);font-size:12px;font-weight:700;color:var(--soft)">{{sel.type}}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:{{sel.sbg}};color:{{sel.sink}};font-size:12px;font-weight:700"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{sel.status}}</span>
+        <span style="margin-left:auto;font-size:12px;font-weight:600;color:var(--mute)">Versi {{sel.ver}}</span>
+      </div>
+      <div><h2 style="margin:0;font-size:18px;line-height:1.35;letter-spacing:-.015em;font-weight:800">{{sel.title}}</h2><p style="margin:6px 0 0;font-size:13px;font-weight:600;color:var(--mute)">{{sel.agent}} · {{sel.when}}</p></div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:16px;border-radius:12px;background:var(--surface2)">
+        <sc-for list="{{sel.fields}}" as="f" hint-placeholder-count="3">
+          <div><div style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)">{{f.label}}</div><div style="margin-top:4px;font-size:14px;line-height:1.6;color:var(--ink)">{{f.value}}</div></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="btnp" type="button" style="flex:1 1 120px;padding:11px 14px;border:0;border-radius:10px;background:var(--accent);color:var(--onAccent);font-size:14px;font-weight:700">Setujui</button>
+        <button class="btns" type="button" style="flex:1 1 120px;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700">Minta revisi</button>
+        <button class="btns" type="button" style="flex:1 1 80px;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--err);font-size:14px;font-weight:700">Tolak</button>
+      </div>
+      <button class="btns" type="button" style="padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700">Salin teks</button>
+    </aside>
+  </div>
+</sc-if>
+
+<!-- ======================= USAGE ======================= -->
+<sc-if value="{{v.usage}}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Penggunaan &amp; Billing</h1>
+      <p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Pantau kuota, sumber penggunaan, dan batas biaya tambahan.</p>
+    </div>
+    <span style="padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:700;color:var(--soft)">Periode: 1 – 31 Okt 2026</span>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+    <section style="flex:2 1 480px;min-width:0;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:16px;font-weight:800">Pemakaian kuota</h2><span style="padding:4px 10px;border-radius:999px;background:var(--accentSoft);color:var(--accentText);font-size:12px;font-weight:700">Paket Dasar</span></div>
+      <div style="margin-top:18px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-size:40px;font-weight:800;letter-spacing:-.035em">620.000</span><span style="font-size:15px;font-weight:600;color:var(--mute)">dari 1.000.000 token</span></div>
+      <div style="margin-top:16px;height:12px;border-radius:999px;background:var(--surface2);overflow:hidden"><div class="fill" style="width:62%;height:100%;border-radius:999px;background:var(--accent)"></div></div>
+      <div style="margin-top:10px;display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--mute)"><span>0</span><span>Peringatan di 80%</span><span>1.000.000</span></div>
+      <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:20px">
+        <h3 style="margin:0;font-size:14px;font-weight:800">Per divisi</h3>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{usageDiv}}" as="u" hint-placeholder-count="8">
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <span style="flex:0 0 112px;font-weight:700;color:var(--soft)">{{u.name}}</span>
+              <span style="flex:1;height:10px;border-radius:999px;background:var(--surface2);overflow:hidden"><span class="fill" style="display:block;width:{{u.w}};height:100%;border-radius:999px;background:{{u.color}}"></span></span>
+              <span style="flex:0 0 44px;text-align:right;font-weight:700;color:var(--ink)">{{u.p}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <h2 style="margin:0;font-size:16px;font-weight:800">Sumber penggunaan</h2>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;font-size:14px"><span style="font-weight:700">Dikelola platform</span><span style="font-weight:800">100%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:14px"><span style="font-weight:700;color:var(--mute)">API key sendiri (BYOK)</span><span style="font-weight:800;color:var(--mute)">0%</span></div>
+        </div>
+        <p style="margin:14px 0 0;font-size:12px;line-height:1.55;color:var(--mute)">Biaya platform, biaya provider, dan biaya tambahan akan ditampilkan terpisah.</p>
+      </section>
+
+      <section style="padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2 style="margin:0;font-size:16px;font-weight:800">Biaya tambahan</h2>
+          <button type="button" role="switch" aria-checked="{{overage}}" aria-label="Izinkan penggunaan melebihi kuota" onClick="{{toggleOverage}}" style="flex:none;width:46px;height:26px;border-radius:999px;border:0;padding:3px;background:{{ovBg}};display:flex;justify-content:{{ovJustify}}"><span style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span></button>
+        </div>
+        <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:var(--soft)">{{ovText}}</p>
+        <label style="display:block;margin-top:14px;font-size:12px;font-weight:700;color:var(--mute)">Batas pengeluaran bulanan
+          <input type="text" placeholder="[Rp —]" disabled="{{ovOff}}" style="margin-top:6px;width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px;font-weight:600">
+        </label>
+      </section>
+    </div>
+  </div>
+
+  <section style="border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="padding:20px 22px 14px"><h2 style="margin:0;font-size:16px;font-weight:800">Riwayat penggunaan</h2></div>
+    <div style="overflow-x:auto"><div style="min-width:640px">
+      <div style="display:grid;grid-template-columns:120px minmax(0,1.6fr) minmax(0,1fr) 100px 100px;gap:12px;padding:10px 22px;border-top:1px solid var(--line);background:var(--surface2);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)"><span>Tanggal</span><span>Perintah</span><span>Agent</span><span style="text-align:right">Token masuk</span><span style="text-align:right">Token keluar</span></div>
+      <sc-for list="{{usageRows}}" as="u" hint-placeholder-count="6">
+        <div class="rowb" style="display:grid;grid-template-columns:120px minmax(0,1.6fr) minmax(0,1fr) 100px 100px;gap:12px;padding:14px 22px;border-top:1px solid var(--line);font-size:14px;align-items:center"><span style="color:var(--mute);font-weight:600">{{u.date}}</span><span style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{u.job}}</span><span style="color:var(--soft);font-weight:600">{{u.agent}}</span><span style="text-align:right;font-weight:600">{{u.tin}}</span><span style="text-align:right;font-weight:600">{{u.tout}}</span></div>
+      </sc-for>
+    </div></div>
+  </section>
+</sc-if>
+
+<!-- ======================= MEMBERS ======================= -->
+<sc-if value="{{v.members}}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+    <div><h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Anggota</h1><p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Kelola siapa yang bisa mengakses workspace ini.</p></div>
+    <button class="btnp" type="button" style="display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:12px;background:var(--accent);color:var(--onAccent);font-size:14px;font-weight:700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Undang anggota</button>
+  </div>
+  <section style="border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="overflow-x:auto"><div style="min-width:640px">
+      <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 130px 120px 140px;gap:12px;padding:12px 22px;background:var(--surface2);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)"><span>Nama</span><span>Peran</span><span>Status</span><span>Aktif terakhir</span></div>
+      <sc-for list="{{members}}" as="m" hint-placeholder-count="5">
+        <div class="rowb" style="display:grid;grid-template-columns:minmax(0,1.6fr) 130px 120px 140px;gap:12px;padding:14px 22px;border-top:1px solid var(--line);align-items:center;font-size:14px">
+          <span style="display:flex;align-items:center;gap:12px;min-width:0"><span style="flex:none;width:36px;height:36px;border-radius:50%;background:var(--accentSoft);color:var(--accentText);font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center">{{m.ini}}</span><span style="min-width:0"><span style="display:block;font-weight:700">{{m.name}}</span><span style="display:block;font-size:12px;color:var(--mute);font-weight:600">{{m.email}}</span></span></span>
+          <span><span style="padding:4px 10px;border-radius:999px;background:var(--surface2);font-size:12px;font-weight:700;color:var(--soft)">{{m.role}}</span></span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:{{m.ink}}"><span style="width:7px;height:7px;border-radius:50%;background:currentColor"></span>{{m.status}}</span>
+          <span style="color:var(--mute);font-weight:600">{{m.last}}</span>
+        </div>
+      </sc-for>
+    </div></div>
+  </section>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+    <sc-for list="{{roleInfo}}" as="r" hint-placeholder-count="3">
+      <div style="padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface)"><div style="font-size:14px;font-weight:800">{{r.name}}</div><p style="margin:6px 0 0;font-size:13px;line-height:1.55;color:var(--soft)">{{r.body}}</p></div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<!-- ======================= API KEYS ======================= -->
+<sc-if value="{{v.keys}}" hint-placeholder-val="{{ false }}">
+  <div><h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">API Key &amp; Provider</h1><p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Pilih sumber model AI untuk workspace ini.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+    <section style="padding:24px;border:2px solid var(--accent);border-radius:16px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:50%;background:var(--accentText)"></span><h2 style="margin:0;font-size:17px;font-weight:800">Dikelola platform</h2><span style="margin-left:auto;padding:4px 10px;border-radius:999px;background:var(--okSoft);color:var(--ok);font-size:12px;font-weight:700">Aktif</span></div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--soft)">Langsung pakai tanpa konfigurasi. Penggunaan dihitung terhadap kuota paket Anda.</p>
+    </section>
+    <section style="padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:50%;border:2px solid var(--mute)"></span><h2 style="margin:0;font-size:17px;font-weight:800">API key sendiri (BYOK)</h2><span style="margin-left:auto;padding:4px 10px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--mute)">Segera hadir</span></div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--soft)">Gunakan kredensial provider milik Anda. Biaya provider ditagihkan ke akun Anda.</p>
+    </section>
+  </div>
+  <section style="padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)">
+    <h2 style="margin:0;font-size:16px;font-weight:800">Tambah API key</h2>
+    <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <label style="flex:1 1 200px;font-size:12px;font-weight:700;color:var(--mute)">Provider<div style="margin-top:6px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px;font-weight:600;display:flex;justify-content:space-between">Anthropic<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></label>
+      <label style="flex:2 1 280px;font-size:12px;font-weight:700;color:var(--mute)">API key<input type="password" placeholder="sk-ant-…" disabled="" style="margin-top:6px;width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px"></label>
+      <button type="button" disabled="" style="padding:12px 20px;border:0;border-radius:10px;background:var(--surface2);color:var(--mute);font-size:14px;font-weight:700;cursor:not-allowed">Simpan</button>
+    </div>
+    <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:var(--mute)">Key disimpan terenkripsi dan tidak pernah ditampilkan utuh setelah disimpan.</p>
+  </section>
+</sc-if>
+
+<!-- ======================= ADMIN: TENANTS ======================= -->
+<sc-if value="{{v.tenants}}" hint-placeholder-val="{{ false }}">
+  <div><h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Organisasi</h1><p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Semua organisasi pelanggan di platform.</p></div>
+  <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 18px;border-radius:12px;background:var(--accentSoft);color:var(--ink);font-size:14px;line-height:1.55"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accentText)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg><span>Sebagai admin platform, Anda hanya melihat metadata organisasi. Konten pelanggan tidak dapat dibuka tanpa dasar kebijakan dan audit.</span></div>
+  <section style="border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="overflow-x:auto"><div style="min-width:720px">
+      <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 110px 100px 100px 130px 120px;gap:12px;padding:12px 22px;background:var(--surface2);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)"><span>Organisasi</span><span>Paket</span><span>Workspace</span><span>Anggota</span><span>Kuota</span><span>Status</span></div>
+      <sc-for list="{{tenants}}" as="t" hint-placeholder-count="5">
+        <div class="rowb" style="display:grid;grid-template-columns:minmax(0,1.6fr) 110px 100px 100px 130px 120px;gap:12px;padding:14px 22px;border-top:1px solid var(--line);align-items:center;font-size:14px">
+          <span style="display:flex;align-items:center;gap:12px;min-width:0"><span style="flex:none;width:34px;height:34px;border-radius:9px;background:var(--accentSoft);color:var(--accentText);font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center">{{t.ini}}</span><span style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{t.name}}</span></span>
+          <span style="font-weight:600;color:var(--soft)">{{t.plan}}</span><span style="font-weight:600">{{t.ws}}</span><span style="font-weight:600">{{t.members}}</span>
+          <span style="display:flex;align-items:center;gap:8px"><span style="flex:1;height:8px;border-radius:999px;background:var(--surface2);overflow:hidden"><span class="fill" style="display:block;width:{{t.q}};height:100%;background:var(--accent)"></span></span><span style="font-size:12px;font-weight:700;color:var(--soft)">{{t.q}}</span></span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:{{t.ink}}"><span style="width:7px;height:7px;border-radius:50%;background:currentColor"></span>{{t.status}}</span>
+        </div>
+      </sc-for>
+    </div></div>
+  </section>
+</sc-if>
+
+<!-- ======================= ADMIN: PLANS ======================= -->
+<sc-if value="{{v.plans}}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+    <div><h1 style="margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800">Paket &amp; Entitlement</h1><p style="margin:6px 0 0;font-size:15px;color:var(--soft)">Atur kemampuan dan batas tiap paket. Diperiksa di backend, bukan hanya di tampilan.</p></div>
+    <button class="btnp" type="button" style="display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:12px;background:var(--accent);color:var(--onAccent);font-size:14px;font-weight:700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Paket baru</button>
+  </div>
+  <section style="border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="overflow-x:auto"><div style="min-width:680px">
+      <div style="display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:12px;padding:14px 22px;background:var(--surface2);font-size:13px;font-weight:800">
+        <span style="font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)">Entitlement</span><span>Dasar</span><span>Pro</span><span>Enterprise</span>
+      </div>
+      <sc-for list="{{entitlements}}" as="e" hint-placeholder-count="8">
+        <div class="rowb" style="display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:12px;padding:14px 22px;border-top:1px solid var(--line);align-items:center;font-size:14px">
+          <span style="font-weight:700">{{e.name}}</span>
+          <span style="font-weight:600;color:{{e.i1}}">{{e.a}}</span><span style="font-weight:600;color:{{e.i2}}">{{e.b}}</span><span style="font-weight:600;color:{{e.i3}}">{{e.c}}</span>
+        </div>
+      </sc-for>
+    </div></div>
+  </section>
+  <p style="margin:0;font-size:13px;color:var(--mute)">Nilai dalam kurung siku masih menunggu keputusan produk dan bisnis.</p>
+</sc-if>
+
+<!-- ======================= COMING SOON ======================= -->
+<sc-if value="{{v.soon}}" hint-placeholder-val="{{ false }}">
+  <div style="padding:72px 24px;border:1px dashed var(--line);border-radius:20px;background:var(--surface);text-align:center">
+    <span style="width:56px;height:56px;border-radius:16px;background:var(--accentSoft);color:var(--accentText);display:inline-flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{soonIcon}}"></path></svg></span>
+    <h1 style="margin:20px 0 0;font-size:24px;letter-spacing:-.02em;font-weight:800">{{pageTitle}}</h1>
+    <p style="margin:10px auto 0;max-width:440px;font-size:15px;line-height:1.6;color:var(--soft)">{{soonText}}</p>
+    <span style="display:inline-block;margin-top:18px;padding:5px 12px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--mute)">Segera hadir</span>
+  </div>
+</sc-if>
+
+</main>
+</div>
+</div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"splash":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    let sys = false;
+    try { sys = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { sys = false; }
+    const splash = !(props && props.splash === false);
+    this.state = { dark: !!(props && props.dark) || sys, role: 'owner', view: 'overview', div: 'all', tab: 'draft', sel: 0, overage: false, sp: splash ? 'on' : 'off', splash };
+  }
+  componentDidMount() { if (this.state.splash) this.runSplash(); }
+  componentWillUnmount() { clearTimeout(this._t1); clearTimeout(this._t2); }
+  runSplash() {
+    clearTimeout(this._t1); clearTimeout(this._t2);
+    this.setState({ sp: 'on' });
+    this._t1 = setTimeout(() => this.setState({ sp: 'out' }), 2000);
+    this._t2 = setTimeout(() => this.setState({ sp: 'off' }), 2700);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const set = (o) => this.setState(o);
+
+    const ICON = {
+      overview: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      office: 'M12 2l9 5v10l-9 5-9-5V7l9-5zM12 12l9-5M12 12v10M12 12L3 7',
+      agents: 'M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+      jobs: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+      workflows: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+      usage: 'M18 20V10M12 20V4M6 20v-6',
+      members: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
+      keys: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+      settings: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      tenants: 'M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01',
+      plans: 'M1 4h22v16H1zM1 10h22',
+      templates: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8',
+      models: 'M12 2a3 3 0 0 0-3 3v1H6a2 2 0 0 0-2 2v3h2a2 2 0 1 1 0 4H4v3a2 2 0 0 0 2 2h3v-2a2 2 0 1 1 4 0v2h3a2 2 0 0 0 2-2v-3h-2a2 2 0 1 1 0-4h2V8a2 2 0 0 0-2-2h-3V5a3 3 0 0 0-3-3z',
+    };
+    const TITLE = {
+      overview: 'Overview', office: 'Kantor 3D', agents: 'Agent', jobs: 'Perintah & Board', workflows: 'Workflow',
+      usage: 'Penggunaan & Billing', members: 'Anggota', keys: 'API Key & Provider', settings: 'Pengaturan',
+      tenants: 'Organisasi', plans: 'Paket & Entitlement', templates: 'Template & Prompt', models: 'Model Registry',
+    };
+    const SOON = {
+      workflows: 'Rangkai beberapa agent dan perintah menjadi alur kerja yang bisa dijalankan ulang. Tersedia setelah mesin eksekusi siap.',
+      settings: 'Profil, preferensi tampilan, dan pengaturan workspace akan tersedia di sini.',
+      templates: 'Kelola template agent dan prompt platform dengan validasi sebelum dipublikasikan.',
+      models: 'Kelola daftar provider dan model AI yang didukung platform.',
+    };
+    const isAdmin = s.role === 'admin';
+    const adminViews = ['tenants', 'plans', 'templates', 'models'];
+    const view = (!isAdmin && adminViews.indexOf(s.view) >= 0) ? 'overview' : s.view;
+    const go = (id) => () => set({ view: id });
+
+    const mk = (id, label, extra) => Object.assign({
+      id, label, icon: ICON[id],
+      go: go(id),
+      current: view === id ? 'page' : undefined,
+      bg: view === id ? 'var(--accentSoft)' : 'transparent',
+      ink: view === id ? 'var(--accentText)' : 'var(--soft)',
+      weight: view === id ? 800 : 600,
+      shadow: view === id ? 'inset 3px 0 0 var(--accent)' : 'none',
+    }, extra || {});
+
+    const navGroups = [
+      { title: 'Utama', items: [mk('overview', 'Overview'), mk('office', 'Kantor 3D'), mk('agents', 'Agent'), mk('jobs', 'Perintah', { badge: '7' }), mk('workflows', 'Workflow', { soon: true })] },
+      { title: 'Kelola', items: [mk('usage', 'Penggunaan & Billing'), mk('members', 'Anggota'), mk('keys', 'API Key'), mk('settings', 'Pengaturan')] },
+    ];
+    if (isAdmin) {
+      navGroups.push({ title: 'Admin platform', items: [mk('tenants', 'Organisasi'), mk('plans', 'Paket & Entitlement'), mk('templates', 'Template & Prompt', { soon: true }), mk('models', 'Model Registry', { soon: true })] });
+    }
+
+    const DIV = {
+      proposal: ['Proposal Writer', '#4f7cff'], ads: ['Ads Copywriter', '#ff8a3d'], social: ['Social Media', '#ff5fa2'],
+      qa: ['Web QA', '#2fbf71'], dev: ['Developer Helper', '#8a5cf6'], reporting: ['Reporting', '#14b8a6'],
+      account: ['Account Manager', '#f5b82e'], finance: ['Finance', '#64748b'],
+    };
+    const AG = [
+      ['Roy Ahmad', 'Head of Proposals', 'proposal', 1], ['Bagas Prasetyo', 'Client Research', 'proposal', 0], ['Siti Nurhaliza', 'Proposal Writer', 'proposal', 0], ['Dimas Aryanto', 'Pricing & Scope', 'proposal', 0],
+      ['Putri Maharani', 'Head of Ads Copy', 'ads', 1], ['Fajar Nugroho', 'Meta Ads Copy', 'ads', 0], ['Anisa Rahmawati', 'Google Ads Copy', 'ads', 0], ['Yoga Pratama', 'Landing & CTA Tester', 'ads', 0],
+      ['Dewi Kartika', 'Head of Social', 'social', 1], ['Raka Wijaya', 'Content Planner', 'social', 0], ['Nadia Safitri', 'Caption Writer', 'social', 0], ['Eko Saputra', 'Video Script', 'social', 0],
+      ['Hendra Gunawan', 'QA Lead', 'qa', 1], ['Laras Ayuningtyas', 'Visual & Responsive QA', 'qa', 0], ['Andi Kurniawan', 'Functional QA', 'qa', 0], ['Maya Anggraini', 'Performance & SEO QA', 'qa', 0],
+      ['Arief Setiawan', 'Tech Lead', 'dev', 1], ['Citra Lestari', 'WordPress & Elementor', 'dev', 0], ['Bayu Firmansyah', 'Backend Developer', 'dev', 0], ['Tari Susanti', 'Webflow & Frontend', 'dev', 0],
+      ['Kirana Dewanti', 'Reporting Analyst', 'reporting', 0], ['Rizky Ramadhan', 'Account Manager', 'account', 0], ['Melati Handayani', 'Finance & Admin', 'finance', 0],
+    ];
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+    const tint = (c) => c + '33';
+
+    // ---------- overview ----------
+    const kpis = [
+      { label: 'Perintah bulan ini', value: '48', note: '+12%', bg: 'var(--okSoft)', ink: 'var(--ok)' },
+      { label: 'Menunggu review', value: '7', note: 'Perlu tindakan', bg: 'var(--warnSoft)', ink: 'var(--warn)' },
+      { label: 'Disetujui', value: '31', note: '65%', bg: 'var(--accentSoft)', ink: 'var(--accentText)' },
+      { label: 'Gagal', value: '2', note: '4%', bg: 'var(--errSoft)', ink: 'var(--err)' },
+    ];
+    const bv = [6, 9, 5, 12, 8, 3, 5], bd = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const bars = bv.map((v, i) => ({ v: String(v), d: bd[i], h: Math.round((v / 12) * 100) * 1.1 + 'px', o: v === 12 ? 1 : 0.55, delay: (0.2 + i * 0.07).toFixed(2) + 's' }));
+    const ST = {
+      draft: ['Draft', 'var(--accentSoft)', 'var(--accentText)'], revising: ['Direvisi', 'var(--warnSoft)', 'var(--warn)'],
+      approved: ['Disetujui', 'var(--okSoft)', 'var(--ok)'], rejected: ['Ditolak', 'var(--errSoft)', 'var(--err)'],
+    };
+    const ITEMS = [
+      { title: 'Planner konten November — Instagram', agent: 'Raka Wijaya', div: 'social', type: 'Ide konten', st: 'draft', ver: 1, when: '12 mnt lalu', fields: [{ label: 'Pilar', value: 'Edukasi, promo, testimoni' }, { label: 'Ide 1', value: 'Tips merawat biji kopi di rumah, format carousel 6 slide.' }, { label: 'Ide 2', value: 'Behind the scene proses roasting, Reels 30 detik.' }] },
+      { title: 'Carousel: 5 kesalahan SEO toko online', agent: 'Nadia Safitri', div: 'social', type: 'Carousel', st: 'draft', ver: 2, when: '1 jam lalu', fields: [{ label: 'Slide 1', value: 'Hook: Toko online kamu sepi pengunjung? Mungkin ini penyebabnya.' }, { label: 'Slide 2', value: 'Kesalahan 1: judul produk terlalu singkat.' }, { label: 'CTA', value: 'Simpan postingan ini untuk checklist SEO-mu.' }] },
+      { title: 'Proposal website company profile', agent: 'Siti Nurhaliza', div: 'proposal', type: 'Proposal', st: 'revising', ver: 3, when: '2 jam lalu', fields: [{ label: 'Ringkasan eksekutif', value: 'Kami mengusulkan website company profile yang menonjolkan kredibilitas dan mempermudah calon klien menghubungi Anda.' }, { label: 'Alasan revisi', value: 'Perjelas bagian timeline.' }] },
+      { title: 'Paket harga website Shopify, 3 tier', agent: 'Dimas Aryanto', div: 'proposal', type: 'Paket harga', st: 'draft', ver: 1, when: 'Kemarin', fields: [{ label: 'Paket 1', value: 'Basic: [harga], scope inti, 3 minggu.' }, { label: 'Paket 2', value: 'Standard: [harga], tambah integrasi pembayaran, 5 minggu.' }, { label: 'Termin', value: '50% di awal, 50% saat serah terima.' }] },
+      { title: 'Copy RSA: kursus bahasa Inggris', agent: 'Anisa Rahmawati', div: 'ads', type: 'Copy iklan', st: 'approved', ver: 1, when: 'Kemarin', fields: [{ label: 'Headline 1', value: 'Kursus Inggris Online (29/30)' }, { label: 'Deskripsi 1', value: 'Belajar fleksibel dengan tutor berpengalaman. Coba kelas gratis hari ini.' }] },
+      { title: 'Checklist handover toko online', agent: 'Hendra Gunawan', div: 'qa', type: 'Checklist QA', st: 'approved', ver: 1, when: '2 hari lalu', fields: [{ label: 'Fungsional', value: 'Checkout, pembayaran, email notifikasi: 9 dari 12 selesai.' }, { label: 'Visual', value: 'Responsive mobile dan tablet: selesai.' }] },
+      { title: 'Laporan bulanan September', agent: 'Kirana Dewanti', div: 'reporting', type: 'Laporan', st: 'rejected', ver: 1, when: '3 hari lalu', fields: [{ label: 'Alasan ditolak', value: 'Data Search Console belum dimasukkan.' }, { label: 'Ringkasan', value: 'Trafik organik turun karena perubahan struktur URL.' }] },
+      { title: 'Draft pesan update progres ke klien', agent: 'Rizky Ramadhan', div: 'account', type: 'Pesan klien', st: 'draft', ver: 1, when: '3 hari lalu', fields: [{ label: 'Pesan', value: 'Halo Bu Rani, desain homepage sudah siap ditinjau. Mohon masukannya sampai Jumat ya.' }, { label: 'Channel', value: 'WhatsApp, nada hangat' }] },
+    ];
+    const recent = ITEMS.slice(0, 5).map((it) => {
+      const c = DIV[it.div][1]; const st = ST[it.st];
+      return { title: it.title, agent: it.agent, when: it.when, ini: ini(it.agent), tint: tint(c), status: st[0], sbg: st[1], sink: st[2] };
+    });
+    const todo = [
+      { label: 'Buat organisasi dan workspace', done: true }, { label: 'Pilih template agent pertama', done: true },
+      { label: 'Kirim perintah pertama', done: false }, { label: 'Undang anggota tim', done: false },
+    ].map((t) => ({
+      label: t.label, ink: t.done ? 'var(--mute)' : 'var(--ink)', ring: t.done ? 'var(--accent)' : 'var(--line)',
+      fill: t.done ? 'var(--accent)' : 'transparent', tick: t.done ? 1 : 0, dec: t.done ? 'line-through' : 'none',
+    }));
+    const tiles = ['proposal', 'ads', 'social', 'qa', 'dev', 'reporting', 'account', 'finance'].map((k) => ({
+      name: DIV[k][0].split(' ')[0], bg: DIV[k][1] + '2b', line: DIV[k][1] + '66',
+    }));
+    tiles.push({ name: 'Kosong', bg: 'transparent', line: 'var(--line)' });
+
+    // ---------- office ----------
+    const officeChips = Object.keys(DIV).map((k) => ({ name: DIV[k][0], color: DIV[k][1] }));
+    const mates = ['Roy Ahmad', 'Bagas Prasetyo', 'Siti Nurhaliza', 'Dimas Aryanto'].map((n) => ({
+      name: n, ini: ini(n), alpha: n === 'Bagas Prasetyo' ? '' : '33', ring: n === 'Bagas Prasetyo' ? 'var(--accent)' : 'transparent',
+    }));
+
+    // ---------- agents ----------
+    const divChips = [{ id: 'all', name: 'Semua', color: 'var(--mute)' }].concat(Object.keys(DIV).map((k) => ({ id: k, name: DIV[k][0], color: DIV[k][1] }))).map((c) => {
+      const on = s.div === c.id;
+      return { name: c.name, color: c.color, on, pick: () => set({ div: c.id }), bg: on ? 'var(--accentSoft)' : 'var(--surface)', ink: on ? 'var(--accentText)' : 'var(--soft)', line: on ? 'var(--accent)' : 'var(--line)' };
+    });
+    const agentCards = AG.filter((a) => s.div === 'all' || a[2] === s.div).map((a) => ({
+      name: a[0], role: a[1], ini: ini(a[0]), division: DIV[a[2]][0], color: DIV[a[2]][1], tint: tint(DIV[a[2]][1]), lead: !!a[3],
+    }));
+
+    // ---------- jobs ----------
+    const tabDefs = [['draft', 'Draft'], ['approved', 'Disetujui'], ['rejected', 'Ditolak'], ['all', 'Semua']];
+    const jobTabs = tabDefs.map((t) => {
+      const count = ITEMS.filter((it) => t[0] === 'all' || it.st === t[0] || (t[0] === 'draft' && it.st === 'revising')).length;
+      const on = s.tab === t[0];
+      return { label: t[1], count, on, pick: () => set({ tab: t[0], sel: 0 }), ink: on ? 'var(--accentText)' : 'var(--mute)', line: on ? 'var(--accent)' : 'transparent' };
+    });
+    const visible = ITEMS.filter((it) => s.tab === 'all' || it.st === s.tab || (s.tab === 'draft' && it.st === 'revising'));
+    const selIdx = Math.min(s.sel, Math.max(visible.length - 1, 0));
+    const jobRows = visible.map((it, i) => {
+      const c = DIV[it.div][1]; const st = ST[it.st]; const on = i === selIdx;
+      return { title: it.title, agent: it.agent.split(' ')[0], type: it.type, ver: it.ver, when: it.when, ini: ini(it.agent), tint: tint(c), status: st[0], sbg: st[1], sink: st[2], on, edge: on ? 'var(--accent)' : 'transparent', bg: on ? 'var(--accentSoft)' : 'transparent', pick: () => set({ sel: i }) };
+    });
+    const cur = visible[selIdx] || ITEMS[0];
+    const cst = ST[cur.st];
+    const sel = { title: cur.title, agent: cur.agent, type: cur.type, ver: cur.ver, when: cur.when, fields: cur.fields, status: cst[0], sbg: cst[1], sink: cst[2] };
+
+    // ---------- usage ----------
+    const uPct = [['social', 28], ['proposal', 22], ['ads', 17], ['dev', 12], ['qa', 9], ['reporting', 6], ['account', 4], ['finance', 2]];
+    const usageDiv = uPct.map((u) => ({ name: DIV[u[0]][0].split(' ')[0] + (u[0] === 'social' ? ' Media' : ''), color: DIV[u[0]][1], w: (u[1] * 3) + '%', p: u[1] + '%' }));
+    const usageRows = [
+      { date: '21 Okt 2026', job: 'Planner konten November', agent: 'Raka Wijaya', tin: '2.140', tout: '6.820' },
+      { date: '21 Okt 2026', job: 'Carousel: 5 kesalahan SEO', agent: 'Nadia Safitri', tin: '1.380', tout: '4.210' },
+      { date: '20 Okt 2026', job: 'Draft proposal company profile', agent: 'Siti Nurhaliza', tin: '3.020', tout: '9.450' },
+      { date: '20 Okt 2026', job: 'Copy RSA kursus bahasa', agent: 'Anisa Rahmawati', tin: '980', tout: '2.760' },
+      { date: '19 Okt 2026', job: 'Checklist handover', agent: 'Hendra Gunawan', tin: '1.150', tout: '3.340' },
+    ];
+    const ov = s.overage;
+
+    // ---------- members ----------
+    const members = [
+      { name: 'Nama Pengguna', email: 'owner@contoh.id', role: 'Owner', status: 'Aktif', ink: 'var(--ok)', last: 'Sekarang' },
+      { name: 'Anggota Satu', email: 'anggota1@contoh.id', role: 'Member', status: 'Aktif', ink: 'var(--ok)', last: '2 jam lalu' },
+      { name: 'Anggota Dua', email: 'anggota2@contoh.id', role: 'Member', status: 'Aktif', ink: 'var(--ok)', last: 'Kemarin' },
+      { name: 'Peninjau Klien', email: 'viewer@contoh.id', role: 'Viewer', status: 'Aktif', ink: 'var(--ok)', last: '3 hari lalu' },
+      { name: 'Calon Anggota', email: 'baru@contoh.id', role: 'Member', status: 'Diundang', ink: 'var(--warn)', last: '—' },
+    ].map((m) => Object.assign({ ini: ini(m.name) }, m));
+    const roleInfo = [
+      { name: 'Owner', body: 'Mengelola organisasi, anggota, konfigurasi, dan penggunaan.' },
+      { name: 'Member', body: 'Memakai agent, mengirim perintah, dan meninjau hasil sesuai paket.' },
+      { name: 'Viewer', body: 'Akses baca. Tidak dapat menjalankan tindakan yang mengubah data.' },
+    ];
+
+    // ---------- admin ----------
+    const tenants = [
+      { name: 'Organisasi Contoh', plan: 'Dasar', ws: 1, members: 5, q: '62%', status: 'Aktif', ink: 'var(--ok)' },
+      { name: 'Studio Kreatif A', plan: 'Pro', ws: 3, members: 12, q: '41%', status: 'Aktif', ink: 'var(--ok)' },
+      { name: 'Agensi Digital B', plan: 'Pro', ws: 2, members: 8, q: '88%', status: 'Aktif', ink: 'var(--ok)' },
+      { name: 'Konsultan C', plan: 'Dasar', ws: 1, members: 3, q: '12%', status: 'Uji coba', ink: 'var(--warn)' },
+      { name: 'Perusahaan D', plan: 'Enterprise', ws: 6, members: 40, q: '55%', status: 'Ditangguhkan', ink: 'var(--err)' },
+    ].map((t) => Object.assign({ ini: ini(t.name) }, t));
+    const Y = 'Ya', N = 'Tidak', T = 'sesuai entitlement';
+    const entitlements = [
+      ['Template agent', Y, Y, Y], ['Template workflow', Y, Y, Y], ['Kustomisasi agent', N, T, T], ['Workflow builder', N, T, T],
+      ['Kuota token per periode', '[menyusul]', '[menyusul]', '[menyusul]'], ['Biaya tambahan (overage)', N, Y, Y], ['API key sendiri (BYOK)', N, Y, Y],
+      ['Batas anggota', '[menyusul]', '[menyusul]', '[menyusul]'],
+    ].map((r) => {
+      const ink = (v) => (v === N ? 'var(--mute)' : (v.charAt(0) === '[' ? 'var(--warn)' : 'var(--ink)'));
+      return { name: r[0], a: r[1], b: r[2], c: r[3], i1: ink(r[1]), i2: ink(r[2]), i3: ink(r[3]) };
+    });
+
+    const roleLabel = isAdmin ? 'Admin platform' : 'Owner';
+    const soon = !!SOON[view];
+    return {
+      rootClass: s.dark ? 'vo dark' : 'vo',
+      splashOn: s.sp !== 'off', splashClass: s.sp === 'out' ? 'splash out' : 'splash',
+      replaySplash: () => this.runSplash(),
+      themeIcon: s.dark ? 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4' : 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
+      toggleTheme: () => set({ dark: !s.dark }),
+      navGroups,
+      pageTitle: TITLE[view],
+      roleLabel,
+      isOwner: !isAdmin, isAdmin,
+      asOwner: () => set({ role: 'owner' }), asAdmin: () => set({ role: 'admin' }),
+      ownerBg: !isAdmin ? 'var(--surface)' : 'transparent', ownerInk: !isAdmin ? 'var(--ink)' : 'var(--mute)',
+      adminBg: isAdmin ? 'var(--surface)' : 'transparent', adminInk: isAdmin ? 'var(--ink)' : 'var(--mute)',
+      v: {
+        overview: view === 'overview', office: view === 'office', agents: view === 'agents', jobs: view === 'jobs', usage: view === 'usage',
+        members: view === 'members', keys: view === 'keys', tenants: view === 'tenants', plans: view === 'plans', soon,
+      },
+      soonIcon: ICON[view], soonText: SOON[view] || '',
+      goAgents: go('agents'), goJobs: go('jobs'), goUsage: go('usage'), goOffice: go('office'),
+      kpis, bars, recent, todo, tiles,
+      officeChips, mates,
+      divChips, agentCards,
+      jobTabs, jobRows, jobsEmpty: visible.length === 0, sel,
+      usageDiv, usageRows, overage: ov, toggleOverage: () => set({ overage: !ov }),
+      ovBg: ov ? 'var(--accent)' : 'var(--line)', ovJustify: ov ? 'flex-end' : 'flex-start', ovOff: !ov,
+      ovText: ov ? 'Penggunaan melebihi kuota akan dilanjutkan sampai batas pengeluaran yang Anda tetapkan.' : 'Nonaktif. Saat kuota habis, perintah baru akan dihentikan sampai periode berikutnya.',
+      members, roleInfo, tenants, entitlements,
+    };
+  }
+}
+</script>
+</body>
+</html>

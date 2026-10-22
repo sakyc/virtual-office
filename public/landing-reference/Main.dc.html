@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Virtual Office — Landing Page</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.vo{--bg:#ffffff;--bg2:#f6f8fc;--surface:#ffffff;--line:#e4e8f0;--ink:#141a29;--soft:#4b5568;--mute:#667085;--accent:#3b63e0;--accentText:#3b63e0;--onAccent:#ffffff;--accentSoft:#eef2ff;--floor:#eef2f8;--floor2:#d9e0ec;--desk:#ffffff;--shadow:0 24px 60px -24px rgba(30,45,80,.28);--ok:#0f7a45;--okSoft:#e3f6ec;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+.vo.dark{--bg:#0b0f17;--bg2:#0f141e;--surface:#131a26;--line:#253044;--ink:#eef1f7;--soft:#b4bdcd;--mute:#98a3b8;--accent:#7f9fff;--accentText:#9db6ff;--onAccent:#0b1020;--accentSoft:#18213a;--floor:#18202e;--floor2:#0e1420;--desk:#212b3d;--shadow:0 24px 60px -24px rgba(0,0,0,.7);--ok:#5fd59a;--okSoft:#12301f}
+.vo *{box-sizing:border-box}
+.vo a{color:inherit;text-decoration:none}
+.vo a:hover{color:var(--accentText)}
+.vo .btnp:hover{filter:brightness(1.08);color:var(--onAccent)}
+.vo .btns:hover{background:var(--bg2);color:var(--ink)}
+.vo .lift{transition:transform .18s ease,box-shadow .18s ease}
+.vo .lift:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vo button{font-family:inherit}
+.vo :focus-visible{outline:2px solid var(--accentText);outline-offset:2px}
+@media (max-width:820px){.vo .navlinks{display:none}.vo .hide-sm{display:none}}
+
+/* ---------- modern layer: tokens, motion, splash ---------- */
+.vo{--t0:2.2s;--glass:rgba(255,255,255,.74);--grad:linear-gradient(135deg,#3b63e0,#5a4de0);--glow:0 12px 28px -12px rgba(59,99,224,.65);--gtext:linear-gradient(120deg,#3b63e0 10%,#8a5cf6 55%,#e0568f 100%)}
+.vo.dark{--glass:rgba(11,15,23,.72);--grad:linear-gradient(135deg,#9bb8ff,#b4a6ff);--glow:0 12px 28px -12px rgba(127,159,255,.5);--gtext:linear-gradient(120deg,#9db6ff 10%,#c3a8ff 55%,#ff9cc4 100%)}
+.vo.nosp{--t0:0s}
+.vo *{transition:background-color .35s ease,border-color .35s ease,color .25s ease,box-shadow .3s ease,transform .3s cubic-bezier(.2,.7,.2,1),opacity .3s ease,filter .2s ease}
+.vo .btnp{background:var(--grad) !important;box-shadow:var(--glow)}
+.vo .btnp:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.vo .btns:hover{transform:translateY(-1px)}
+.vo button:active,.vo .btnp:active{transform:scale(.97)}
+.vo .lift:hover{border-color:var(--accent) !important}
+.vo .gtext{background:var(--gtext);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes orb{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-24px) scale(1.1)}}
+@keyframes tilein{0%{opacity:0;transform:scale(.3)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes tp{0%,100%{filter:brightness(1)}50%{filter:brightness(1.2)}}
+@keyframes barfill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes dots{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-4px);opacity:1}}
+@keyframes pop{0%{opacity:0;transform:scale(.85) translateY(8px)}100%{opacity:1;transform:none}}
+@keyframes typ{0%{opacity:0;max-height:0;padding-top:0;padding-bottom:0}12%{opacity:1;max-height:44px;padding-top:12px;padding-bottom:12px}88%{opacity:1;max-height:44px;padding-top:12px;padding-bottom:12px}100%{opacity:0;max-height:0;padding-top:0;padding-bottom:0;margin-bottom:-12px;border-width:0}}
+.vo .fu{animation:fadeUp .8s cubic-bezier(.2,.7,.2,1) var(--t0) backwards}
+.vo .d1{animation-delay:calc(var(--t0) + .1s)}.vo .d2{animation-delay:calc(var(--t0) + .2s)}.vo .d3{animation-delay:calc(var(--t0) + .3s)}.vo .d4{animation-delay:calc(var(--t0) + .45s)}
+.vo .bob{animation:floaty 5s ease-in-out infinite}
+.vo .orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none;animation:orb 14s ease-in-out infinite}
+.vo.dark .orb{opacity:.3}
+.vo .gridbg{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 15%,transparent 70%);mask-image:radial-gradient(ellipse at 50% 0%,#000 15%,transparent 70%);opacity:.7}
+.vo .marq{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.vo .track{display:flex;gap:12px;width:max-content;animation:marquee 70s linear infinite}
+.vo .marq:hover .track{animation-play-state:paused}
+.vo .typing{animation:typ 1.5s ease calc(var(--t0) + 1.3s) both}
+.vo .typing span{display:inline-block;width:6px;height:6px;margin-right:4px;border-radius:50%;background:var(--mute);animation:dots 1.2s infinite}
+.vo .typing span:nth-child(2){animation-delay:.15s}.vo .typing span:nth-child(3){animation-delay:.3s}
+.vo .pop1{animation:pop .5s cubic-bezier(.2,.7,.2,1) calc(var(--t0) + .8s) backwards}
+.vo .pop2{animation:pop .5s cubic-bezier(.2,.7,.2,1) calc(var(--t0) + 2.8s) backwards}
+.vo .pop3{animation:pop .5s cubic-bezier(.2,.7,.2,1) calc(var(--t0) + 3.2s) backwards}
+@supports (animation-timeline:view()){.vo .reveal{animation:fadeUp linear backwards;animation-timeline:view();animation-range:entry 0% entry 32%}}
+.vo .splash{position:absolute;top:0;left:0;right:0;height:100vh;max-height:1000px;min-height:480px;z-index:300;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:opacity .6s ease,visibility .6s}
+.vo .splash.out{opacity:0;visibility:hidden}
+.vo .sp-in{display:flex;flex-direction:column;align-items:center}
+.vo .sp-iso{display:grid;grid-template-columns:repeat(3,38px);gap:9px;transform:rotateX(58deg) rotateZ(45deg);margin:34px 0 46px}
+.vo .sp-iso i{display:block;width:38px;height:38px;border-radius:9px;animation:tilein .6s cubic-bezier(.2,.9,.3,1.3) backwards,tp 1.8s ease-in-out 1s infinite}
+.vo .sp-word{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.02em;animation:fadeUp .7s .3s backwards}
+.vo .sp-mark{width:32px;height:32px;border-radius:9px;background:#4f7cff;display:inline-flex;align-items:center;justify-content:center}
+.vo .sp-msg{margin-top:8px;font-size:13px;font-weight:600;color:var(--mute);animation:fadeIn .6s .5s backwards}
+.vo .sp-bar{margin-top:22px;width:180px;height:4px;border-radius:99px;background:var(--line);overflow:hidden}
+.vo .sp-bar i{display:block;height:100%;background:var(--grad);transform-origin:left;animation:barfill 1.9s cubic-bezier(.4,0,.2,1) backwards}
+@media (prefers-reduced-motion:reduce){.vo *,.vo *::before{animation-duration:.01ms !important;animation-iteration-count:1 !important;animation-delay:0s !important;transition-duration:.01ms !important}}
+</style>
+</helmet>
+
+<div class="{{rootClass}}" style="position:relative">
+
+<!-- ============ SPLASH ============ -->
+<sc-if value="{{splashOn}}" hint-placeholder-val="{{ false }}">
+<div class="{{splashClass}}" aria-hidden="true">
+  <div class="sp-in">
+    <div class="sp-iso">
+      <i style="background:#4f7cff;animation-delay:.05s"></i><i style="background:#ff8a3d;animation-delay:.15s"></i><i style="background:#ff5fa2;animation-delay:.25s"></i>
+      <i style="background:#2fbf71;animation-delay:.15s"></i><i style="background:#8a5cf6;animation-delay:.25s"></i><i style="background:#14b8a6;animation-delay:.35s"></i>
+      <i style="background:#f5b82e;animation-delay:.25s"></i><i style="background:#64748b;animation-delay:.35s"></i><i style="border:2px dashed var(--mute);animation-delay:.45s"></i>
+    </div>
+    <div class="sp-word"><span class="sp-mark"><svg width="18" height="18" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="#fff"></rect><rect x="11" y="24" width="10" height="3" rx="1.5" fill="#fff"></rect></svg></span>Virtual Office</div>
+    <div class="sp-msg">Menyiapkan kantor…</div>
+    <div class="sp-bar"><i></i></div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ NAV ============ -->
+<header style="position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);background:var(--glass);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px)">
+  <div style="max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;gap:32px">
+    <a href="#top" style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.01em;color:var(--ink)">
+      <span style="width:32px;height:32px;border-radius:9px;background:#4f7cff;display:inline-flex;align-items:center;justify-content:center" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="#fff"></rect><rect x="11" y="24" width="10" height="3" rx="1.5" fill="#fff"></rect></svg>
+      </span>
+      Virtual Office
+    </a>
+    <nav class="navlinks" aria-label="Navigasi utama" style="display:flex;gap:28px;font-size:14px;font-weight:600;color:var(--soft);margin-left:8px">
+      <a href="#fitur">Fitur</a>
+      <a href="#kantor">Kantor 3D</a>
+      <a href="#harga">Harga</a>
+      <a href="#faq">FAQ</a>
+      <a href="#dokumentasi">Dokumentasi</a>
+    </nav>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <button type="button" onClick="{{toggleTheme}}" aria-label="Ganti mode tampilan" style="width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--soft);display:inline-flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{themeIcon}}"></path></svg>
+      </button>
+      <a class="btns hide-sm" href="Dashboard.dc.html" style="padding:10px 16px;border-radius:10px;font-size:14px;font-weight:700;color:var(--ink)">Masuk</a>
+      <a class="btnp" href="Onboarding.dc.html" style="padding:11px 18px;border-radius:10px;font-size:14px;font-weight:700;background:var(--accent);color:var(--onAccent)">Mulai sekarang</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ============ HERO ============ -->
+<section style="position:relative;overflow:hidden;background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%);padding:80px 24px 0">
+  <div class="gridbg" aria-hidden="true"></div>
+  <div class="orb" aria-hidden="true" style="width:420px;height:420px;left:-120px;top:-100px;background:#4f7cff"></div>
+  <div class="orb" aria-hidden="true" style="width:380px;height:380px;right:-100px;top:60px;background:#b18cff;animation-delay:-5s"></div>
+  <div class="orb" aria-hidden="true" style="width:300px;height:300px;left:42%;top:-140px;background:#ff9cc4;animation-delay:-9s"></div>
+  <div style="position:relative;z-index:1;max-width:1200px;margin:0 auto;text-align:center">
+    <span class="fu" style="display:inline-flex;align-items:center;gap:8px;padding:7px 15px;border-radius:999px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);color:var(--accentText);font-size:13px;font-weight:700">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--accentText)"></span>
+      Kantor virtual berbasis AI untuk tim dan agensi
+    </span>
+    <h1 class="fu d1" style="margin:22px auto 0;max-width:860px;font-size:clamp(36px,5.6vw,72px);line-height:1.04;letter-spacing:-.04em;font-weight:800">Satu kantor virtual untuk seluruh <span class="gtext">tim AI Anda.</span></h1>
+    <p class="fu d2" style="margin:22px auto 0;max-width:640px;font-size:clamp(16px,1.6vw,19px);line-height:1.6;color:var(--soft)">Virtual Office mengumpulkan agent, perintah, dan hasil kerja di satu ruang kerja 3D. Beri perintah, pantau prosesnya, lalu tinjau dan setujui hasilnya.</p>
+    <div class="fu d3" style="margin-top:34px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a class="btnp" href="Onboarding.dc.html" style="display:inline-flex;align-items:center;gap:8px;padding:15px 26px;border-radius:12px;font-size:16px;font-weight:700;background:var(--accent);color:var(--onAccent)">
+        Mulai sekarang
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </a>
+      <a class="btns" href="#kantor" style="display:inline-flex;align-items:center;gap:8px;padding:15px 26px;border-radius:12px;font-size:16px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink)">Lihat kantor 3D</a>
+    </div>
+    <p class="fu d3" style="margin:16px 0 0;font-size:13px;color:var(--mute)">Semua hasil AI berupa draft. Selalu ditinjau manusia sebelum dipakai.</p>
+  </div>
+
+  <!-- product window -->
+  <div class="fu d4" style="position:relative;z-index:1;max-width:1200px;margin:56px auto 0;border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg2)">
+      <span style="width:11px;height:11px;border-radius:50%;background:var(--line)"></span>
+      <span style="width:11px;height:11px;border-radius:50%;background:var(--line)"></span>
+      <span style="width:11px;height:11px;border-radius:50%;background:var(--line)"></span>
+      <span style="margin:0 auto;font-size:12px;font-weight:600;color:var(--mute)">Kantor · Workspace Contoh</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;align-items:stretch">
+      <div style="flex:1 1 560px;min-width:0;background:var(--floor);position:relative;padding:8px 8px 0">
+        <svg viewBox="0 0 960 520" role="img" aria-label="Ilustrasi kantor isometrik berisi delapan divisi agent" style="width:100%;height:auto;display:block">
+          <defs>
+            <g id="deskA"><rect width="52" height="26" rx="5" style="fill:var(--desk);stroke:var(--line);stroke-width:1.5"></rect><rect x="17" y="6" width="18" height="11" rx="2.5" style="fill:var(--ink);opacity:.82"></rect></g>
+          </defs>
+          <g transform="translate(480 80)">
+            <g transform="translate(0 16)"><g transform="matrix(0.866 0.5 -0.866 0.5 0 0)"><rect x="-8" y="-8" width="388" height="388" rx="18" style="fill:var(--floor2)"></rect></g></g>
+            <g transform="matrix(0.866 0.5 -0.866 0.5 0 0)">
+              <rect x="-8" y="-8" width="388" height="388" rx="18" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"></rect>
+              <rect x="0" y="0" width="112" height="112" rx="10" fill="#4f7cff" fill-opacity=".14" stroke="#4f7cff" stroke-opacity=".55" stroke-width="2"></rect>
+              <rect x="124" y="0" width="112" height="112" rx="10" fill="#ff8a3d" fill-opacity=".14" stroke="#ff8a3d" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="248" y="0" width="112" height="112" rx="10" fill="#ff5fa2" fill-opacity=".14" stroke="#ff5fa2" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="0" y="124" width="112" height="112" rx="10" fill="#2fbf71" fill-opacity=".14" stroke="#2fbf71" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="124" y="124" width="112" height="112" rx="10" fill="#8a5cf6" fill-opacity=".14" stroke="#8a5cf6" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="248" y="124" width="112" height="112" rx="10" fill="#14b8a6" fill-opacity=".14" stroke="#14b8a6" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="0" y="248" width="112" height="112" rx="10" fill="#f5b82e" fill-opacity=".16" stroke="#f5b82e" stroke-opacity=".7" stroke-width="2"></rect>
+              <rect x="124" y="248" width="112" height="112" rx="10" fill="#64748b" fill-opacity=".14" stroke="#64748b" stroke-opacity=".6" stroke-width="2"></rect>
+              <rect x="248" y="248" width="112" height="112" rx="10" style="fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 6"></rect>
+              <use href="#deskA" x="10" y="12"></use><use href="#deskA" x="50" y="62"></use>
+              <use href="#deskA" x="134" y="12"></use><use href="#deskA" x="174" y="62"></use>
+              <use href="#deskA" x="258" y="12"></use><use href="#deskA" x="298" y="62"></use>
+              <use href="#deskA" x="10" y="136"></use><use href="#deskA" x="50" y="186"></use>
+              <use href="#deskA" x="134" y="136"></use><use href="#deskA" x="174" y="186"></use>
+              <use href="#deskA" x="258" y="136"></use><use href="#deskA" x="298" y="186"></use>
+              <use href="#deskA" x="10" y="260"></use><use href="#deskA" x="50" y="310"></use>
+              <use href="#deskA" x="134" y="260"></use><use href="#deskA" x="174" y="310"></use>
+            </g>
+            <g transform="translate(-480 -80)">
+              <g class="bob" font-family="Plus Jakarta Sans,system-ui,sans-serif" font-size="12" font-weight="700">
+                <!-- proposal -->
+                <circle cx="480" cy="114" r="8" fill="#e3b48a"></circle><rect x="471" y="123" width="18" height="22" rx="8" fill="#4f7cff"></rect>
+                <rect x="440" y="80" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="454" cy="92" r="4.5" fill="#4f7cff"></circle><text x="465" y="96" style="fill:var(--ink)">Proposal</text>
+                <!-- ads -->
+                <circle cx="587" cy="176" r="8" fill="#f3d2b3"></circle><rect x="578" y="185" width="18" height="22" rx="8" fill="#ff8a3d"></rect>
+                <rect x="547" y="142" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="561" cy="154" r="4.5" fill="#ff8a3d"></circle><text x="572" y="158" style="fill:var(--ink)">Ads</text>
+                <!-- social -->
+                <circle cx="695" cy="238" r="8" fill="#c98f62"></circle><rect x="686" y="247" width="18" height="22" rx="8" fill="#ff5fa2"></rect>
+                <rect x="655" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="669" cy="216" r="4.5" fill="#ff5fa2"></circle><text x="680" y="220" style="fill:var(--ink)">Social</text>
+                <!-- qa -->
+                <circle cx="373" cy="176" r="8" fill="#e3b48a"></circle><rect x="364" y="185" width="18" height="22" rx="8" fill="#2fbf71"></rect>
+                <rect x="333" y="142" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="347" cy="154" r="4.5" fill="#2fbf71"></circle><text x="358" y="158" style="fill:var(--ink)">QA</text>
+                <!-- dev -->
+                <circle cx="480" cy="238" r="8" fill="#a97047"></circle><rect x="471" y="247" width="18" height="22" rx="8" fill="#8a5cf6"></rect>
+                <rect x="440" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="454" cy="216" r="4.5" fill="#8a5cf6"></circle><text x="465" y="220" style="fill:var(--ink)">Dev</text>
+                <!-- reporting -->
+                <circle cx="587" cy="300" r="8" fill="#f3d2b3"></circle><rect x="578" y="309" width="18" height="22" rx="8" fill="#14b8a6"></rect>
+                <rect x="547" y="266" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="561" cy="278" r="4.5" fill="#14b8a6"></circle><text x="572" y="282" style="fill:var(--ink)">Report</text>
+                <!-- account -->
+                <circle cx="265" cy="238" r="8" fill="#e3b48a"></circle><rect x="256" y="247" width="18" height="22" rx="8" fill="#f5b82e"></rect>
+                <rect x="225" y="204" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="239" cy="216" r="4.5" fill="#f5b82e"></circle><text x="250" y="220" style="fill:var(--ink)">Account</text>
+                <!-- finance -->
+                <circle cx="373" cy="300" r="8" fill="#f3d2b3"></circle><rect x="364" y="309" width="18" height="22" rx="8" fill="#64748b"></rect>
+                <rect x="333" y="266" width="80" height="24" rx="12" style="fill:var(--surface);stroke:var(--line)"></rect><circle cx="347" cy="278" r="4.5" fill="#64748b"></circle><text x="358" y="282" style="fill:var(--ink)">Finance</text>
+                <!-- bubble -->
+                <rect x="532" y="76" width="168" height="30" rx="15" style="fill:var(--accent)"></rect>
+                <path d="M546 91l4 4 8-8" fill="none" style="stroke:var(--onAccent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <text x="566" y="95" style="fill:var(--onAccent)" font-size="12">Draft proposal selesai</text>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <div style="position:absolute;left:20px;bottom:14px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--mute)">Klik karakter untuk ngobrol · geser untuk pindah · scroll untuk zoom</div>
+      </div>
+
+      <!-- chat panel -->
+      <aside style="flex:1 1 340px;max-width:100%;border-left:1px solid var(--line);display:flex;flex-direction:column;text-align:left" aria-label="Contoh panel chat agent">
+        <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--line)">
+          <span style="width:40px;height:40px;border-radius:50%;background:#4f7cff;color:#fff;font-weight:800;font-size:15px;display:inline-flex;align-items:center;justify-content:center">BP</span>
+          <div style="line-height:1.3"><div style="font-weight:800;font-size:15px">Bagas Prasetyo</div><div style="font-size:12px;color:var(--mute);font-weight:600">Client Research · Divisi Proposal</div></div>
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--ok)"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok)"></span>Aktif</span>
+        </div>
+        <div style="display:flex;gap:4px;padding:10px 16px 0">
+          <span style="padding:7px 14px;border-radius:9px;background:var(--accentSoft);color:var(--accentText);font-size:13px;font-weight:700">Chat</span>
+          <span style="padding:7px 14px;border-radius:9px;color:var(--mute);font-size:13px;font-weight:700">Perintah</span>
+        </div>
+        <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.55">
+          <div class="pop1" style="align-self:flex-end;max-width:86%;padding:11px 14px;border-radius:14px 14px 4px 14px;background:var(--accent);color:var(--onAccent)">Analisis brief client ini: toko kopi lokal butuh website dan iklan Meta.</div>
+          <div class="typing" aria-hidden="true" style="align-self:flex-start;padding:12px 14px;border-radius:14px 14px 14px 4px;background:var(--bg2);border:1px solid var(--line);overflow:hidden"><span></span><span></span><span></span></div>
+          <div class="pop2" style="align-self:flex-start;max-width:90%;padding:11px 14px;border-radius:14px 14px 14px 4px;background:var(--bg2);border:1px solid var(--line)">Siap. Saya pisahkan jadi pain point, pertanyaan discovery call, dan risiko scope. Draf masuk ke board setelah selesai.</div>
+          <div class="pop3" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+            <span style="padding:7px 12px;border-radius:999px;border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--soft)">Pertanyaan discovery call</span>
+            <span style="padding:7px 12px;border-radius:999px;border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--soft)">Riset bisnis klien</span>
+          </div>
+        </div>
+        <div style="padding:12px 16px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
+          <div style="flex:1;padding:12px 14px;border-radius:12px;border:1px solid var(--line);font-size:14px;color:var(--mute)">Tulis pesan…</div>
+          <span style="width:44px;height:44px;border-radius:12px;background:var(--accent);color:var(--onAccent);display:inline-flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AGENT MARQUEE ============ -->
+<section style="padding:44px 0 8px;background:var(--bg)">
+  <div style="text-align:center;font-size:13px;font-weight:700;color:var(--mute);margin-bottom:22px">23 agent siap bekerja untuk Anda</div>
+  <div class="marq" aria-hidden="true"><div class="track">
+    <sc-for list="{{marquee}}" as="m" hint-placeholder-count="12">
+      <span style="display:inline-flex;align-items:center;gap:10px;padding:8px 18px 8px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:700;white-space:nowrap"><span style="width:30px;height:30px;border-radius:50%;background:{{m.tint}};display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">{{m.ini}}</span>{{m.name}}<span style="font-weight:600;color:var(--mute)">{{m.role}}</span></span>
+    </sc-for>
+  </div></div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section style="border-bottom:1px solid var(--line);background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto;padding:40px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">
+    <sc-for list="{{stats}}" as="s" hint-placeholder-count="4">
+      <div style="text-align:center">
+        <div style="font-size:40px;font-weight:800;letter-spacing:-.03em">{{s.value}}</div>
+        <div style="margin-top:4px;font-size:14px;font-weight:600;color:var(--mute)">{{s.label}}</div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="fitur" style="padding:104px 24px 96px;background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto">
+    <div style="max-width:620px">
+      <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">Fitur</div>
+      <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Semua yang dibutuhkan untuk menjalankan kerja berbasis AI.</h2>
+      <p style="margin:16px 0 0;font-size:17px;line-height:1.6;color:var(--soft)">Dari memberi perintah sampai menyetujui hasil, tanpa pindah-pindah alat.</p>
+    </div>
+    <div style="margin-top:52px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+      <sc-for list="{{features}}" as="f" hint-placeholder-count="6">
+        <article class="lift reveal" style="padding:28px;border:1px solid var(--line);border-radius:22px;background:var(--surface)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="width:46px;height:46px;border-radius:13px;background:var(--accentSoft);color:var(--accentText);display:inline-flex;align-items:center;justify-content:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.icon}}"></path></svg>
+            </span>
+            <sc-if value="{{f.soon}}" hint-placeholder-val="{{ false }}"><span style="padding:4px 10px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--mute)">Segera hadir</span></sc-if>
+          </div>
+          <h3 style="margin:20px 0 0;font-size:19px;letter-spacing:-.015em;font-weight:800">{{f.title}}</h3>
+          <p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:var(--soft)">{{f.body}}</p>
+        </article>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section style="padding:96px 24px;background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div style="max-width:1200px;margin:0 auto">
+    <div style="text-align:center;max-width:620px;margin:0 auto">
+      <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">Cara kerja</div>
+      <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Dari perintah ke hasil dalam tiga langkah.</h2>
+    </div>
+    <div style="margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:32px">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+        <div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--onAccent);font-weight:800;font-size:18px;display:inline-flex;align-items:center;justify-content:center">{{s.n}}</span>
+            <span style="flex:1;height:2px;background:var(--line)"></span>
+          </div>
+          <h3 style="margin:20px 0 0;font-size:20px;font-weight:800;letter-spacing:-.015em">{{s.title}}</h3>
+          <p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:var(--soft)">{{s.body}}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OFFICE / DIVISIONS ============ -->
+<section id="kantor" style="padding:104px 24px;background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto">
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;justify-content:space-between">
+      <div style="max-width:640px">
+        <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">Kantor 3D</div>
+        <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Satu kantor, delapan divisi.</h2>
+        <p style="margin:16px 0 0;font-size:17px;line-height:1.6;color:var(--soft)">Setiap divisi punya ruang dan agent sendiri. Klik karakter untuk ngobrol atau beri perintah.</p>
+      </div>
+      <a class="btns" href="Dashboard.dc.html" style="padding:13px 22px;border-radius:12px;font-size:15px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink)">Coba di dashboard</a>
+    </div>
+    <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+      <sc-for list="{{divisions}}" as="d" hint-placeholder-count="8">
+        <article class="lift reveal" style="padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--surface)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:12px;height:12px;border-radius:4px;background:{{d.color}}"></span>
+            <h3 style="margin:0;font-size:16px;font-weight:800">{{d.name}}</h3>
+            <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--mute)">{{d.count}}</span>
+          </div>
+          <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--soft)">{{d.agents}}</p>
+        </article>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="harga" style="padding:104px 24px;background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div style="max-width:1200px;margin:0 auto">
+    <div style="text-align:center;max-width:640px;margin:0 auto">
+      <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">Harga</div>
+      <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Mulai dari template, berkembang sesuai kebutuhan.</h2>
+      <p style="margin:16px 0 0;font-size:17px;line-height:1.6;color:var(--soft)">Paket dibedakan lewat kemampuan dan kuota penggunaan. Harga dan angka kuota final menyusul.</p>
+    </div>
+    <div style="margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch">
+      <sc-for list="{{plans}}" as="p" hint-placeholder-count="3">
+        <article style="padding:32px;border-radius:20px;background:var(--surface);border:{{p.border}};display:flex;flex-direction:column;position:relative">
+          <sc-if value="{{p.popular}}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-13px;left:32px;padding:5px 12px;border-radius:999px;background:var(--accent);color:var(--onAccent);font-size:12px;font-weight:800">Paling banyak dipilih</span></sc-if>
+          <h3 style="margin:0;font-size:20px;font-weight:800">{{p.name}}</h3>
+          <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:var(--soft);min-height:44px">{{p.tagline}}</p>
+          <div style="margin-top:22px;display:flex;align-items:baseline;gap:6px">
+            <span style="font-size:34px;font-weight:800;letter-spacing:-.03em">{{p.price}}</span>
+            <span style="font-size:14px;font-weight:600;color:var(--mute)">{{p.per}}</span>
+          </div>
+          <a class="{{p.btnClass}}" href="Onboarding.dc.html" style="margin-top:22px;padding:13px 18px;border-radius:12px;font-size:15px;font-weight:700;text-align:center;background:{{p.btnBg}};color:{{p.btnInk}};border:1px solid {{p.btnLine}}">{{p.cta}}</a>
+          <ul style="list-style:none;margin:26px 0 0;padding:26px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:14px">
+            <sc-for list="{{p.rows}}" as="r" hint-placeholder-count="6">
+              <li style="display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5;color:{{r.ink}}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px;color:{{r.mark}}"><path d="{{r.icon}}"></path></svg>
+                <span><span style="font-weight:700">{{r.label}}</span><span style="color:var(--mute)"> {{r.note}}</span></span>
+              </li>
+            </sc-for>
+          </ul>
+        </article>
+      </sc-for>
+    </div>
+    <p style="margin:28px 0 0;text-align:center;font-size:13px;color:var(--mute)">Nama paket, harga, dan kuota di atas masih placeholder sampai keputusan bisnis ditetapkan.</p>
+  </div>
+</section>
+
+<!-- ============ KEY / SECURITY ============ -->
+<section style="padding:104px 24px;background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:56px;align-items:center">
+    <div style="flex:1 1 420px;min-width:0">
+      <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">Kontrol &amp; keamanan</div>
+      <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Data tim Anda tetap milik tim Anda.</h2>
+      <p style="margin:16px 0 0;font-size:17px;line-height:1.6;color:var(--soft)">Virtual Office dirancang multi-tenant. Setiap organisasi dan workspace dipisahkan, dan hak akses diperiksa di server, bukan hanya di tampilan.</p>
+      <ul style="list-style:none;margin:28px 0 0;padding:0;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{security}}" as="s" hint-placeholder-count="4">
+          <li style="display:flex;gap:14px;align-items:flex-start">
+            <span style="flex:none;width:28px;height:28px;border-radius:50%;background:var(--okSoft);color:var(--ok);display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg></span>
+            <div><div style="font-size:16px;font-weight:800">{{s.title}}</div><div style="margin-top:3px;font-size:14px;line-height:1.6;color:var(--soft)">{{s.body}}</div></div>
+          </li>
+        </sc-for>
+      </ul>
+    </div>
+    <div style="flex:1 1 400px;min-width:0">
+      <div style="border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow);padding:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:15px;font-weight:800">Sumber model AI</div><span style="font-size:12px;font-weight:700;color:var(--mute)">Hybrid</span></div>
+        <div style="margin-top:16px;padding:16px;border-radius:14px;border:2px solid var(--accent);background:var(--accentSoft)">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accentText)"></span><span style="font-size:15px;font-weight:800">Dikelola platform</span></div>
+          <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:var(--soft)">Langsung pakai. Penggunaan dihitung terhadap kuota paket.</p>
+        </div>
+        <div style="margin-top:12px;padding:16px;border-radius:14px;border:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:50%;border:2px solid var(--mute)"></span><span style="font-size:15px;font-weight:800">API key sendiri (BYOK)</span><span style="margin-left:auto;padding:3px 9px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--mute)">Segera hadir</span></div>
+          <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:var(--soft)">Biaya provider ditagihkan ke akun Anda. Key tidak pernah ditampilkan utuh.</p>
+          <div style="margin-top:12px;padding:11px 14px;border-radius:10px;background:var(--bg2);font-size:13px;font-weight:600;color:var(--mute);letter-spacing:.06em">sk-ant-••••••••••••3f2a</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DOCS ============ -->
+<section id="dokumentasi" style="padding:0 24px 104px;background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto;padding:32px;border:1px solid var(--line);border-radius:20px;background:var(--bg2);display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between">
+    <div style="max-width:620px"><div style="font-size:18px;font-weight:800">Dokumentasi</div><p style="margin:6px 0 0;font-size:15px;line-height:1.6;color:var(--soft)">Panduan memulai, daftar agent dan perintah, serta cara kerja kuota. Tersedia bertahap seiring fitur dirilis.</p></div>
+    <a class="btns" href="#faq" style="padding:13px 22px;border-radius:12px;font-size:15px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink)">Baca FAQ</a>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq" style="padding:0 24px 104px;background:var(--bg)">
+  <div style="max-width:860px;margin:0 auto">
+    <div style="text-align:center">
+      <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accentText)">FAQ</div>
+      <h2 style="margin:12px 0 0;font-size:clamp(30px,3.6vw,44px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Pertanyaan yang sering muncul.</h2>
+    </div>
+    <div style="margin-top:44px;border-top:1px solid var(--line)">
+      <sc-for list="{{faqs}}" as="q" hint-placeholder-count="5">
+        <div style="border-bottom:1px solid var(--line)">
+          <button type="button" onClick="{{q.toggle}}" aria-expanded="{{q.open}}" style="width:100%;display:flex;align-items:center;gap:16px;padding:22px 0;background:none;border:0;cursor:pointer;text-align:left;font-size:17px;font-weight:700;color:var(--ink)">
+            <span style="flex:1">{{q.q}}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--mute);transform:{{q.rot}};transition:transform .2s"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <sc-if value="{{q.open}}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:0 40px 24px 0;font-size:15px;line-height:1.7;color:var(--soft)">{{q.a}}</p></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section style="padding:0 24px 96px;background:var(--bg)">
+  <div class="reveal" style="max-width:1200px;margin:0 auto;padding:80px 32px;border-radius:32px;background:linear-gradient(135deg,#1b2a5e 0%,#3a2f93 100%);color:#fff;text-align:center;position:relative;overflow:hidden;isolation:isolate">
+    <div class="orb" aria-hidden="true" style="z-index:-1;width:320px;height:320px;left:-80px;top:-120px;background:#4f7cff;opacity:.5"></div>
+    <div class="orb" aria-hidden="true" style="z-index:-1;width:300px;height:300px;right:-60px;bottom:-140px;background:#ff5fa2;opacity:.4;animation-delay:-6s"></div>
+    <h2 style="margin:0 auto;max-width:640px;font-size:clamp(30px,4vw,48px);line-height:1.1;letter-spacing:-.03em;font-weight:800">Buka kantor virtual Anda hari ini.</h2>
+    <p style="margin:18px auto 0;max-width:520px;font-size:17px;line-height:1.6;color:#c9d4f5">Buat organisasi, pilih agent pertama, dan kirim perintah pertama dalam beberapa menit.</p>
+    <div style="margin-top:32px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="Onboarding.dc.html" style="padding:15px 28px;border-radius:12px;font-size:16px;font-weight:700;background:#ffffff;color:#1b2a5e">Mulai sekarang</a>
+      <a href="Dashboard.dc.html" style="padding:15px 28px;border-radius:12px;font-size:16px;font-weight:700;border:1px solid #5a6fb5;color:#fff">Masuk</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer style="border-top:1px solid var(--line);background:var(--bg2)">
+  <div style="max-width:1200px;margin:0 auto;padding:56px 24px 40px;display:flex;flex-wrap:wrap;gap:40px;justify-content:space-between">
+    <div style="max-width:320px">
+      <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px">
+        <span style="width:30px;height:30px;border-radius:8px;background:#4f7cff;display:inline-flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="#fff"></rect><rect x="11" y="24" width="10" height="3" rx="1.5" fill="#fff"></rect></svg></span>
+        Virtual Office
+      </div>
+      <p style="margin:14px 0 0;font-size:14px;line-height:1.65;color:var(--soft)">Kantor virtual berbasis AI untuk tim dan agensi.</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:56px;font-size:14px">
+      <div style="display:flex;flex-direction:column;gap:12px"><div style="font-weight:800">Produk</div><a href="#fitur" style="color:var(--soft)">Fitur</a><a href="#kantor" style="color:var(--soft)">Kantor 3D</a><a href="#harga" style="color:var(--soft)">Harga</a></div>
+      <div style="display:flex;flex-direction:column;gap:12px"><div style="font-weight:800">Sumber</div><a href="#dokumentasi" style="color:var(--soft)">Dokumentasi</a><a href="#faq" style="color:var(--soft)">FAQ</a></div>
+      <div style="display:flex;flex-direction:column;gap:12px"><div style="font-weight:800">Legal</div><a href="#top" style="color:var(--soft)">Kebijakan Privasi</a><a href="#top" style="color:var(--soft)">Syarat &amp; Ketentuan</a></div>
+    </div>
+  </div>
+  <div style="max-width:1200px;margin:0 auto;padding:20px 24px 32px;border-top:1px solid var(--line);font-size:13px;color:var(--mute)">© 2026 Virtual Office. Hak cipta dilindungi.</div>
+</footer>
+
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"splash":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":5300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    let sys = false;
+    try { sys = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { sys = false; }
+    const splash = !(props && props.splash === false);
+    this.state = { dark: !!(props && props.dark) || sys, faq: 0, sp: splash ? 'on' : 'off', splash };
+  }
+  componentDidMount() {
+    if (!this.state.splash) return;
+    this._t1 = setTimeout(() => this.setState({ sp: 'out' }), 2000);
+    this._t2 = setTimeout(() => this.setState({ sp: 'off' }), 2700);
+  }
+  componentWillUnmount() {
+    clearTimeout(this._t1); clearTimeout(this._t2);
+  }
+  renderVals() {
+    const dark = this.state.dark;
+    const AGM = [
+      ['Roy Ahmad', 'Head of Proposals', '#4f7cff'], ['Bagas Prasetyo', 'Client Research', '#4f7cff'], ['Siti Nurhaliza', 'Proposal Writer', '#4f7cff'], ['Dimas Aryanto', 'Pricing & Scope', '#4f7cff'],
+      ['Putri Maharani', 'Head of Ads Copy', '#ff8a3d'], ['Fajar Nugroho', 'Meta Ads Copy', '#ff8a3d'], ['Anisa Rahmawati', 'Google Ads Copy', '#ff8a3d'], ['Yoga Pratama', 'Landing & CTA Tester', '#ff8a3d'],
+      ['Dewi Kartika', 'Head of Social', '#ff5fa2'], ['Raka Wijaya', 'Content Planner', '#ff5fa2'], ['Nadia Safitri', 'Caption Writer', '#ff5fa2'], ['Eko Saputra', 'Video Script', '#ff5fa2'],
+      ['Hendra Gunawan', 'QA Lead', '#2fbf71'], ['Laras Ayuningtyas', 'Visual QA', '#2fbf71'], ['Andi Kurniawan', 'Functional QA', '#2fbf71'], ['Maya Anggraini', 'Performance & SEO', '#2fbf71'],
+      ['Arief Setiawan', 'Tech Lead', '#8a5cf6'], ['Citra Lestari', 'WordPress & Elementor', '#8a5cf6'], ['Bayu Firmansyah', 'Backend Developer', '#8a5cf6'], ['Tari Susanti', 'Webflow & Frontend', '#8a5cf6'],
+      ['Kirana Dewanti', 'Reporting Analyst', '#14b8a6'], ['Rizky Ramadhan', 'Account Manager', '#f5b82e'], ['Melati Handayani', 'Finance & Admin', '#64748b'],
+    ].map((a) => ({ name: a[0], role: a[1], ini: a[0].split(' ').map((w) => w[0]).slice(0, 2).join(''), tint: a[2] + '33' }));
+    const marquee = AGM.concat(AGM);
+    const sp = this.state.sp;
+    const sunPath = 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4';
+    const moonPath = 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z';
+    const tick = 'M20 6L9 17l-5-5';
+    const dash = 'M5 12h14';
+
+    const stats = [
+      { value: '8', label: 'divisi kerja' },
+      { value: '23', label: 'agent siap pakai' },
+      { value: '26', label: 'jenis perintah' },
+      { value: '1', label: 'board untuk review dan persetujuan' },
+    ];
+
+    const features = [
+      { icon: 'M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', title: 'Agent siap kerja', body: '23 agent di 8 divisi, dari proposal, iklan, dan konten sampai QA, developer, dan finance. Mulai dari template tanpa konfigurasi rumit.', soon: false },
+      { icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', title: 'Perintah terstruktur', body: 'Isi form singkat, agent mengerjakan, dan hasilnya masuk ke board sebagai draft. Cocok untuk pekerjaan berulang.', soon: false },
+      { icon: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', title: 'Board review', body: 'Setujui, tolak, atau minta revisi. Setiap versi dan alasan revisi tercatat, jadi mudah dilacak.', soon: false },
+      { icon: 'M12 2l9 5v10l-9 5-9-5V7l9-5zM12 12l9-5M12 12v10M12 12L3 7', title: 'Kantor 3D interaktif', body: 'Lihat siapa mengerjakan apa. Klik karakter untuk ngobrol atau beri perintah langsung dari kantor.', soon: false },
+      { icon: 'M18 20V10M12 20V4M6 20v-6', title: 'Kuota dan penggunaan', body: 'Pantau pemakaian per periode dan atur batas biaya tambahan agar pengeluaran tetap terkendali.', soon: true },
+      { icon: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9', title: 'Workflow kustom', body: 'Rangkai beberapa agent dan perintah menjadi alur kerja yang bisa dijalankan ulang.', soon: true },
+    ];
+
+    const steps = [
+      { n: '1', title: 'Pilih agent', body: 'Buka kantor atau daftar agent, lalu pilih divisi dan orang yang tepat untuk pekerjaannya.' },
+      { n: '2', title: 'Beri perintah', body: 'Isi form singkat atau ngobrol langsung. Agent memakai konteks klien yang sudah Anda simpan.' },
+      { n: '3', title: 'Tinjau dan setujui', body: 'Hasil masuk ke board sebagai draft. Revisi, setujui, atau tolak sebelum dipakai.' },
+    ];
+
+    const divisions = [
+      { name: 'Proposal Writer', color: '#4f7cff', count: '4 agent', agents: 'Roy, Bagas, Siti, Dimas' },
+      { name: 'Ads Copywriter', color: '#ff8a3d', count: '4 agent', agents: 'Putri, Fajar, Anisa, Yoga' },
+      { name: 'Social Media', color: '#ff5fa2', count: '4 agent', agents: 'Dewi, Raka, Nadia, Eko' },
+      { name: 'Web QA', color: '#2fbf71', count: '4 agent', agents: 'Hendra, Laras, Andi, Maya' },
+      { name: 'Developer Helper', color: '#8a5cf6', count: '4 agent', agents: 'Arief, Citra, Bayu, Tari' },
+      { name: 'Reporting', color: '#14b8a6', count: '1 agent', agents: 'Kirana' },
+      { name: 'Account Manager', color: '#f5b82e', count: '1 agent', agents: 'Rizky' },
+      { name: 'Finance', color: '#64748b', count: '1 agent', agents: 'Melati' },
+    ];
+
+    const row = (label, note, kind) => ({
+      label, note,
+      icon: kind === 'yes' ? tick : (kind === 'soon' ? dash : dash),
+      mark: kind === 'yes' ? 'var(--ok)' : 'var(--mute)',
+      ink: kind === 'yes' ? 'var(--ink)' : 'var(--mute)',
+    });
+    const plans = [
+      {
+        name: 'Dasar', tagline: 'Untuk mencoba dan tim kecil yang butuh template siap pakai.', price: '[Rp —]', per: '/ bulan', popular: false,
+        border: '1px solid var(--line)', cta: 'Mulai dengan Dasar', btnClass: 'btns', btnBg: 'var(--surface)', btnInk: 'var(--ink)', btnLine: 'var(--line)',
+        rows: [
+          row('Template agent', '', 'yes'), row('Template workflow', '', 'yes'), row('Kantor 3D dan board', '', 'yes'),
+          row('Kuota', '[unit dan jumlah menyusul]', 'yes'), row('Kustomisasi agent', 'tidak tersedia', 'no'), row('API key sendiri', 'tidak tersedia', 'no'),
+        ],
+      },
+      {
+        name: 'Pro', tagline: 'Untuk tim yang ingin menyesuaikan agent dan alur kerjanya.', price: '[Rp —]', per: '/ bulan', popular: true,
+        border: '2px solid var(--accent)', cta: 'Mulai dengan Pro', btnClass: 'btnp', btnBg: 'var(--accent)', btnInk: 'var(--onAccent)', btnLine: 'var(--accent)',
+        rows: [
+          row('Semua fitur Dasar', '', 'yes'), row('Kustomisasi agent', 'sesuai entitlement', 'yes'), row('Workflow builder', 'segera hadir', 'yes'),
+          row('Kuota lebih besar', '[menyusul]', 'yes'), row('Biaya tambahan (overage)', 'dengan batas pengeluaran', 'yes'), row('API key sendiri (BYOK)', 'segera hadir', 'yes'),
+        ],
+      },
+      {
+        name: 'Enterprise', tagline: 'Untuk organisasi dengan kebutuhan khusus dan banyak anggota.', price: 'Hubungi kami', per: '', popular: false,
+        border: '1px solid var(--line)', cta: 'Bicara dengan kami', btnClass: 'btns', btnBg: 'var(--surface)', btnInk: 'var(--ink)', btnLine: 'var(--line)',
+        rows: [
+          row('Semua fitur Pro', '', 'yes'), row('Batas anggota dan workspace', '[menyusul]', 'yes'), row('Dukungan prioritas', '', 'yes'),
+          row('Kontrol administrasi lanjutan', '', 'yes'), row('Audit trail', '', 'yes'), row('Retensi data kustom', '', 'yes'),
+        ],
+      },
+    ];
+
+    const security = [
+      { title: 'Terisolasi per organisasi', body: 'Data, anggota, dan resource tiap organisasi dan workspace dipisahkan.' },
+      { title: 'Peran yang jelas', body: 'Owner, member, dan viewer punya hak akses berbeda, diperiksa di server.' },
+      { title: 'Kunci dilindungi', body: 'API key tidak ditampilkan ulang secara utuh dan tidak dicatat di log.' },
+      { title: 'Penggunaan terlacak', body: 'Setiap pemakaian dicatat per workspace, jadi biaya mudah ditelusuri.' },
+    ];
+
+    const faqData = [
+      { q: 'Apa itu Virtual Office?', a: 'Platform kerja berbasis AI. Anda mengelola agent, memberi perintah, dan meninjau hasilnya dalam satu aplikasi, dengan kantor 3D sebagai antarmuka visualnya.' },
+      { q: 'Apakah hasil AI langsung dikirim ke klien?', a: 'Tidak. Semua hasil berupa draft di board. Tim Anda yang meninjau, merevisi, dan menyetujuinya sebelum dipakai.' },
+      { q: 'Apakah data tim saya terpisah dari pelanggan lain?', a: 'Ya. Virtual Office dirancang multi-tenant: data dan hak akses setiap organisasi dipisahkan dan diperiksa di sisi server.' },
+      { q: 'Bisakah memakai API key sendiri?', a: 'Dukungan API key sendiri (BYOK) sedang disiapkan. Biaya provider akan ditagihkan ke akun pemilik key.' },
+      { q: 'Bagaimana kuota dan biaya tambahan dihitung?', a: 'Unit kuota, tarif, dan aturan biaya tambahan diumumkan bersama paket final. Anda akan bisa memantau pemakaian dan menetapkan batas pengeluaran.' },
+      { q: 'Apakah ada aplikasi desktop?', a: 'Saat ini Virtual Office berjalan di web. Aplikasi desktop dipertimbangkan setelah versi web stabil.' },
+    ];
+    const faqs = faqData.map((f, i) => ({
+      ...f,
+      open: this.state.faq === i,
+      rot: this.state.faq === i ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggle: () => this.setState({ faq: this.state.faq === i ? -1 : i }),
+    }));
+
+    return {
+      rootClass: 'vo' + (dark ? ' dark' : '') + (this.state.splash ? '' : ' nosp'),
+      themeIcon: dark ? sunPath : moonPath,
+      toggleTheme: () => this.setState({ dark: !this.state.dark }),
+      splashOn: sp !== 'off', splashClass: sp === 'out' ? 'splash out' : 'splash',
+      marquee,
+      stats, features, steps, divisions, plans, security, faqs,
+    };
+  }
+}
+</script>
+</body>
+</html>

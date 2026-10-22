@@ -1,0 +1,28 @@
+# Dependencies and generated builds
+node_modules/
+# Left by an earlier dependency-recovery attempt; never commit it.
+node_moduless/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local secrets; keep the documented placeholder tracked.
+.env
+.env.*
+!.env.example
+
+# Package-manager and runtime logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# This repository uses npm; do not add a second package-manager lockfile.
+pnpm-lock.yaml
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

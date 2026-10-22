@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "migrations": [
+    {
+      "id": "001_current_schema_baseline",
+      "file": "001_current_schema_baseline.sql"
+    },
+    {
+      "id": "002_tenant_foundation",
+      "file": "002_tenant_foundation.sql"
+    }
+  ]
+}
