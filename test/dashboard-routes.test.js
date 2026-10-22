@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadDashboardOverview, loadWorkspaceJobs } from '../server/dashboard-routes.js';
+import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceJobs } from '../server/dashboard-routes.js';
 
 test('dashboard overview scopes every query to the active workspace and excludes legacy rows', async () => {
   const calls = [];
@@ -27,4 +27,12 @@ test('workspace job list excludes unowned rows and internal failure detail', asy
   assert.match(calls[0].sql, /j\.workspace_id = \?/);
   assert.deepEqual(calls[0].values, [22, 22]);
   assert.doesNotMatch(JSON.stringify(jobs), /internal detail/);
+});
+
+test('workspace client list only returns clients owned by the active workspace', async () => {
+  const calls = [];
+  const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 2, name: 'Acme' }]]; } };
+  assert.deepEqual(await loadWorkspaceClients(connection, 22), [{ id: 2, name: 'Acme' }]);
+  assert.match(calls[0].sql, /workspace_id = \?/);
+  assert.deepEqual(calls[0].values, [22]);
 });
