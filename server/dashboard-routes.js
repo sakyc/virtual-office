@@ -106,6 +106,14 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       res.status(503).json({ error: 'Dashboard service unavailable.' });
     } finally { connection?.release(); }
   });
+  app.post('/api/dashboard/items/:id/approve', requireTenant, async (req, res) => {
+    let connection;
+    try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Item service unavailable.' }); const { approveTenantItem } = await import('./tenant-items.js'); await approveTenantItem(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id) }); res.status(204).end(); } catch (error) { res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' }); } finally { connection?.release(); }
+  });
+  app.delete('/api/dashboard/items/:id', requireTenant, async (req, res) => {
+    let connection;
+    try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Item service unavailable.' }); const { deleteTenantItem } = await import('./tenant-items.js'); await deleteTenantItem(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id) }); res.status(204).end(); } catch (error) { res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' }); } finally { connection?.release(); }
+  });
   app.post('/api/dashboard/jobs', requireTenant, async (req, res) => {
     let connection;
     try {

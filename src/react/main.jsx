@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { NativeDashboard } from './dashboard.jsx';
-import { ClientsPage, JobsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
+import { BoardPage, ClientsPage, JobsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
 import './shell.css';
 
 const pages = { '/app': 'Dashboard', '/app/workers': 'Workers', '/app/jobs': 'Jobs', '/app/settings': 'Settings' };
@@ -19,6 +19,7 @@ function App() {
   else if (path === '/app') page = <NativeDashboard onNavigate={go} />;
   else if (path === '/app/workers') page = <WorkersPage onNavigate={go} />;
   else if (path === '/app/clients') page = <ClientsPage onNavigate={go} />;
+  else if (path === '/app/board') page = <BoardPage onNavigate={go} />;
   else if (path === '/app/jobs') page = <JobsPage onNavigate={go} />;
   else if (path === '/app/settings') page = <SettingsPage onNavigate={go} />;
   else if (path === '/app/reference') page = <ReferencePage title="Virtual Office dashboard reference" src="/dashboard-reference/Dashboard.dc.html" />;
