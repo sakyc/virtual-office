@@ -21,6 +21,7 @@
     "test:profile": "node --test test/profile.test.js",
     "test:dashboard": "node --test test/dashboard-routes.test.js",
     "test:tenant-jobs": "node --test test/tenant-jobs.test.js",
+    "test:tenant-clients": "node --test test/tenant-clients.test.js",
     "test:onboarding": "node --test test/onboarding-routes.test.js",
     "test:tenant-gate": "node --test test/tenant-gate.test.js"
   },

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { JOBS } from '../../shared/jobs.js';
 
-const navItems = [['Overview', '/app', '⌂'], ['Office', '/app/office', '◫'], ['Workers', '/app/workers', '◌'], ['Jobs', '/app/jobs', '✓']];
+const navItems = [['Overview', '/app', '⌂'], ['Office', '/app/office', '◫'], ['Workers', '/app/workers', '◌'], ['Clients', '/app/clients', '◇'], ['Jobs', '/app/jobs', '✓']];
 const people = [
   ['Nara Putri', 'Strategist', 'Planning campaign & research', '#8b5cf6', 'Online'],
   ['Rina Ayu', 'Content Writer', 'Drafting founder story', '#ef5da8', 'Working'],
@@ -23,6 +23,32 @@ export function WorkersPage({ onNavigate }) {
   const [filter, setFilter] = useState('All');
   const visible = filter === 'All' ? people : people.filter(([, role]) => role.includes(filter));
   return <Shell active="Workers" onNavigate={onNavigate} eyebrow="YOUR DIGITAL TEAM" title="Workers" action={<button className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white">+ Invite member</button>}><section className="rounded-2xl border border-[#c8daf3] bg-[#eaf2ff] p-6 sm:flex sm:items-center sm:justify-between"><div><p className="text-[11px] font-extrabold tracking-[.12em] text-[#3b63e0]">TEAM PULSE</p><h2 className="mt-2 font-serif text-3xl tracking-[-.05em]">Four people keeping work in motion.</h2><p className="mt-2 text-sm text-[#4e6381]">Assign jobs and follow their latest activity from one place.</p></div><div className="mt-5 grid h-24 w-24 place-content-center rounded-full bg-[#3b63e0] text-center text-white sm:mt-0"><b className="text-3xl">04</b><small className="text-[10px]">active workers</small></div></section><div className="mt-6 flex flex-wrap gap-2">{['All', 'Strategist', 'Content Writer', 'Designer', 'Account Manager'].map((option) => <button onClick={() => setFilter(option)} key={option} className={`rounded-full border px-3 py-2 text-xs font-bold ${filter === option ? 'border-[#3b63e0] bg-[#3b63e0] text-white' : 'border-[#e4e8f0] bg-white text-[#667085]'}`}>{option}</button>)}</div><section className="mt-4 grid gap-4 lg:grid-cols-2">{visible.map(([name, role, work, color, state]) => <article key={name} className="rounded-2xl border border-[#e4e8f0] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-lg"><div className="flex items-start justify-between"><span className="grid h-12 w-12 place-content-center rounded-2xl text-sm font-extrabold text-white" style={{ background: color }}>{name.split(' ').map((part) => part[0]).join('')}</span><span className="rounded-full bg-[#e9f6ea] px-2.5 py-1 text-[10px] font-bold text-[#28753d]">● {state}</span></div><h2 className="mt-5 text-lg font-extrabold tracking-[-.04em]">{name}</h2><p className="mt-1 text-sm font-semibold text-[#3b63e0]">{role}</p><div className="mt-5 rounded-xl bg-[#f6f8fb] p-3"><p className="text-[10px] font-extrabold tracking-[.1em] text-[#98a2b3]">CURRENT FOCUS</p><p className="mt-1 text-sm text-[#475467]">{work}</p></div></article>)}</section></Shell>;
+}
+
+export function ClientsPage({ onNavigate }) {
+  const [clients, setClients] = useState([]);
+  const [live, setLive] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
+  const [form, setForm] = useState({ name: '', brief: '' });
+  const [state, setState] = useState({ busy: false, error: '' });
+  const refreshClients = async () => {
+    const response = await fetch('/api/dashboard/clients', { credentials: 'same-origin' });
+    if (!response.ok) return false;
+    const body = await response.json();
+    if (!Array.isArray(body?.clients)) return false;
+    setClients(body.clients); setLive(true); return true;
+  };
+  useEffect(() => { void refreshClients(); }, []);
+  const createClient = async (event) => {
+    event.preventDefault(); setState({ busy: true, error: '' });
+    try {
+      const response = await fetch('/api/dashboard/clients', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Client tidak dapat dibuat.');
+      setForm({ name: '', brief: '' }); await refreshClients(); setShowComposer(false);
+    } catch (error) { setState({ busy: false, error: error.message }); }
+  };
+  return <Shell active="Clients" onNavigate={onNavigate} eyebrow="CUSTOMER DIRECTORY" title="Clients" action={<button onClick={() => setShowComposer(true)} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white">+ New client</button>}><section className="rounded-2xl border border-[#d7e4f7] bg-[#f0f6ff] p-6"><p className="text-[11px] font-extrabold tracking-[.12em] text-[#3b63e0]">WORKSPACE CLIENTS</p><h2 className="mt-2 font-serif text-3xl tracking-[-.05em]">Keep every relationship in one calm place.</h2><p className="mt-2 text-sm text-[#4e6381]">Client data is visible only inside the active workspace.</p></section>{live ? <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{clients.length ? clients.map((client) => <article key={client.id} className="rounded-2xl border border-[#e4e8f0] bg-white p-5"><span className="grid h-11 w-11 place-content-center rounded-xl bg-[#eaf0ff] text-sm font-extrabold text-[#3b63e0]">{client.name.slice(0, 2).toUpperCase()}</span><h2 className="mt-5 text-lg font-extrabold tracking-[-.04em]">{client.name}</h2><p className="mt-1 text-sm text-[#667085]">Workspace client</p></article>) : <p className="col-span-full rounded-2xl border border-dashed border-[#dce1e9] p-8 text-sm text-[#667085]">Belum ada client pada workspace ini.</p>}</section> : <section className="mt-5 rounded-2xl border border-dashed border-[#dce1e9] bg-white p-8 text-sm text-[#667085]">Login dan pilih workspace untuk memuat client sebenarnya.</section>}{showComposer && <div className="fixed inset-0 z-50 grid place-items-center bg-[#101827]/45 p-4" onMouseDown={() => setShowComposer(false)}><form onSubmit={createClient} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><p className="text-[11px] font-extrabold tracking-[.12em] text-[#667085]">NEW CLIENT</p><h2 className="mt-1 font-serif text-3xl tracking-[-.05em]">Tambahkan client</h2><label className="mt-5 block text-sm font-bold">Nama client<input autoFocus required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-2 w-full rounded-xl border border-[#dce1e9] bg-[#f8fafc] px-4 py-3 outline-none" placeholder="Nama brand atau perusahaan"/></label><label className="mt-4 block text-sm font-bold">Brief <span className="font-normal text-[#667085]">(opsional)</span><textarea value={form.brief} onChange={(event) => setForm({ ...form, brief: event.target.value })} className="mt-2 w-full rounded-xl border border-[#dce1e9] bg-[#f8fafc] px-4 py-3 outline-none" rows="4" placeholder="Konteks kerja sama dan brand"/></label>{state.error && <p className="mt-4 rounded-xl bg-[#fff0ef] p-3 text-sm font-semibold text-[#a53d35]">{state.error}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowComposer(false)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#667085]">Batal</button><button disabled={state.busy} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">{state.busy ? 'Menyimpan…' : 'Buat client'}</button></div></form></div>}</Shell>;
 }
 
 export function JobsPage({ onNavigate }) {

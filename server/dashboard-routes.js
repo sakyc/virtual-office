@@ -85,6 +85,17 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       res.status(503).json({ error: 'Dashboard service unavailable.' });
     } finally { connection?.release(); }
   });
+  app.post('/api/dashboard/clients', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
+      const { createTenantClient } = await import('./tenant-clients.js');
+      res.status(201).json(await createTenantClient(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, body: req.body }));
+    } catch (error) {
+      res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Client service unavailable.' });
+    } finally { connection?.release(); }
+  });
   app.get('/api/dashboard/items', requireTenant, async (req, res) => {
     let connection;
     try {
