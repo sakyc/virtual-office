@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs, loadWorkspaceWorkerLoads } from '../server/dashboard-routes.js';
+import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs, loadWorkspaceMembers, loadWorkspaceWorkerLoads } from '../server/dashboard-routes.js';
 
 test('dashboard overview scopes every query to the active workspace and excludes legacy rows', async () => {
   const calls = [];
@@ -49,4 +49,10 @@ test('worker workload comes only from active workspace jobs', async () => {
   const calls = []; const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ agent_id: 'raka', total_jobs: 4, active_jobs: 2 }]]; } };
   assert.deepEqual(await loadWorkspaceWorkerLoads(connection, 22), [{ agentId: 'raka', totalJobs: 4, activeJobs: 2 }]);
   assert.match(calls[0].sql, /workspace_id = \?/); assert.deepEqual(calls[0].values, [22]);
+});
+
+test('member list is resolved only from active workspace membership', async () => {
+  const calls = []; const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 7, email: 'person@example.test', display_name: 'Person', role: 'viewer' }]]; } };
+  assert.deepEqual(await loadWorkspaceMembers(connection, 22), [{ id: 7, email: 'person@example.test', displayName: 'Person', role: 'viewer' }]);
+  assert.match(calls[0].sql, /wm\.workspace_id = \? AND wm\.revoked_at IS NULL/); assert.deepEqual(calls[0].values, [22]);
 });

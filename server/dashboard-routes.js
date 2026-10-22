@@ -62,6 +62,18 @@ export async function loadWorkspaceWorkerLoads(connection, workspaceId) {
   return rows.map((row) => ({ agentId: row.agent_id, totalJobs: asCount(row.total_jobs), activeJobs: asCount(row.active_jobs) }));
 }
 
+export async function loadWorkspaceMembers(connection, workspaceId) {
+  const [rows] = await connection.execute(
+    `SELECT u.id, u.email, u.display_name, wm.role
+       FROM workspace_memberships wm
+       JOIN users u ON u.id = wm.user_id AND u.status = 'active'
+      WHERE wm.workspace_id = ? AND wm.revoked_at IS NULL
+      ORDER BY wm.role = 'admin' DESC, u.display_name, u.email`,
+    [workspaceId],
+  );
+  return rows.map((member) => ({ id: member.id, email: member.email, displayName: member.display_name, role: member.role }));
+}
+
 export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob }) {
   app.get('/api/dashboard/overview', requireTenant, async (req, res) => {
     let connection;
@@ -117,6 +129,10 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
   app.get('/api/dashboard/workers', requireTenant, async (req, res) => {
     let connection;
     try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' }); res.json({ workers: await loadWorkspaceWorkerLoads(connection, req.tenantContext.workspaceId) }); } catch { res.status(503).json({ error: 'Dashboard service unavailable.' }); } finally { connection?.release(); }
+  });
+  app.get('/api/dashboard/members', requireTenant, async (req, res) => {
+    let connection;
+    try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' }); res.json({ members: await loadWorkspaceMembers(connection, req.tenantContext.workspaceId), role: req.tenantContext.role }); } catch { res.status(503).json({ error: 'Dashboard service unavailable.' }); } finally { connection?.release(); }
   });
   app.post('/api/dashboard/items/:id/approve', requireTenant, async (req, res) => {
     let connection;
