@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadSessionProfile } from '../server/auth/profile.js';
+import { loadSessionProfile, selectActiveWorkspace } from '../server/auth/profile.js';
 
 test('profile is assembled exclusively from the server-resolved principal and active memberships', async () => {
   const calls = [];
@@ -28,4 +28,20 @@ test('profile leaves active workspace empty when the session points outside curr
   const result = await loadSessionProfile(connection, { userId: 7, activeWorkspaceId: 999 });
   assert.equal(result.activeWorkspace, null);
   assert.equal(result.workspaces.length, 1);
+});
+
+test('workspace selection verifies membership before updating only the current server session', async () => {
+  const calls = [];
+  const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return sql.startsWith('SELECT w.id') ? [[{ id: 12 }]] : [{ affectedRows: 1 }]; } };
+  assert.equal(await selectActiveWorkspace(connection, { userId: 7, sessionId: 4 }, 12), true);
+  assert.match(calls[0].sql, /wm\.user_id IS NOT NULL OR om\.role = 'owner'/);
+  assert.deepEqual(calls[0].values, [7, 7, 12]);
+  assert.deepEqual(calls[1].values, [12, 4, 7]);
+});
+
+test('workspace selection denies an unowned workspace without changing the session', async () => {
+  const calls = [];
+  const connection = { execute: async (sql) => { calls.push(sql); return [[]]; } };
+  assert.equal(await selectActiveWorkspace(connection, { userId: 7, sessionId: 4 }, 99), false);
+  assert.equal(calls.length, 1);
 });

@@ -20,6 +20,7 @@ export function NativeDashboard({ onNavigate }) {
   const [taskTitle, setTaskTitle] = useState('');
   const [active, setActive] = useState('Overview');
   const [profile, setProfile] = useState(null);
+  const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
   useEffect(() => {
     let cancelled = false;
     // The server determines both the principal and allowed workspaces from the opaque session cookie.
@@ -53,6 +54,16 @@ export function NativeDashboard({ onNavigate }) {
     setTaskTitle('');
     setComposerOpen(false);
   };
+  const chooseWorkspace = async (workspace) => {
+    if (!profile || workspace.id === activeWorkspace?.id || workspaceSwitching) { setWorkspaceOpen(false); return; }
+    setWorkspaceSwitching(true);
+    try {
+      const response = await fetch('/auth/active-workspace', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: workspace.id }),
+      });
+      if (response.ok) setProfile(await response.json());
+    } finally { setWorkspaceSwitching(false); setWorkspaceOpen(false); }
+  };
   return <div className={`min-h-screen font-["Plus_Jakarta_Sans",system-ui,sans-serif] ${theme}`}>
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className={`flex w-full shrink-0 flex-col border-b p-4 md:min-h-screen md:w-[272px] md:border-r md:border-b-0 md:p-5 ${surface}`}>
@@ -61,7 +72,7 @@ export function NativeDashboard({ onNavigate }) {
           <button onClick={() => setWorkspaceOpen(!workspaceOpen)} className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left ${surface}`} aria-expanded={workspaceOpen}>
             <span className="grid h-8 w-8 place-content-center rounded-lg bg-[#eaf0ff] text-xs font-extrabold text-[#3b63e0]">{workspaceName.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{workspaceName}</b><small className={`block truncate text-xs ${muted}`}>{organizationName}</small></span><span className={muted}>⌄</span>
           </button>
-          {workspaceOpen && <div className={`absolute z-20 mt-2 w-full rounded-xl border p-1 shadow-xl ${surface}`}>{(profile?.workspaces?.length ? profile.workspaces : [{ name: workspaceName, organization: { name: organizationName }, id: 'demo' }]).map((workspace) => <button key={workspace.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-bold hover:bg-[#eaf0ff]"><span className="min-w-0"><span className="block truncate">{workspace.name}</span><small className={`block truncate font-normal ${muted}`}>{workspace.organization.name}</small></span>{workspace.id === activeWorkspace?.id && <span className="text-[#3b63e0]">✓</span>}</button>)}<p className={`px-3 py-2 text-[11px] leading-4 ${muted}`}>Penggantian workspace akan tersedia setelah endpoint server-side disetujui.</p></div>}
+          {workspaceOpen && <div className={`absolute z-20 mt-2 w-full rounded-xl border p-1 shadow-xl ${surface}`}>{(profile?.workspaces?.length ? profile.workspaces : [{ name: workspaceName, organization: { name: organizationName }, id: 'demo' }]).map((workspace) => <button key={workspace.id} onClick={() => chooseWorkspace(workspace)} disabled={workspaceSwitching} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-bold hover:bg-[#eaf0ff] disabled:opacity-60"><span className="min-w-0"><span className="block truncate">{workspace.name}</span><small className={`block truncate font-normal ${muted}`}>{workspace.organization.name}</small></span>{workspace.id === activeWorkspace?.id && <span className="text-[#3b63e0]">✓</span>}</button>)}{profile && <p className={`px-3 py-2 text-[11px] leading-4 ${muted}`}>{workspaceSwitching ? 'Mengganti workspace…' : 'Workspace divalidasi server sebelum sesi diperbarui.'}</p>}</div>}
         </div>
         <nav className="mt-7 flex gap-1 overflow-x-auto md:flex-col" aria-label="Navigasi workspace">
           {navigation.map(([label, icon]) => <button key={label} onClick={() => navigate(label)} className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition ${active === label ? 'bg-[#eaf0ff] text-[#3159cc]' : `${muted} hover:bg-[#eef2f8]`}`}><span className="w-4 text-center">{icon}</span>{label}{label === 'Workers' && <span className="ml-auto rounded-full bg-[#3b63e0] px-2 py-0.5 text-[10px] text-white">04</span>}</button>)}

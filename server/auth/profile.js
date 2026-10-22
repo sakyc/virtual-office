@@ -32,3 +32,23 @@ export async function loadSessionProfile(connection, principal) {
     workspaces,
   };
 }
+
+export async function selectActiveWorkspace(connection, principal, workspaceId) {
+  if (!Number.isSafeInteger(workspaceId) || workspaceId <= 0) return false;
+  const [memberships] = await connection.execute(
+    `SELECT w.id
+       FROM workspaces w
+       JOIN organizations o ON o.id = w.organization_id AND o.status = 'active'
+       LEFT JOIN workspace_memberships wm ON wm.workspace_id = w.id AND wm.user_id = ? AND wm.revoked_at IS NULL
+       LEFT JOIN organization_memberships om ON om.organization_id = o.id AND om.user_id = ? AND om.revoked_at IS NULL
+      WHERE w.id = ? AND w.status = 'active' AND (wm.user_id IS NOT NULL OR om.role = 'owner')
+      FOR UPDATE`,
+    [principal.userId, principal.userId, workspaceId],
+  );
+  if (!memberships[0]) return false;
+  const [result] = await connection.execute(
+    'UPDATE sessions SET active_workspace_id = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL',
+    [workspaceId, principal.sessionId, principal.userId],
+  );
+  return result.affectedRows === 1;
+}
