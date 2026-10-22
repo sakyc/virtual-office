@@ -15,7 +15,7 @@ function App() {
   let page;
   if (path === '/') page = <Landing />;
   else if (path === '/onboarding') page = <Onboarding />;
-  else if (path === '/app/office') page = <div className="office"><button onClick={() => go('/app')}>← Dashboard</button><iframe title="Virtual Office 3D" src="/office.html" /></div>;
+  else if (path === '/app/office') page = <OfficePage onNavigate={go} />;
   else if (path === '/app') page = <NativeDashboard onNavigate={go} />;
   else if (path === '/app/workers') page = <WorkersPage onNavigate={go} />;
   else if (path === '/app/clients') page = <ClientsPage onNavigate={go} />;
@@ -33,6 +33,23 @@ function Landing() {
 
 function ReferencePage({ title, src }) {
   return <iframe className="landing-reference" title={title} src={src} />;
+}
+
+function OfficePage({ onNavigate }) {
+  const [frame, setFrame] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const publish = async () => {
+      const response = await fetch('/api/dashboard/workers', { credentials: 'same-origin' });
+      if (!response.ok || cancelled) return;
+      const body = await response.json();
+      if (Array.isArray(body?.workers)) frame?.contentWindow?.postMessage({ type: 'virtual-office:worker-loads', workers: body.workers }, window.location.origin);
+    };
+    void publish();
+    const interval = setInterval(publish, 20_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [frame]);
+  return <div className="office"><button onClick={() => onNavigate('/app')}>← Dashboard</button><iframe ref={setFrame} title="Virtual Office 3D" src="/office.html" /></div>;
 }
 
 const onboardingSteps = [

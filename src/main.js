@@ -86,6 +86,15 @@ function setStatus(id, status) {
   }
 }
 
+// Parent dashboard may provide a same-origin, tenant-scoped workload summary. It never changes office geometry or animation setup.
+addEventListener('message', (event) => {
+  if (event.origin !== location.origin || event.data?.type !== 'virtual-office:worker-loads' || !Array.isArray(event.data.workers)) return;
+  for (const worker of event.data.workers) {
+    if (typeof worker?.agentId !== 'string' || !byId.has(worker.agentId)) continue;
+    setStatus(worker.agentId, Number(worker.activeJobs) > 0 ? 'working' : 'idle');
+  }
+});
+
 // ---------- perintah (job) dan board ----------
 const jobsUI = createJobsUI({
   root: $('jobs'),
