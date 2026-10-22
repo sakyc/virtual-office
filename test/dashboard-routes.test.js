@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs } from '../server/dashboard-routes.js';
+import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs, loadWorkspaceWorkerLoads } from '../server/dashboard-routes.js';
 
 test('dashboard overview scopes every query to the active workspace and excludes legacy rows', async () => {
   const calls = [];
@@ -43,4 +43,10 @@ test('workspace item picker excludes deleted and cross-workspace items', async (
   assert.deepEqual(await loadWorkspaceItems(connection, 22), [{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved' }]);
   assert.match(calls[0].sql, /workspace_id = \? AND deleted_at IS NULL/);
   assert.deepEqual(calls[0].values, [22]);
+});
+
+test('worker workload comes only from active workspace jobs', async () => {
+  const calls = []; const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ agent_id: 'raka', total_jobs: 4, active_jobs: 2 }]]; } };
+  assert.deepEqual(await loadWorkspaceWorkerLoads(connection, 22), [{ agentId: 'raka', totalJobs: 4, activeJobs: 2 }]);
+  assert.match(calls[0].sql, /workspace_id = \?/); assert.deepEqual(calls[0].values, [22]);
 });
