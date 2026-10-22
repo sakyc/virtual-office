@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 const initialTasks = [
   { id: 1, tag: 'STRATEGY', name: 'Q4 launch narrative', owner: 'Nara · Strategist', progress: 72, color: 'bg-violet-500' },
@@ -19,7 +19,23 @@ export function NativeDashboard({ onNavigate }) {
   const [query, setQuery] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [active, setActive] = useState('Overview');
+  const [profile, setProfile] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    // The server determines both the principal and allowed workspaces from the opaque session cookie.
+    fetch('/auth/me', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (!cancelled) setProfile(body); })
+      .catch(() => { if (!cancelled) setProfile(null); });
+    return () => { cancelled = true; };
+  }, []);
   const filteredTasks = useMemo(() => tasks.filter((task) => task.name.toLowerCase().includes(query.toLowerCase())), [tasks, query]);
+  const userName = profile?.user?.displayName || 'Angga Saputra';
+  const firstName = userName.split(/\s+/)[0] || 'there';
+  const activeWorkspace = profile?.activeWorkspace;
+  const workspaceName = activeWorkspace?.name || 'Workspace Contoh';
+  const organizationName = activeWorkspace?.organization?.name || 'Organisasi Contoh';
+  const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'VO';
   const theme = dark ? 'bg-[#10131b] text-[#eef1f8]' : 'bg-[#f6f8fb] text-[#141a29]';
   const surface = dark ? 'border-[#283448] bg-[#151c28]' : 'border-[#e4e8f0] bg-white';
   const muted = dark ? 'text-[#aab5c8]' : 'text-[#667085]';
@@ -43,18 +59,18 @@ export function NativeDashboard({ onNavigate }) {
         <div className="flex items-center gap-2 px-2 py-1 text-[17px] font-extrabold tracking-[-.05em]"><span className="grid h-8 w-8 place-content-center rounded-[9px] bg-[#3b63e0] text-[14px] text-white">V</span>Virtual Office</div>
         <div className="relative mt-6">
           <button onClick={() => setWorkspaceOpen(!workspaceOpen)} className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left ${surface}`} aria-expanded={workspaceOpen}>
-            <span className="grid h-8 w-8 place-content-center rounded-lg bg-[#eaf0ff] text-xs font-extrabold text-[#3b63e0]">WC</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">Workspace Contoh</b><small className={`block truncate text-xs ${muted}`}>Organisasi Contoh</small></span><span className={muted}>⌄</span>
+            <span className="grid h-8 w-8 place-content-center rounded-lg bg-[#eaf0ff] text-xs font-extrabold text-[#3b63e0]">{workspaceName.slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{workspaceName}</b><small className={`block truncate text-xs ${muted}`}>{organizationName}</small></span><span className={muted}>⌄</span>
           </button>
-          {workspaceOpen && <div className={`absolute z-20 mt-2 w-full rounded-xl border p-1 shadow-xl ${surface}`}><button className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold hover:bg-[#eaf0ff]">Workspace Contoh</button><button className={`w-full rounded-lg px-3 py-2 text-left text-sm ${muted} hover:bg-[#eaf0ff]`}>Buat workspace…</button></div>}
+          {workspaceOpen && <div className={`absolute z-20 mt-2 w-full rounded-xl border p-1 shadow-xl ${surface}`}>{(profile?.workspaces?.length ? profile.workspaces : [{ name: workspaceName, organization: { name: organizationName }, id: 'demo' }]).map((workspace) => <button key={workspace.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-bold hover:bg-[#eaf0ff]"><span className="min-w-0"><span className="block truncate">{workspace.name}</span><small className={`block truncate font-normal ${muted}`}>{workspace.organization.name}</small></span>{workspace.id === activeWorkspace?.id && <span className="text-[#3b63e0]">✓</span>}</button>)}<p className={`px-3 py-2 text-[11px] leading-4 ${muted}`}>Penggantian workspace akan tersedia setelah endpoint server-side disetujui.</p></div>}
         </div>
         <nav className="mt-7 flex gap-1 overflow-x-auto md:flex-col" aria-label="Navigasi workspace">
           {navigation.map(([label, icon]) => <button key={label} onClick={() => navigate(label)} className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition ${active === label ? 'bg-[#eaf0ff] text-[#3159cc]' : `${muted} hover:bg-[#eef2f8]`}`}><span className="w-4 text-center">{icon}</span>{label}{label === 'Workers' && <span className="ml-auto rounded-full bg-[#3b63e0] px-2 py-0.5 text-[10px] text-white">04</span>}</button>)}
         </nav>
         <div className="mt-4 flex gap-2 md:mt-auto md:pt-6"><button onClick={() => onNavigate('/app/settings')} className={`rounded-lg px-3 py-2 text-sm font-semibold ${muted} hover:bg-[#eef2f8]`}>Settings</button><button onClick={() => setDark(!dark)} className={`ml-auto rounded-lg border px-3 py-2 text-sm ${surface}`} aria-label="Ubah tema">{dark ? '☀' : '◐'}</button></div>
-        <div className={`mt-4 flex items-center gap-3 border-t pt-4 ${dark ? 'border-[#283448]' : 'border-[#e4e8f0]'}`}><span className="grid h-9 w-9 place-content-center rounded-full bg-[#dcebcf] text-xs font-extrabold text-[#35543b]">AS</span><span><b className="block text-xs">Angga Saputra</b><small className={muted}>Owner · Studio Garis</small></span></div>
+        <div className={`mt-4 flex items-center gap-3 border-t pt-4 ${dark ? 'border-[#283448]' : 'border-[#e4e8f0]'}`}><span className="grid h-9 w-9 place-content-center rounded-full bg-[#dcebcf] text-xs font-extrabold text-[#35543b]">{initials}</span><span><b className="block text-xs">{userName}</b><small className={muted}>{activeWorkspace?.role || 'Owner'} · {organizationName}</small></span></div>
       </aside>
       <main className="mx-auto w-full max-w-[1440px] p-5 sm:p-8 lg:p-11">
-        <header className="mb-8 flex flex-wrap items-start justify-between gap-5"><div><p className={`text-[11px] font-extrabold tracking-[.12em] ${muted}`}>TUESDAY, 21 OCTOBER</p><h1 className="mt-2 font-serif text-4xl leading-[.88] tracking-[-.07em] sm:text-6xl">Good morning,<br/><em className="text-[#5f8a5c]">Angga.</em></h1></div><div className="flex gap-2"><button onClick={() => setSearchOpen(true)} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${surface} ${muted}`}>⌘ &nbsp; Search</button><button onClick={() => setComposerOpen(true)} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_-10px_#3b63e0]">+ &nbsp; New task</button></div></header>
+        <header className="mb-8 flex flex-wrap items-start justify-between gap-5"><div><p className={`text-[11px] font-extrabold tracking-[.12em] ${muted}`}>TUESDAY, 21 OCTOBER</p><h1 className="mt-2 font-serif text-4xl leading-[.88] tracking-[-.07em] sm:text-6xl">Good morning,<br/><em className="text-[#5f8a5c]">{firstName}.</em></h1></div><div className="flex gap-2"><button onClick={() => setSearchOpen(true)} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${surface} ${muted}`}>⌘ &nbsp; Search</button><button onClick={() => setComposerOpen(true)} className="rounded-xl bg-[#3b63e0] px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_-10px_#3b63e0]">+ &nbsp; New task</button></div></header>
         <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]"><article className="relative min-h-[252px] overflow-hidden rounded-2xl border border-[#c7dcbf] bg-[#dfeeda] p-7"><p className="text-[11px] font-extrabold tracking-[.12em] text-[#4b794c]">WORKSPACE PULSE <i className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-[#4b9b57]"></i> LIVE</p><h2 className="mt-6 font-serif text-4xl leading-[.9] tracking-[-.06em]">A calm day<br/>for <em className="text-[#63875f]">great work.</em></h2><p className="mt-4 max-w-[260px] text-sm leading-6 text-[#557052]">{tasks.length + 9} tasks are moving through your office right now.</p><div className="absolute -bottom-8 right-3 grid h-36 w-36 place-content-center rounded-full bg-[#2c593d] text-center text-white shadow-[0_0_0_20px_#c6dfbe,0_0_0_40px_#edf5e9]"><b className="text-3xl">{tasks.length + 9}</b><small className="text-[10px]">in motion</small></div></article><div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1"><Metric dark={dark} value="86%" label="Tasks on track" trend="+12%"/><Metric dark={dark} value="24h" label="Avg. response time" trend="−18%"/><Metric dark={dark} value="04" label="Workers online" trend="All ready"/></div></section>
         <section className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]"><div className={`rounded-2xl border p-6 ${surface}`}><div className="mb-4 flex items-start justify-between"><div><p className={`text-[11px] font-extrabold tracking-[.12em] ${muted}`}>IN MOTION</p><h2 className="mt-1 font-serif text-2xl tracking-[-.05em]">Priority work</h2></div><button onClick={() => setSearchOpen(true)} className="text-sm font-bold text-[#3b63e0]">See all work ↗</button></div>{tasks.map((task) => <Task key={task.id} task={task} dark={dark}/>)}</div><div className={`rounded-2xl border p-6 ${surface}`}><p className={`text-[11px] font-extrabold tracking-[.12em] ${muted}`}>LIVE FEED</p><h2 className="mt-1 font-serif text-2xl tracking-[-.05em]">Recent activity</h2><Activity dark={dark} name="Dio completed" text="Homepage visual system" time="8 min"/><Activity dark={dark} name="Rina started" text="Founder story: first draft" time="21 min"/><Activity dark={dark} name="Nara shared" text="Q4 launch narrative" time="1 hr"/><button onClick={() => onNavigate('/app/office')} className={`mt-5 flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-bold ${dark ? 'border-[#344258] bg-[#192231]' : 'border-[#dce1e9] bg-[#f8fafc]'}`}>Step into your office <span>↗</span></button></div></section>
       </main>

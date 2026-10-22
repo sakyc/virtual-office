@@ -18,6 +18,7 @@
     "test:authorization": "node --test test/tenant-authorization.test.js",
     "test:sessions": "node --test test/sessions.test.js",
     "test:auth0": "node --test test/auth0.test.js",
+    "test:profile": "node --test test/profile.test.js",
     "test:onboarding": "node --test test/onboarding-routes.test.js",
     "test:tenant-gate": "node --test test/tenant-gate.test.js"
   },
