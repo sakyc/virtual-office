@@ -14,7 +14,8 @@ function App() {
   if (path === '/') page = <Landing />;
   else if (path === '/onboarding') page = <Onboarding />;
   else if (path === '/app/office') page = <div className="office"><button onClick={() => go('/app')}>← Dashboard</button><iframe title="Virtual Office 3D" src="/office.html" /></div>;
-  else if (path === '/app') page = <ReferencePage title="Virtual Office dashboard" src="/dashboard-reference/Dashboard.dc.html" />;
+  else if (path === '/app') page = <Dashboard />;
+  else if (path === '/app/reference') page = <ReferencePage title="Virtual Office dashboard reference" src="/dashboard-reference/Dashboard.dc.html" />;
   else page = <div className="workspace"><aside><strong>Virtual Office</strong>{Object.entries(pages).map(([href, label]) => <button className={path === href ? 'active' : ''} onClick={() => go(href)} key={href}>{label}</button>)}<button onClick={() => go('/app/office')}>Kantor</button></aside><main><p>WORKSPACE</p><h1>{pages[path] || 'Halaman belum tersedia'}</h1><span>Kerangka React siap. Desain halaman belum dimulai.</span></main></div>;
   return <>{page}{loading && <div className="app-splash"><div><i>V</i><b>virtual office</b><span></span></div></div>}</>;
 }
