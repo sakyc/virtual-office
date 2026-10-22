@@ -36,7 +36,7 @@ export async function loadWorkspaceJobs(connection, workspaceId, { limit = 50 } 
   }));
 }
 
-export function installDashboardRoutes(app, { getPool, requireTenant }) {
+export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob }) {
   app.get('/api/dashboard/overview', requireTenant, async (req, res) => {
     let connection;
     try {
@@ -55,6 +55,19 @@ export function installDashboardRoutes(app, { getPool, requireTenant }) {
       res.json({ jobs: await loadWorkspaceJobs(connection, req.tenantContext.workspaceId) });
     } catch {
       res.status(503).json({ error: 'Dashboard service unavailable.' });
+    } finally { connection?.release(); }
+  });
+  app.post('/api/dashboard/jobs', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' });
+      const { createTenantJob } = await import('./tenant-jobs.js');
+      const created = await createTenantJob(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, body: req.body });
+      res.status(202).json(created);
+      if (runTenantJob) void runTenantJob(created.jobId, req.tenantContext, req.authPrincipal.userId);
+    } catch (error) {
+      res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Job service unavailable.' });
     } finally { connection?.release(); }
   });
 }

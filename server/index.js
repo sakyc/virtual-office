@@ -12,6 +12,7 @@ import { installAuthRoutes } from './auth/auth-routes.js';
 import { installOnboardingRoutes } from './auth/onboarding-routes.js';
 import { createTenantGate } from './auth/tenant-gate.js';
 import { installDashboardRoutes } from './dashboard-routes.js';
+import { processTenantJob } from './tenant-jobs.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -36,7 +37,11 @@ installAuthRoutes(app, { getPool: () => pool });
 installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
 const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true });
-installDashboardRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
+installDashboardRoutes(app, {
+  getPool: () => pool,
+  requireTenant: requireTenantDashboard,
+  runTenantJob: (jobId, tenantContext, userId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId }),
+});
 
 // ---------- Pembatas: akses, rate limit per IP, batas harian ----------
 function safeEqual(a, b) {
