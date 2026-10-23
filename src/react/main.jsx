@@ -5,6 +5,7 @@ import { DashboardPage, LandingPage, OnboardingPage } from './design-pages.jsx';
 import './shell.css';
 import { AuthPage } from './auth-pages.jsx';
 import { SessionBoundary } from './session-boundary.jsx';
+import { OfficePage } from './office-page.jsx';
 
 const pages = { '/app': 'Dashboard', '/app/workers': 'Workers', '/app/jobs': 'Jobs', '/app/settings': 'Settings' };
 const go = (path, { replace = false } = {}) => { history[replace ? 'replaceState' : 'pushState']({}, '', path); dispatchEvent(new PopStateEvent('popstate')); };
@@ -31,23 +32,6 @@ function App() {
 
 function ReferencePage({ title, src }) {
   return <iframe className="landing-reference" title={title} src={src} />;
-}
-
-function OfficePage({ onNavigate }) {
-  const [frame, setFrame] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    const publish = async () => {
-      const response = await fetch('/api/dashboard/workers', { credentials: 'same-origin' });
-      if (!response.ok || cancelled) return;
-      const body = await response.json();
-      if (Array.isArray(body?.workers)) frame?.contentWindow?.postMessage({ type: 'virtual-office:worker-loads', workers: body.workers }, window.location.origin);
-    };
-    void publish();
-    const interval = setInterval(publish, 20_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [frame]);
-  return <div className="office"><button onClick={() => onNavigate('/app')}>← Dashboard</button><iframe ref={setFrame} title="Virtual Office 3D" src="/office.html" /></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

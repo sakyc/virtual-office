@@ -45,7 +45,7 @@ export function createTags(stage, container) {
         el.classList.toggle('working', c.status === 'working');
         el.classList.toggle('done', c.status === 'done');
         el.classList.toggle('selected', id === selectedId);
-        it.st.textContent = c.status === 'working' ? 'mengetik…' : c.status === 'done' ? 'selesai' : '';
+        it.st.textContent = c.status === 'working' ? 'bekerja…' : c.status === 'done' ? 'selesai' : c.status === 'unknown' ? 'status belum tersedia' : '';
       }
       if (visible && inView) {
         el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -100%)`;

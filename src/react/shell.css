@@ -11,8 +11,11 @@ body { margin: 0; }
 button { cursor: pointer; }
 
 /* The Three.js office remains a standalone canvas mounted by the React route. */
-.office { position: fixed; inset: 0; }
-.office iframe { width: 100%; height: 100%; border: 0; }
+.office { position: fixed; inset: 0; display: flex; flex-direction: column; background: #f6f8fc; }
+.office iframe { width: 100%; flex: 1; min-height: 0; border: 0; }
+.office-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #e4e8f0; color: #141a29; font: 13px system-ui, sans-serif; }
+.office-toolbar button { border: 1px solid #dce2ee; border-radius: 10px; padding: 8px 12px; background: white; color: #141a29; font: inherit; cursor: pointer; }
+.office-toolbar button:focus-visible { outline: 2px solid #3b63e0; outline-offset: 2px; }
 .office > button {
   position: fixed;
   z-index: 1;

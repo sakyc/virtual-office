@@ -2,6 +2,8 @@
 
 const KEY_HISTORY = 'kantorai.history.v1';
 const KEY_CODE = 'kantorai.code';
+// Embedded tenant office must never read/write the legacy shared-browser history.
+export const tenantOffice = new URLSearchParams(location.search).get('tenant') === '1';
 
 const safe = {
   get(k) {
@@ -16,9 +18,9 @@ const safe = {
 };
 
 let histories = {};
-try { histories = JSON.parse(safe.get(KEY_HISTORY) || '{}') || {}; } catch { histories = {}; }
+try { histories = tenantOffice ? {} : JSON.parse(safe.get(KEY_HISTORY) || '{}') || {}; } catch { histories = {}; }
 
-const persist = () => safe.set(KEY_HISTORY, JSON.stringify(histories));
+const persist = () => { if (!tenantOffice) safe.set(KEY_HISTORY, JSON.stringify(histories)); };
 
 export const getHistory = (id) => histories[id] || [];
 export function setHistory(id, list) {
@@ -46,6 +48,7 @@ export async function fetchConfig() {
 // Mengirim riwayat + pesan baru. Memanggil onText(potongan) saat streaming.
 // Melempar Error dengan .code === 401 bila kode akses salah.
 export async function streamChat(agentId, messages, { onText, signal }) {
+  if (tenantOffice) throw new Error('Chat kantor belum terhubung ke workspace. Gunakan tombol Buat perintah di atas kantor.');
   let res;
   try {
     res = await fetch('/api/chat', {

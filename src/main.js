@@ -3,13 +3,14 @@ import { DIVISIONS, agentById, divisionById } from '../shared/roster.js';
 import { createStage } from './stage.js';
 import { createTags } from './tags.js';
 import { createPanel } from './panel.js';
-import { fetchConfig, getCode, setCode } from './chat.js';
+import { fetchConfig, getCode, setCode, tenantOffice } from './chat.js';
 import { PITCH_X, PITCH_Z } from './office.js';
 import './board.css';
 import { jobById } from '../shared/jobs.js';
 import { api, setAuthHandler } from './api.js';
 import { createJobsUI } from './jobs-ui.js';
 import { createBoard } from './board.js';
+import { applyOfficeWorkloads } from './office-workloads.js';
 
 const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(max-width: 760px)');
@@ -87,13 +88,10 @@ function setStatus(id, status) {
 }
 
 // Parent dashboard may provide a same-origin, tenant-scoped workload summary. It never changes office geometry or animation setup.
-addEventListener('message', (event) => {
-  if (event.origin !== location.origin || event.data?.type !== 'virtual-office:worker-loads' || !Array.isArray(event.data.workers)) return;
-  for (const worker of event.data.workers) {
-    if (typeof worker?.agentId !== 'string' || !byId.has(worker.agentId)) continue;
-    setStatus(worker.agentId, Number(worker.activeJobs) > 0 ? 'working' : 'idle');
-  }
-});
+const receiveWorkloads = (event) => applyOfficeWorkloads(event, { origin: location.origin, parentWindow: parent, currentWindow: window, agentIds: byId.keys(), setStatus });
+addEventListener('message', receiveWorkloads);
+addEventListener('pagehide', () => removeEventListener('message', receiveWorkloads), { once: true });
+if (tenantOffice) for (const id of byId.keys()) setStatus(id, 'unknown');
 
 // ---------- perintah (job) dan board ----------
 const jobsUI = createJobsUI({
@@ -106,7 +104,11 @@ const board = createBoard({
   onContinue: (jobId, itemId) => continueFrom(jobId, itemId),
   onChange: () => refreshBadges(),
 });
-setAuthHandler(() => showGate('Kode akses salah atau belum diisi.'));
+setAuthHandler(() => {
+  if (!tenantOffice) return showGate('Kode akses salah atau belum diisi.');
+  $('banner').textContent = 'Sesi berakhir. Kembali ke dashboard untuk masuk kembali.';
+  $('banner').hidden = false;
+});
 
 async function refreshBadges() {
   try {
@@ -128,7 +130,10 @@ function continueFrom(jobId, itemId) {
   jobsUI.openForm(jobId, { parentId: itemId });
 }
 
-$('btn-board').addEventListener('click', () => board.open({}));
+$('btn-board').addEventListener('click', () => {
+  if (tenantOffice && parent !== window) parent.postMessage({ type: 'virtual-office:navigate', path: '/app/board' }, location.origin);
+  else board.open({});
+});
 
 const panel = createPanel({
   onSelect: (id) => selectAgent(id),
@@ -160,7 +165,7 @@ function selectAgent(id) {
   view = { kind: 'room', id: agent.division };
   markChip(agent.division);
   requestAnimationFrame(setInset);
-  history.replaceState(null, '', `#${id}`);
+  history.replaceState(null, '', `${location.pathname}${location.search}#${id}`);
 }
 
 function closeChat(refocus) {
@@ -226,6 +231,7 @@ $('gate-form').addEventListener('submit', async (e) => {
 (async function start() {
   const cfg = await fetchConfig();
   Object.assign(config, cfg);
+  if (tenantOffice) { config.needsCode = false; config.demo = false; }
 
   const banner = $('banner');
   if (config.offline) {
