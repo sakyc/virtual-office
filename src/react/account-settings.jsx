@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { saveAccount } from './account-api.js';
+import { PasswordSettings } from './password-settings.jsx';
 import './dashboard-overview.css';
 import './account-settings.css';
 
@@ -28,7 +29,7 @@ export function AccountSettings({ profile, onSaved, onlyProfile = false }) {
     {state.error && <p role="alert">{state.error}</p>}{state.success && <p role="status">{state.success}</p>}
     <form className="live-card" onSubmit={(event) => submit(event, 'profile')}><h2>Profil akun</h2>
       <label>Nama lengkap<input required maxLength={150} value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" disabled={state.busy}/></label>
-      <label>Email<input readOnly type="email" value={profile.user.email} /></label><p>Perubahan email dan kata sandi belum tersedia di halaman ini.</p>
+      <label>Email<input readOnly type="email" value={profile.user.email} /></label><p>Perubahan email belum tersedia di halaman ini.</p>
       <button className="live-primary" disabled={state.busy}>{state.busy ? 'Menyimpan…' : 'Simpan profil'}</button>
     </form>
     {!onlyProfile && profile.activeWorkspace && <form className="live-card" onSubmit={(event) => submit(event, 'workspace')}><h2>Organisasi &amp; workspace</h2>
@@ -37,5 +38,6 @@ export function AccountSettings({ profile, onSaved, onlyProfile = false }) {
       <p>Owner dapat mengubah nama organisasi dan workspace. Admin workspace hanya dapat mengubah nama workspace. Peran ditentukan oleh server.</p>
       {canManageWorkspace && <button className="live-primary" disabled={state.busy}>{state.busy ? 'Menyimpan…' : 'Simpan workspace'}</button>}
     </form>}
+    <PasswordSettings />
   </div>;
 }

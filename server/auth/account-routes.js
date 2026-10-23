@@ -1,5 +1,6 @@
 import { readCookie, resolveSession } from './sessions.js';
 import { loadSessionProfile } from './profile.js';
+import { installPasswordRoutes } from './password-routes.js';
 
 const publicFailure = (message, status) => Object.assign(new Error(message), { status, expose: true });
 
@@ -9,6 +10,7 @@ function name(value, label) {
 }
 
 export function installAccountRoutes(app, { getPool, appOrigin }) {
+  installPasswordRoutes(app, { getPool, appOrigin });
   for (const action of ['profile', 'workspace']) app.post(`/api/account/${action}`, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     if (!appOrigin || req.headers.origin !== appOrigin || !req.is('application/json')) return res.status(403).json({ error: 'Permintaan pengaturan tidak valid.' });
