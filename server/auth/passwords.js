@@ -1,5 +1,7 @@
 import { randomBytes, scrypt as derive, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { validPassword } from '../../shared/auth-validation.js';
+export { normalizeEmail, validPassword } from '../../shared/auth-validation.js';
 
 const scrypt = promisify(derive);
 const parameters = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -11,18 +13,8 @@ async function digest(password, salt) {
   finally { running--; }
 }
 
-export function normalizeEmail(value) {
-  if (typeof value !== 'string') return null;
-  const email = value.trim().toLowerCase();
-  return email.length <= 254 && /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i.test(email) ? email : null;
-}
-
-export function validPassword(password) {
-  return typeof password === 'string' && [...password].length >= 12 && Buffer.byteLength(password, 'utf8') <= 256;
-}
-
 export async function hashPassword(password) {
-  if (!validPassword(password)) throw Object.assign(new Error('Gunakan kata sandi minimal 12 karakter dan maksimal 256 byte.'), { status: 400 });
+  if (!validPassword(password)) throw Object.assign(new Error('Kata sandi belum memenuhi persyaratan.'), { status: 400 });
   const salt = randomBytes(16).toString('hex');
   return `scrypt$32768$8$1$${salt}$${(await digest(password, salt)).toString('hex')}`;
 }

@@ -30,7 +30,11 @@ the current frontend credential forms are for native authentication.
 
 ## Security and behavior
 
-- Passwords require 12+ characters, maximum 256 UTF-8 bytes, and are not trimmed.
+- New passwords require 12+ characters, an initial uppercase letter, a digit,
+  a non-whitespace symbol, and no three consecutive letters/digits in either
+  direction (case-insensitive, e.g. abc, 123, 321). Maximum 256 UTF-8 bytes;
+  passwords are not trimmed. The UI checklist and server share these rules.
+  Existing passwords remain accepted at login without imposing new signup rules.
   Storage uses scrypt N=32768, r=8, p=1, a 16-byte random salt and a 32-byte key.
   Comparisons use timingSafeEqual; unsupported stored parameters are rejected.
 - At most four KDF operations run concurrently. Login and signup share

@@ -9,10 +9,12 @@ import { authenticationEnabled, authenticationMode } from '../server/auth/config
 import { createNativeLimiter, nativeOrigin } from '../server/auth/native-routes.js';
 import { hashPassword, normalizeEmail, verifyPassword } from '../server/auth/passwords.js';
 import { inspectMigrationDirectory } from '../server/migrations/status.js';
+import { passwordRequirements, validateAuthFields } from '../shared/auth-validation.js';
+import { scryptSync } from 'node:crypto';
 
-async function fixture(t, { failed = false, duplicate = false, suspended = false } = {}) {
+async function fixture(t, { failed = false, duplicate = false, suspended = false, legacyHash = null } = {}) {
   const calls = [];
-  let credential;
+  let credential = legacyHash ? { user_id: 7, password_hash: legacyHash, status: 'active' } : null;
   const connection = {
     release() {}, async beginTransaction() { calls.push(['begin']); },
     async commit() { calls.push(['commit']); }, async rollback() { calls.push(['rollback']); },
@@ -39,7 +41,46 @@ async function fixture(t, { failed = false, duplicate = false, suspended = false
     method: 'POST', headers: { Origin: 'http://localhost:5173', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body),
   }) };
 }
-const registration = { displayName: 'Local Person', email: ' Person@Example.Test ', password: 'a long unique passphrase' };
+const registration = { displayName: 'Local Person', email: ' Person@Example.Test ', password: 'Lentera!9Kantor' };
+
+test('password checklist reports each rule independently, including forward/reverse sequences', () => {
+  assert.ok(passwordRequirements(registration.password).every((rule) => rule.passed));
+  for (const [password, failing] of [
+    ['lentera!9Kantor', 'capital'], ['Lentera!Kantor', 'number'], ['Lentera9Kantor', 'symbol'],
+    ['La!9', 'length'], ['Lentera!123Kantor', 'sequence'], ['Lentera!321Kantor', 'sequence'],
+    ['Lentera!aBc9Kantor', 'sequence'], ['Lentera!cBa9Kantor', 'sequence'], ['Lentera!9' + '界'.repeat(90), 'bytes'],
+  ]) assert.equal(passwordRequirements(password).find((rule) => rule.id === failing).passed, false, failing);
+  assert.ok(passwordRequirements('').every((rule) => !rule.passed));
+  assert.equal(passwordRequirements('Lentera 9Kantor').find((rule) => rule.id === 'symbol').passed, false);
+});
+
+test('email validation and field errors are shared by the UI and server', () => {
+  for (const value of ['person', 'person@', 'person@example', 'a..b@example.test', '.person@example.test', 'person@-example.test', 'person@example..test', 'person name@example.test']) assert.equal(normalizeEmail(value), null, value);
+  assert.equal(normalizeEmail(' Person+tag@Sub.Example.Test '), 'person+tag@sub.example.test');
+  assert.deepEqual(validateAuthFields(registration, { register: true }), {});
+  assert.match(validateAuthFields({ email: 'wrong', password: 'legacy' }).email, /Format email/);
+  assert.match(validateAuthFields({ email: '', password: '' }).email, /wajib/);
+  assert.match(validateAuthFields({ email: '', password: '' }).password, /wajib/);
+  assert.equal(validateAuthFields({ email: 'person@example.test', password: 'oldpassword' }).password, undefined);
+  assert.match(validateAuthFields({ ...registration, password: 'oldpassword' }, { register: true }).password, /persyaratan/);
+});
+
+test('existing passwords that predate new signup policy can still log in', async (t) => {
+  const password = 'a long unique passphrase';
+  const salt = 'a'.repeat(32);
+  const key = scryptSync(password, salt, 32, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  const { request } = await fixture(t, { legacyHash: `scrypt$32768$8$1$${salt}$${key.toString('hex')}` });
+  const response = await request('/auth/login', { email: 'person@example.test', password });
+  assert.equal(response.status, 200);
+});
+
+test('registration enforces the checklist server-side before SQL', async (t) => {
+  const { request, calls } = await fixture(t);
+  for (const password of ['lentera!9Kantor', 'Lentera!Kantor', 'Lentera9Kantor', 'Lentera!123Kantor']) {
+    assert.equal((await request('/auth/register', { ...registration, password })).status, 400);
+  }
+  assert.equal(calls.length, 0);
+});
 
 test('native is default, independent from Auth0; production requires an explicit HTTPS origin', () => {
   assert.equal(authenticationMode({}), 'native');

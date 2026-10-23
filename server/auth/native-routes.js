@@ -43,7 +43,7 @@ export function installNativeRoutes(app, { getPool, env }) {
     if (!allowAttempt(req.socket.remoteAddress, email)) { res.setHeader('Retry-After', '900'); return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' }); }
     const password = req.body?.password;
     const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
-    if (!email || typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > 256 || (action === 'register' && (!validPassword(password) || !displayName || displayName.length > 150))) return res.status(400).json({ error: 'Isi email, nama, dan kata sandi yang valid. Kata sandi minimal 12 karakter.' });
+    if (!email || typeof password !== 'string' || !password || Buffer.byteLength(password, 'utf8') > 256 || (action === 'register' && (!validPassword(password) || !displayName || displayName.length > 150))) return res.status(400).json({ error: 'Periksa format email dan persyaratan kata sandi.' });
     let connection;
     try {
       connection = await getPool()?.getConnection();

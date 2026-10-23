@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { destinationForProfile, loadAuthProfile } from './auth-flow.js';
+import { passwordRequirements, validateAuthFields } from '../../shared/auth-validation.js';
 
 function Brand() {
   return <a href="/" className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight"><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-[#4f7cff]" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="15" rx="3" fill="white"/><rect x="11" y="24" width="10" height="3" rx="1.5" fill="white"/></svg></span>Virtual Office</a>;
@@ -10,6 +11,14 @@ export function AuthPage({ register = false, complete = false, onNavigate }) {
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const [form, setForm] = useState({ email: '', password: '', displayName: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [touched, setTouched] = useState({});
+  const errors = validateAuthFields(form, { register });
+  const rules = passwordRequirements(form.password);
+  const changeField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setTouched((current) => ({ ...current, [field]: true }));
+  };
   useEffect(() => {
     const controller = new AbortController();
     setState({ loading: true, enabled: false, profile: null, error: '' });
@@ -53,6 +62,12 @@ export function AuthPage({ register = false, complete = false, onNavigate }) {
   const submit = async (event) => {
     event.preventDefault();
     if (busy || !state.enabled) return;
+    setTouched({ email: true, password: true, displayName: true });
+    if (Object.keys(errors).length) {
+      event.currentTarget.elements.namedItem(Object.keys(errors)[0])?.focus();
+      return;
+    }
+    setShowPassword(false);
     setBusy(true); setState((value) => ({ ...value, error: '' }));
     try {
       const response = await fetch(register ? '/auth/register' : '/auth/login', {
@@ -84,10 +99,12 @@ export function AuthPage({ register = false, complete = false, onNavigate }) {
         {state.loading && <p role="status" className="mt-8 text-sm text-[#667085]">Memeriksa sesi…</p>}
         {state.error && <p role="alert" className="mt-6 rounded-xl bg-[#fff4ed] p-4 text-sm leading-6 text-[#9a3412]">{state.error}</p>}
         {choosing ? <div className="mt-6 grid gap-3">{state.profile.workspaces.map((workspace) => <button key={workspace.id} disabled={busy} onClick={() => select(workspace.id)} className="rounded-xl border border-[#e4e8f0] p-4 text-left hover:border-[#3b63e0] focus-visible:outline-2 focus-visible:outline-[#3b63e0] disabled:opacity-50"><span className="block text-sm font-bold">{workspace.name}</span><span className="mt-1 block text-xs text-[#667085]">{workspace.organization?.name}</span></button>)}</div>
-          : !state.loading && <form onSubmit={submit} className="mt-6 grid gap-4">
-            {register && <label className="text-sm font-semibold">Nama lengkap<input className={fieldStyle} required maxLength={150} autoComplete="name" value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })}/></label>}
-            <label className="text-sm font-semibold">Email<input className={fieldStyle} required type="email" maxLength={254} autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })}/></label>
-            <label className="text-sm font-semibold">Kata sandi<input className={fieldStyle} required type="password" minLength={register ? 12 : undefined} maxLength={256} autoComplete={register ? 'new-password' : 'current-password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })}/>{register && <span className="mt-2 block text-xs font-normal text-[#667085]">Minimal 12 karakter. Gunakan kata sandi unik.</span>}</label>
+          : !state.loading && <form noValidate onSubmit={submit} className="mt-6 grid gap-4">
+            {register && <div><label htmlFor="auth-name" className="text-sm font-semibold">Nama lengkap</label><input id="auth-name" name="displayName" className={fieldStyle} required maxLength={150} autoComplete="name" value={form.displayName} onChange={(event) => changeField('displayName', event.target.value)} aria-invalid={Boolean(touched.displayName && errors.displayName)} aria-describedby={touched.displayName && errors.displayName ? 'name-error' : undefined}/>{touched.displayName && errors.displayName && <p id="name-error" className="mt-2 text-xs text-[#b42318]" role="status">{errors.displayName}</p>}</div>}
+            <div><label htmlFor="auth-email" className="text-sm font-semibold">Email</label><input id="auth-email" name="email" className={`${fieldStyle} ${touched.email && errors.email ? 'border-[#b42318]' : ''}`} required type="email" inputMode="email" maxLength={254} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="nama@domain.com" value={form.email} onChange={(event) => changeField('email', event.target.value)} onBlur={() => setTouched((current) => ({ ...current, email: true }))} aria-invalid={Boolean(touched.email && errors.email)} aria-describedby={touched.email && errors.email ? 'email-error' : undefined}/>{touched.email && errors.email && <p id="email-error" className="mt-2 text-xs text-[#b42318]" role="status">{errors.email}</p>}</div>
+            <div><label htmlFor="auth-password" className="text-sm font-semibold">Kata sandi</label><div className="relative"><input id="auth-password" name="password" className={`${fieldStyle} pr-12`} required type={showPassword ? 'text' : 'password'} maxLength={256} autoComplete={register ? 'new-password' : 'current-password'} value={form.password} onChange={(event) => changeField('password', event.target.value)} aria-invalid={Boolean(touched.password && errors.password)} aria-describedby={[register && 'password-rules', touched.password && errors.password && 'password-error'].filter(Boolean).join(' ') || undefined}/><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'} aria-pressed={showPassword} aria-controls="auth-password" className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-[#667085] hover:text-[#3b63e0] focus-visible:outline-2 focus-visible:outline-[#3b63e0]"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{showPassword && <path d="m3 3 18 18"/>}</svg></button></div>{touched.password && errors.password && <p id="password-error" className="mt-2 text-xs text-[#b42318]" role="status">{errors.password}</p>}
+              {register && <ul id="password-rules" aria-label="Persyaratan kata sandi" className="mt-3 grid gap-2 rounded-xl bg-[#f6f8fc] p-3">{rules.map((rule) => <li key={rule.id} className={`flex items-start gap-2 text-xs leading-5 ${rule.passed ? 'text-[#0f7a45]' : 'text-[#667085]'}`}><span aria-hidden="true" className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${rule.passed ? 'bg-[#e3f6ec]' : 'border border-[#cbd2dd]'}`}>{rule.passed && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 8 3 3 7-7"/></svg>}</span><span><span className="sr-only">{rule.passed ? 'Terpenuhi: ' : 'Belum terpenuhi: '}</span>{rule.label}</span></li>)}</ul>}
+            </div>
             <button disabled={!state.enabled || busy} className="mt-2 w-full rounded-xl bg-gradient-to-br from-[#3b63e0] to-[#5a4de0] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#3b63e0]/15 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3b63e0] disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Memproses…' : register ? 'Buat akun' : 'Masuk'}</button>
           </form>}
         {state.error && <button onClick={() => setRetry((value) => value + 1)} className="mt-4 text-sm font-semibold text-[#3b63e0]">Coba lagi</button>}
