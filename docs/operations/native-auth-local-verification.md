@@ -83,3 +83,27 @@ only the generated test account/workspace. Browser interaction and a real
 owner-created account remain to be verified by the owner. Email verification,
 password recovery, MFA and production release controls remain incomplete as
 documented in the native login runbook.
+
+## Onboarding regression — 2026-10-23
+
+Executed `node scripts/verify-local-onboarding.mjs --database=vo_native_restore_1792725188620`
+with `LOCAL_AUTH_VERIFICATION_APPROVED=1` scoped to that verification process.
+The loopback listener was identified as Laragon MySQL 8.0.30 before connection.
+The retained isolated restore above was used, not the `virtual_office` development
+database. No `initDb`, schema SQL, migration, provider, or AI worker was invoked.
+
+Result: PASS. Registration 201; fresh profile routes to onboarding; dashboard
+before workspace 403; onboarding 201 with the exact submitted workspace name;
+server-derived owner role and active workspace verified; empty dashboard 200;
+repeat onboarding 200 with the same workspace and exactly one organization
+membership; logout 204; revoked cookie 401; login again 200 with the existing
+workspace available for server-validated selection, not onboarding; final logout 204.
+
+Column metadata fingerprint and row counts for clients/jobs/items/revisions were
+unchanged. Generated QA fixture `onboarding-qa-8c78dbb4-0d18-4593-b62d-d37ff38c681a`
+is retained in the isolated restore only; its sessions were revoked. No credentials
+or session tokens are recorded. The script creates additional QA account/workspace
+records on each explicitly approved run; it never deletes or backfills existing data.
+
+This verifies real HTTP handlers against local MySQL, not a production release or
+a browser login using an owner-created account.
