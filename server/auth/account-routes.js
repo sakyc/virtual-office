@@ -1,8 +1,10 @@
 import { readCookie, resolveSession } from './sessions.js';
 import { loadSessionProfile } from './profile.js';
 
+const publicFailure = (message, status) => Object.assign(new Error(message), { status, expose: true });
+
 function name(value, label) {
-  if (typeof value !== 'string' || !value.trim() || value.trim().length > 150) throw Object.assign(new Error(`${label} wajib diisi, maksimal 150 karakter.`), { status: 400 });
+  if (typeof value !== 'string' || !value.trim() || value.trim().length > 150) throw publicFailure(`${label} wajib diisi, maksimal 150 karakter.`, 400);
   return value.trim().replace(/\s+/g, ' ');
 }
 
@@ -35,16 +37,17 @@ export function installAccountRoutes(app, { getPool, appOrigin }) {
         );
         const membership = rows[0];
         const owner = membership?.organization_role === 'owner';
-        if (!membership || (!owner && membership.role !== 'admin') || (organizationName !== null && !owner)) throw Object.assign(new Error('Anda tidak memiliki izin mengubah pengaturan ini.'), { status: 403 });
+        if (!membership || (!owner && membership.role !== 'admin') || (organizationName !== null && !owner)) throw publicFailure('Anda tidak memiliki izin mengubah pengaturan ini.', 403);
         await connection.execute("UPDATE workspaces SET name = ? WHERE id = ? AND organization_id = ? AND status = 'active'", [workspaceName, membership.id, membership.organization_id]);
         if (organizationName !== null) await connection.execute("UPDATE organizations SET name = ? WHERE id = ? AND status = 'active'", [organizationName, membership.organization_id]);
       }
       const profile = await loadSessionProfile(connection, principal);
-      if (!profile) throw Object.assign(new Error('Sesi berakhir. Silakan masuk kembali.'), { status: 401 });
+      if (!profile) throw publicFailure('Sesi berakhir. Silakan masuk kembali.', 401);
       await connection.commit(); res.json(profile);
     } catch (error) {
       await connection?.rollback().catch(() => {});
-      res.status(error.status || 503).json({ error: error.status ? error.message : 'Pengaturan belum dapat disimpan. Coba lagi.' });
+      const expose = error.expose === true && [400, 401, 403].includes(error.status);
+      res.status(expose ? error.status : 503).json({ error: expose ? error.message : 'Pengaturan belum dapat disimpan. Coba lagi.' });
     } finally { connection?.release(); }
   });
 }

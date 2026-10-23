@@ -107,3 +107,21 @@ records on each explicitly approved run; it never deletes or backfills existing 
 
 This verifies real HTTP handlers against local MySQL, not a production release or
 a browser login using an owner-created account.
+
+## Account settings, office and tenant regression — 2026-10-23
+
+The same explicitly approved isolated-restore command above passed with fixture
+`onboarding-qa-85e45086-28db-4eea-8726-e9f401c4a947`. Profile and workspace settings
+both returned 200 and persisted after logout/login. Office workload summary
+returned 200. Suspending only the generated QA organization denied dashboard
+access with 403; its active status was restored. Logout returned 204 and reuse
+of the revoked session returned 401. Schema metadata and resource row counts
+were unchanged; QA records are retained in the isolated restore only.
+
+All 135 offline tests passed. The Vite production build passed. A separate
+mock-only browser preview verified editable settings, updated profile/workspace
+labels, the unchanged Three.js scene with workload status, and office Board
+navigation into the protected React page. Browser workload visuals used mocks,
+not real running AI jobs. Tenant chat remains unavailable; use the protected
+Perintah flow. Email/password changes, production security certification and
+subscription functionality are not part of this verification.

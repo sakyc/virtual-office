@@ -70,6 +70,18 @@ try {
   assert.equal((await retry.json()).workspace.id, result.workspace.id);
   const [memberships] = await pool.execute('SELECT COUNT(*) AS n FROM organization_memberships WHERE user_id = ?', [ready.user.id]);
   assert.equal(Number(memberships[0].n), 1);
+  stage = 'save account settings';
+  const profileSave = await request('/api/account/profile', { displayName: 'Local verified profile' });
+  assert.equal(profileSave.status, 200); assert.equal((await profileSave.json()).user.displayName, 'Local verified profile');
+  const workspaceSave = await request('/api/account/workspace', { workspaceName: `Updated ${label}`, organizationName: `Updated ${label}` });
+  assert.equal(workspaceSave.status, 200); assert.equal((await workspaceSave.json()).activeWorkspace.name, `Updated ${label}`);
+  stage = 'office workloads';
+  const workloads = await request('/api/dashboard/workers'); assert.equal(workloads.status, 200); assert.deepEqual((await workloads.json()).workers, []);
+  stage = 'suspended organization access denial';
+  const [suspended] = await pool.execute("UPDATE organizations SET status = 'suspended' WHERE id = ? AND created_by_user_id = ?", [result.organization.id, ready.user.id]);
+  assert.equal(suspended.affectedRows, 1);
+  try { assert.equal((await request('/api/dashboard/overview')).status, 403); }
+  finally { await pool.execute("UPDATE organizations SET status = 'active' WHERE id = ? AND created_by_user_id = ?", [result.organization.id, ready.user.id]); }
   stage = 'logout'; const revokedCookie = cookie;
   assert.equal((await request('/auth/logout', {})).status, 204);
   cookie = revokedCookie; assert.equal((await request('/auth/me')).status, 401);
@@ -79,12 +91,15 @@ try {
   assert.equal(destinationForProfile(returning), null); // Existing membership -> workspace selection, never onboarding.
   assert.equal(returning.workspaces.length, 1);
   assert.equal((await request('/auth/active-workspace', { workspaceId: result.workspace.id })).status, 200);
-  assert.equal(destinationForProfile(await (await request('/auth/me')).json()), '/app');
+  const persisted = await (await request('/auth/me')).json();
+  assert.equal(destinationForProfile(persisted), '/app');
+  assert.equal(persisted.user.displayName, 'Local verified profile');
+  assert.equal(persisted.activeWorkspace.name, `Updated ${label}`);
   assert.equal((await request('/auth/logout', {})).status, 204);
   stage = 'preservation';
   assert.equal(await fingerprint(), schemaBefore);
   assert.deepEqual(await resourceCounts(), resourcesBefore);
-  console.log(JSON.stringify({ result: 'PASS', target: database, classification: 'isolated local verification database', fixture: label, register: 201, onboarding: 201, retry: 200, dashboard: 200, logout: 204, revokedSession: 401, returningLogin: 200, returningUserRepeatsOnboarding: false, schemaUnchanged: true, resourceRowCountsUnchanged: true, fixtureRetained: true }));
+  console.log(JSON.stringify({ result: 'PASS', target: database, classification: 'isolated local verification database', fixture: label, register: 201, onboarding: 201, retry: 200, dashboard: 200, profileSave: 200, workspaceSave: 200, settingsPersistAfterLogin: true, officeWorkloads: 200, suspendedOrganizationDenied: 403, logout: 204, revokedSession: 401, returningLogin: 200, returningUserRepeatsOnboarding: false, schemaUnchanged: true, resourceRowCountsUnchanged: true, fixtureRetained: true }));
 } catch {
   console.error(JSON.stringify({ result: 'FAIL', stage, error: 'Local verification did not complete; no credentials logged. Any created QA records are retained.' }));
   process.exitCode = 1;

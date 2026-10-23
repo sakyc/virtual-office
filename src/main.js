@@ -96,7 +96,7 @@ if (tenantOffice) for (const id of byId.keys()) setStatus(id, 'unknown');
 // ---------- perintah (job) dan board ----------
 const jobsUI = createJobsUI({
   root: $('jobs'),
-  onStatus: setStatus,
+  onStatus: tenantOffice ? () => {} : setStatus,
   onOpenItem: (target) => board.open(target),
   onDone: () => refreshBadges(),
 });
@@ -138,7 +138,7 @@ $('btn-board').addEventListener('click', () => {
 const panel = createPanel({
   onSelect: (id) => selectAgent(id),
   onClose: () => closeChat(true),
-  onStatus: setStatus,
+  onStatus: tenantOffice ? () => {} : setStatus,
   onNeedCode: () => showGate('Kode akses salah atau belum diisi.'),
   isDemo: () => config.demo,
   jobs: jobsUI,

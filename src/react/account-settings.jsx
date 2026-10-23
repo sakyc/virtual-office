@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { saveAccount } from './account-api.js';
 import './dashboard-overview.css';
 import './account-settings.css';
@@ -9,6 +9,9 @@ export function AccountSettings({ profile, onSaved, onlyProfile = false }) {
   const [organizationName, setOrganizationName] = useState(profile.activeWorkspace?.organization?.name || '');
   const [state, setState] = useState({ busy: false, error: '', success: '' });
   const pending = useRef(false);
+  useEffect(() => { setDisplayName(profile.user.displayName || ''); }, [profile.user.displayName]);
+  useEffect(() => { setWorkspaceName(profile.activeWorkspace?.name || ''); }, [profile.activeWorkspace?.name]);
+  useEffect(() => { setOrganizationName(profile.activeWorkspace?.organization?.name || ''); }, [profile.activeWorkspace?.organization?.name]);
   const owner = profile.activeWorkspace?.role === 'owner';
   const canManageWorkspace = owner || profile.activeWorkspace?.role === 'admin';
   const submit = async (event, action) => {
