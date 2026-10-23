@@ -15,6 +15,7 @@ import { installDashboardRoutes } from './dashboard-routes.js';
 import { processTenantJob } from './tenant-jobs.js';
 import { processTenantRevision } from './tenant-review.js';
 import { installOfficeChatRoutes } from './office-chat.js';
+import { createUsageStore, installUsageRoutes } from './ai-usage.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -39,11 +40,13 @@ installAuthRoutes(app, { getPool: () => pool });
 installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
 const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true });
+const usageStore = createUsageStore(() => pool);
+installUsageRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
 installDashboardRoutes(app, {
   getPool: () => pool,
   requireTenant: requireTenantDashboard,
-  runTenantJob: (jobId, tenantContext, userId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId }),
-  runTenantRevision: (reservation) => processTenantRevision({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, reservation }),
+  runTenantJob: (jobId, tenantContext, userId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId, usageStore }),
+  runTenantRevision: (reservation) => processTenantRevision({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, reservation, usageStore }),
 });
 
 // ---------- Pembatas: akses, rate limit per IP, batas harian ----------
@@ -93,6 +96,7 @@ installOfficeChatRoutes(app, {
   requireTenant: requireTenantDashboard, client,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
+  usageStore,
 });
 
 function cleanMessages(raw) {

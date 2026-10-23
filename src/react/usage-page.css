@@ -1,0 +1,7 @@
+.reference-dashboard .usage-page { gap: 18px; }
+.reference-dashboard .usage-page > .live-primary { align-self: flex-start; }
+.reference-dashboard .usage-page dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 24px; margin: 0 0 20px; }
+.reference-dashboard .usage-page dd { margin: 0; font-weight: 800; font-variant-numeric: tabular-nums; }
+.reference-dashboard .usage-page ul { list-style: none; padding: 0; margin: 12px 0 0; }
+.reference-dashboard .usage-page li { padding: 14px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.reference-dashboard .usage-page li p { margin: 8px 0 0; }

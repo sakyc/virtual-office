@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createTenantJob, saveTenantJobOutput } from '../server/tenant-jobs.js';
+import { createTenantJob, saveTenantJobOutput, processTenantJob } from '../server/tenant-jobs.js';
 
 const context = { organizationId: 3, workspaceId: 8, role: 'admin' };
 const principal = { userId: 9 };
@@ -38,4 +38,17 @@ test('tenant job output assigns tenant ownership to every generated item', async
   const update = calls.find((call) => call.sql?.startsWith('UPDATE jobs'));
   assert.deepEqual(update.values.slice(-3), [44, 3, 8]);
   assert.equal(calls.at(-1).type, 'commit');
+});
+
+test('job runner tracks every provider attempt with server-derived scope even when output is invalid', async () => {
+  const entries = [];
+  const pool = { async execute(sql) {
+    if (sql.startsWith('SELECT * FROM jobs')) return [[{ id: 44, status: 'generating', job_type: 'brief_analysis', params: body.params }]];
+    return [{}];
+  } };
+  const usageStore = { async start(scope) { entries.push(scope); return `usage-${entries.length}`; }, async finish() {} };
+  const client = { messages: { create: async () => ({ content: [], stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 7 } }) } };
+  await processTenantJob({ pool, client, DEMO: false, models: { leader: 'fixture', team: 'fixture' }, jobId: 44, tenantContext: context, userId: 9, usageStore });
+  assert.equal(entries.length, 2);
+  for (const entry of entries) assert.deepEqual(entry, { ...context, userId: 9, operation: 'job', resourceId: 44, agentId: 'bagas' });
 });

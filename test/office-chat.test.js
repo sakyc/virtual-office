@@ -5,7 +5,7 @@ import { installOfficeChatRoutes } from '../server/office-chat.js';
 import { createTenantGate } from '../server/auth/tenant-gate.js';
 import { createChatContext } from '../src/tenant-chat-context.js';
 
-async function fixture(t, { available = true, failure = false } = {}) {
+async function fixture(t, { available = true, failure = false, usageStore } = {}) {
   const state = { user: 7, session: 4, workspace: 12, organization: 11, role: 'member', organizationRole: null, revoked: false, membership: true };
   const calls = [], sqlCalls = [];
   const connection = { release() {}, async execute(sql, values) {
@@ -19,7 +19,7 @@ async function fixture(t, { available = true, failure = false } = {}) {
     calls.push(input);
     return { on(event, listener) { if (!failure) listener('Jawaban aman'); }, abort() {}, async finalMessage() { if (failure) throw new Error('private-provider-secret'); } };
   } } };
-  installOfficeChatRoutes(app, { requireTenant: createTenantGate({ getPool: () => ({ getConnection: async () => connection }), authEnabled: true, resourceQueriesScoped: true }), client: available ? client : null, appOrigin: 'http://localhost:5173', models: { leader: 'leader-test', team: 'team-test' }, rateLimit: (req, res, next) => next(), dailyCap: (req, res, next) => next() });
+  installOfficeChatRoutes(app, { usageStore, requireTenant: createTenantGate({ getPool: () => ({ getConnection: async () => connection }), authEnabled: true, resourceQueriesScoped: true }), client: available ? client : null, appOrigin: 'http://localhost:5173', models: { leader: 'leader-test', team: 'team-test' }, rateLimit: (req, res, next) => next(), dailyCap: (req, res, next) => next() });
   const server = app.listen(0, '127.0.0.1'); await new Promise((resolve) => server.once('listening', resolve));
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
   const request = (body, headers = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/office/chat${body === undefined ? '/context' : ''}`, {
@@ -92,4 +92,16 @@ test('browser scope memory clears on workspace/session change, errors, and dispo
   scope = 'b'.repeat(64); assert.equal(await client.prepare(), true); assert.equal(resets, 2);
   status = 401; await assert.rejects(client.prepare(), { code: 401, resetHistory: true }); assert.equal(client.scope, null);
   client.clear(); assert.equal(client.scope, null); assert.equal(resets, 4);
+});
+
+test('real office route persists usage context before streaming and blocks AI when ledger is unavailable', async (t) => {
+  const entries = [];
+  const f = await fixture(t, { usageStore: { async start(scope, model) { entries.push({ scope, model }); return 'usage-1'; }, async finish(id) { entries.push({ id }); } } });
+  const response = await f.request(await f.body()); await response.text();
+  assert.equal(f.calls.length, 1); assert.equal(entries.length, 2);
+  assert.deepEqual(entries[0].scope, { organizationId: f.state.organization, workspaceId: f.state.workspace, role: 'member', userId: f.state.user, operation: 'chat', agentId: 'roy' });
+  assert.equal(entries[1].id, 'usage-1');
+  const blocked = await fixture(t, { usageStore: { async start() { throw new Error('ledger unavailable'); } } });
+  const failed = await blocked.request(await blocked.body());
+  assert.match(await failed.text(), /"error"/); assert.equal(blocked.calls.length, 0);
 });

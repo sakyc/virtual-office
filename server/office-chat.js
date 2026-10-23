@@ -2,9 +2,10 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { agentById } from '../shared/roster.js';
 import { buildSystemPrompt } from './prompts.js';
 import { authorizeTenantAction } from './auth/tenant-authorization.js';
+import { trackedClient } from './ai-usage.js';
 
 // Scope binding is not an authentication credential. Restart invalidates old tabs.
-export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500 }) {
+export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500, usageStore }) {
   const secret = randomBytes(32);
   const scopeOf = (req) => createHmac('sha256', secret).update(JSON.stringify([
     req.authPrincipal.sessionId, req.authPrincipal.userId,
@@ -46,7 +47,9 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
     res.on('close', disconnect);
     const send = (event) => { if (!closed) res.write(`data: ${JSON.stringify(event)}\n\n`); };
     try {
-      stream = client.messages.stream({ model: agent.leader ? models.leader : models.team, max_tokens: maxTokens, system: buildSystemPrompt(agent), messages });
+      const apiClient = trackedClient(client, usageStore, { ...req.tenantContext, userId: req.authPrincipal.userId, operation: 'chat', agentId: agent.id });
+      stream = await apiClient.messages.stream({ model: agent.leader ? models.leader : models.team, max_tokens: maxTokens, system: buildSystemPrompt(agent), messages });
+      if (closed) stream.abort();
       stream.on('text', (text) => send({ t: text }));
       await stream.finalMessage();
       send({ done: true });

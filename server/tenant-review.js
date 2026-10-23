@@ -1,5 +1,6 @@
 import { jobById } from '../shared/jobs.js';
 import { revise } from './runner.js';
+import { trackedClient } from './ai-usage.js';
 
 const reviewRoles = new Set(['owner', 'admin', 'member']);
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -91,7 +92,7 @@ export async function recoverTenantRevision(connection, reservation) {
   );
 }
 
-export async function processTenantRevision({ pool, client, DEMO, models, reservation, reviseImpl = revise }) {
+export async function processTenantRevision({ pool, client, DEMO, models, reservation, reviseImpl = revise, usageStore }) {
   let connection;
   let transaction = false;
   const tenant = reservation.tenantContext;
@@ -117,7 +118,8 @@ export async function processTenantRevision({ pool, client, DEMO, models, reserv
         clientRow = clients[0];
       }
       await connection.commit(); transaction = false;
-      const output = await reviseImpl({ apiClient: client, DEMO, models, def: definition, params: parse(item.params), clientRow,
+      const apiClient = trackedClient(client, usageStore, { ...tenant, userId: reservation.principal.userId, operation: 'revision', resourceId: item.id, agentId: definition.agent });
+      const output = await reviseImpl({ apiClient, DEMO, models, def: definition, params: parse(item.params), clientRow,
         item: { ...item, content: parse(item.content) }, reason: reservation.reason });
       const next = output.items?.[0];
       if (!next || typeof next.title !== 'string' || !Array.isArray(next.content?.fields) || !next.content.fields.length) throw new Error('Revision output invalid');

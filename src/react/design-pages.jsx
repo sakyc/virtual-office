@@ -10,6 +10,7 @@ import { onboardingErrors } from '../../shared/onboarding-validation.js';
 import { loadDashboardOverview } from './dashboard-data.js';
 import { DashboardUnavailable, LiveDashboardOverview } from './dashboard-overview.jsx';
 import { AccountSettings } from './account-settings.jsx';
+import { UsagePage } from './usage-page.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -118,7 +119,7 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
       userInitials: '', goOffice: () => onNavigate('/app/office'), logout };
     if (section === 'overview') result.content = values.v.overview
       ? <LiveDashboardOverview profile={profile} overview={overview} loading={overviewState.loading && !sessionState.error} error={sessionState.error?.message || overviewState.error} onRetry={() => sessionState.error ? onNavigate('/login') : setOverviewRetry((value) => value + 1)} onNavigate={onNavigate} />
-      : <DashboardUnavailable title={values.pageTitle} />;
+      : values.v.usage ? <UsagePage key={`${profile?.user?.id}:${profile?.activeWorkspace?.id}`} /> : <DashboardUnavailable title={values.pageTitle} />;
     if (section === 'settings') {
       result.pageTitle = 'Pengaturan';
       result.content = profile ? <AccountSettings key={profile.activeWorkspace?.id} profile={profile} onSaved={setProfile}/> : <p role="status">Memuat pengaturan…</p>;

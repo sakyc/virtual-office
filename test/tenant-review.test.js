@@ -145,3 +145,16 @@ test('a pooled connection is destroyed if the named lock cannot be released', as
   assert.deepEqual(await run(f, reservation), { status: 'recovery-required' });
   assert.equal(f.isDestroyed(), true); assert.ok(!f.calls.some((call) => call.operation === 'release'));
 });
+
+test('revision ledger is bound to the reservation and survives output persistence failure', async () => {
+  const f = fixture({ failSnapshot: true });
+  const reservation = await reserveTenantRevision(f.connection, input);
+  const entries = [];
+  const usageStore = { async start(scope) { entries.push(scope); return 'revision-call'; }, async finish(id, message) { entries.push({ id, usage: message.usage }); } };
+  const client = { messages: { create: async () => ({ usage: { input_tokens: 5, output_tokens: 7 } }) } };
+  const result = await processTenantRevision({ pool: f.pool, client, DEMO: false, models: {}, reservation, usageStore,
+    reviseImpl: async ({ apiClient }) => { await apiClient.messages.create({ model: 'fixture' }); return output; } });
+  assert.equal(result.status, 'failed'); assert.equal(f.row.version, 1);
+  assert.deepEqual(entries[0], { ...tenantContext, userId: 9, operation: 'revision', resourceId: 4, agentId: 'bagas' });
+  assert.deepEqual(entries[1], { id: 'revision-call', usage: { input_tokens: 5, output_tokens: 7 } });
+});

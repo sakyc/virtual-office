@@ -1,6 +1,7 @@
 import { jobById } from '../shared/jobs.js';
 import { SPEC } from './jobSpecs.js';
 import { generate } from './runner.js';
+import { trackedClient } from './ai-usage.js';
 
 const TEAM_ROLES = new Set(['owner', 'admin']);
 const userError = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -63,7 +64,7 @@ export async function saveTenantJobOutput({ connection, job, output, definition,
   } catch (error) { await connection.rollback(); throw error; }
 }
 
-export async function processTenantJob({ pool, client, DEMO, models, jobId, tenantContext, userId }) {
+export async function processTenantJob({ pool, client, DEMO, models, jobId, tenantContext, userId, usageStore }) {
   try {
     const [jobs] = await pool.execute('SELECT * FROM jobs WHERE id = ? AND organization_id = ? AND workspace_id = ? LIMIT 1', [jobId, tenantContext.organizationId, tenantContext.workspaceId]);
     const job = jobs[0];
@@ -73,7 +74,8 @@ export async function processTenantJob({ pool, client, DEMO, models, jobId, tena
     const [clients] = job.client_id ? await pool.execute('SELECT name, brief FROM clients WHERE id = ? AND organization_id = ? AND workspace_id = ? LIMIT 1', [job.client_id, tenantContext.organizationId, tenantContext.workspaceId]) : [[]];
     const [parents] = job.parent_item_id ? await pool.execute('SELECT id, type, title, content FROM items WHERE id = ? AND organization_id = ? AND workspace_id = ? AND deleted_at IS NULL LIMIT 1', [job.parent_item_id, tenantContext.organizationId, tenantContext.workspaceId]) : [[]];
     const parent = parents[0] ? { ...parents[0], content: typeof parents[0].content === 'string' ? JSON.parse(parents[0].content) : parents[0].content } : null;
-    const output = await generate({ apiClient: client, DEMO, models, def: definition, params: typeof job.params === 'string' ? JSON.parse(job.params) : job.params, clientRow: clients[0] || null, parent });
+    const apiClient = trackedClient(client, usageStore, { ...tenantContext, userId, operation: 'job', resourceId: job.id, agentId: definition.agent });
+    const output = await generate({ apiClient, DEMO, models, def: definition, params: typeof job.params === 'string' ? JSON.parse(job.params) : job.params, clientRow: clients[0] || null, parent });
     const connection = await pool.getConnection();
     try { await saveTenantJobOutput({ connection, job, output, definition, tenantContext, userId }); } finally { connection.release(); }
   } catch {

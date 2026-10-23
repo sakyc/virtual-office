@@ -29,7 +29,8 @@
     "test:office-bridge": "node --test test/office-bridge.test.js",
     "test:office-chat": "node --test test/office-chat.test.js test/office-chat-client.test.js test/office-panel.test.js",
     "test:onboarding": "node --test test/onboarding-routes.test.js",
-    "test:tenant-gate": "node --test test/tenant-gate.test.js"
+    "test:tenant-gate": "node --test test/tenant-gate.test.js",
+    "test:usage": "node --test test/ai-usage.test.js test/usage-data.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

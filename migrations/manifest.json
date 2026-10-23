@@ -12,6 +12,10 @@
     {
       "id": "003_native_credentials",
       "file": "003_native_credentials.sql"
+    },
+    {
+      "id": "004_ai_usage",
+      "file": "004_ai_usage.sql"
     }
   ]
 }
