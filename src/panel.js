@@ -22,6 +22,8 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
 
   let currentId = null;
   let preparing = false;
+  let chatError = '';
+  let prepareController = null;
   let openVersion = 0;
   const live = new Map(); // agentId -> { text, el, abort }
 
@@ -74,7 +76,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     }
   }
 
-  function render(agentId) {
+  function render(agentId, notice = chatError || (preparing ? 'Memeriksa sesi dan workspace…' : '')) {
     const agent = agentById(agentId);
     const div = divisionById(agent.division);
     document.body.style.setProperty('--c', div.color);
@@ -101,6 +103,14 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
 
     els.messages.innerHTML = '';
     els.quick.innerHTML = '';
+    // Agent identity is independent of service availability. Never show old content
+    // while session/workspace validation is pending or has failed.
+    if (notice) {
+      els.messages.textContent = notice;
+      scrollDown(true);
+      syncSend();
+      return;
+    }
     const history = getHistory(agentId);
     const l = live.get(agentId);
     if (!history.length && !l) renderEmpty(agent);
@@ -118,14 +128,15 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
 
   function syncSend() {
     const busy = live.has(currentId);
-    els.send.disabled = preparing || busy || !els.input.value.trim();
+    els.input.disabled = preparing || Boolean(chatError);
+    els.send.disabled = preparing || Boolean(chatError) || busy || !els.input.value.trim();
     els.input.placeholder = busy ? `${agentById(currentId).name.split(' ')[0]} lagi ngetik…` : 'Tulis pesan…';
   }
 
   async function submit(text) {
     const id = currentId;
     text = (text || '').trim();
-    if (!id || !text || preparing || live.has(id)) return;
+    if (!id || !text || preparing || chatError || live.has(id)) return;
 
     const history = getHistory(id);
     const scope = getChatScope();
@@ -138,7 +149,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     els.input.value = '';
     autosize();
 
-    const l = { text: '', el: null, abort: new AbortController() };
+    const l = { text: '', el: null, abort: new AbortController(), previousHistory: history, scope };
     live.set(id, l);
     l.el = bubble('assistant', typingHtml);
     els.messages.appendChild(l.el);
@@ -174,7 +185,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
       } else {
         // kembalikan teks ke kolom input supaya bisa dikirim ulang
         if (!err.resetHistory) setHistory(id, sent.slice(0, -1), scope);
-        else { for (const active of live.values()) active.abort.abort(); if (currentId) render(currentId); }
+        else { stopLive(); chatError = err.message; if (currentId) render(currentId); }
         if (currentId === id) {
           l.el?.remove();
           const e = bubble('assistant', '');
@@ -202,7 +213,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   // ---------- event ----------
   els.form.addEventListener('submit', (e) => {
     e.preventDefault();
-    submit(els.input.value);
+    return submit(els.input.value);
   });
   els.input.addEventListener('input', () => {
     autosize();
@@ -220,6 +231,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     live.get(currentId)?.abort.abort();
     live.delete(currentId);
     clearHistory(currentId);
+    if (tenantOffice) return openAgent(currentId);
     render(currentId);
   });
   els.messages.addEventListener('click', (e) => {
@@ -252,40 +264,56 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   }
   tabBtns.forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
-  return {
-    setTab,
-    async open(agentId) {
-      currentId = agentId;
-      const version = ++openVersion;
-      if (tenantOffice) {
-        preparing = true;
-        els.messages.textContent = 'Memeriksa sesi dan workspace…';
-        els.quick.innerHTML = '';
-        syncSend();
-        try {
-          const changed = await prepareChat();
-          if (changed) for (const active of live.values()) active.abort.abort();
-        } catch (error) {
-          if (version !== openVersion) return;
-          preparing = false;
-          els.messages.textContent = error.message;
-          els.send.disabled = true;
-          return;
-        }
+  function stopLive() {
+    for (const [id, active] of live) {
+      active.abort.abort();
+      if (active.raf) cancelAnimationFrame(active.raf);
+      setHistory(id, active.previousHistory, active.scope);
+    }
+    live.clear();
+  }
+
+  async function openAgent(agentId) {
+    if (!agentById(agentId)) return;
+    prepareController?.abort();
+    if (tenantOffice) stopLive();
+    if (currentId !== agentId) { els.input.value = ''; autosize(); }
+    currentId = agentId;
+    const version = ++openVersion;
+    chatError = '';
+    preparing = tenantOffice;
+    // Update avatar/name/role/team immediately, including on the very first click.
+    render(agentId);
+    setTab('chat');
+    jobs?.setAgent(agentId);
+    if (tenantOffice) {
+      prepareController = new AbortController();
+      try {
+        await prepareChat(prepareController.signal);
+      } catch (error) {
         if (version !== openVersion) return;
         preparing = false;
+        chatError = error.message;
+        render(agentId);
+        return;
       }
-      render(agentId);
-      setTab('chat');
-      jobs?.setAgent(agentId);
-      if (isDemo()) document.getElementById('banner').hidden = false;
-      setTimeout(() => {
-        if (matchMedia('(hover: hover)').matches) els.input.focus({ preventScroll: true });
-      }, 350);
-    },
+      if (version !== openVersion) return;
+      preparing = false;
+    }
+    render(agentId);
+    if (isDemo()) document.getElementById('banner').hidden = false;
+    setTimeout(() => {
+      if (version === openVersion && matchMedia('(hover: hover)').matches) els.input.focus({ preventScroll: true });
+    }, 350);
+  }
+
+  return {
+    setTab,
+    open: openAgent,
     close() {
       openVersion += 1;
-      if (tenantOffice) for (const active of live.values()) active.abort.abort();
+      prepareController?.abort();
+      if (tenantOffice) stopLive();
       currentId = null;
     },
     get current() {
