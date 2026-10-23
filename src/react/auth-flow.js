@@ -5,6 +5,14 @@ export function destinationForProfile(profile) {
   return profile.workspaces.length ? null : '/onboarding';
 }
 
+export function redirectForProtectedPath(profile, path) {
+  if (!profile) return '/login';
+  const destination = destinationForProfile(profile);
+  if (destination === null) return '/login/complete';
+  if (path === '/onboarding') return destination === '/app' ? '/app' : null;
+  return destination === '/onboarding' ? '/onboarding' : null;
+}
+
 export async function loadAuthProfile(signal) {
   const response = await fetch('/auth/me', { credentials: 'same-origin', signal });
   if (response.status === 401) return null;

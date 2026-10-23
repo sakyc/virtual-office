@@ -88,7 +88,7 @@ export function OnboardingWorkspaceForm({ vals }) {
 
 <div style={{"marginTop": "28px", "display": "flex", "flexDirection": "column", "gap": "22px"}}>
 <label style={{"fontSize": "14px", "fontWeight": "700"}}>{"Nama organisasi "}
-<input type={"text"} placeholder={"mis. Studio Kreatif Nusantara"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.organizationName ?? ''} onChange={(event) => vals.updateField?.('organizationName', event.target.value)} />
+<input type={"text"} placeholder={"mis. Studio Kreatif Nusantara"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.organizationName ?? ''} onChange={(event) => vals.updateField?.('organizationName', event.target.value)} maxLength={150} />
 </label>
 
 <div >
@@ -112,19 +112,19 @@ export function OnboardingWorkspaceForm({ vals }) {
 
 <div style={{"marginTop": "28px", "display": "flex", "flexDirection": "column", "gap": "22px"}}>
 <label style={{"fontSize": "14px", "fontWeight": "700"}}>{"Nama workspace "}
-<input type={"text"} placeholder={"mis. Tim Kreatif"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.workspaceName ?? ''} onChange={(event) => vals.updateField?.('workspaceName', event.target.value)} />
+<input type={"text"} placeholder={"mis. Tim Kreatif"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.workspaceName ?? ''} onChange={(event) => vals.updateField?.('workspaceName', event.target.value)} maxLength={150} />
 </label>
 
 <label style={{"fontSize": "14px", "fontWeight": "700"}}>{"Klien pertama "}
 <span style={{"fontWeight": "600", "color": "var(--mute)"}}>{"(opsional)"}</span>
 
-<input type={"text"} placeholder={"Nama klien"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.clientName ?? ''} onChange={(event) => vals.updateField?.('clientName', event.target.value)} />
+<input type={"text"} placeholder={"Nama klien"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500"}} value={vals.form?.clientName ?? ''} onChange={(event) => vals.updateField?.('clientName', event.target.value)} maxLength={150} />
 </label>
 
 <label style={{"fontSize": "14px", "fontWeight": "700"}}>{"Brief klien "}
 <span style={{"fontWeight": "600", "color": "var(--mute)"}}>{"(opsional)"}</span>
 
-<textarea rows={"4"} placeholder={"Brand voice, produk, dan target audiens"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500", "resize": "vertical"}} value={vals.form?.clientBrief ?? ''} onChange={(event) => vals.updateField?.('clientBrief', event.target.value)}></textarea>
+<textarea rows={"4"} placeholder={"Brand voice, produk, dan target audiens"} style={{"marginTop": "8px", "width": "100%", "padding": "14px 16px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "15px", "fontWeight": "500", "resize": "vertical"}} value={vals.form?.clientBrief ?? ''} onChange={(event) => vals.updateField?.('clientBrief', event.target.value)} maxLength={4000}></textarea>
 </label>
 </div>
 </> : null}
@@ -132,20 +132,12 @@ export function OnboardingWorkspaceForm({ vals }) {
 
 
 {vals.is3 ? <>
-<h2 style={{"margin": "10px 0 0", "fontSize": "26px", "letterSpacing": "-.025em", "fontWeight": "800"}}>{"Pilih divisi untuk dimulai"}</h2>
+<h2 style={{"margin": "10px 0 0", "fontSize": "26px", "letterSpacing": "-.025em", "fontWeight": "800"}}>{"Periksa kantor Anda"}</h2>
 
-<p style={{"margin": "8px 0 0", "fontSize": "15px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Semua divisi tetap ada di kantor. Pilihan ini hanya menentukan tempat Anda mulai."}</p>
+<p style={{"margin": "8px 0 0", "fontSize": "15px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Organisasi dan workspace berikut akan dibuat untuk akun Anda. Langkah ini tidak mengaktifkan paket berlangganan."}</p>
 
 <div style={{"marginTop": "28px", "display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(170px,1fr))", "gap": "10px"}}>
-{vals.divs.map((d, index3) => <React.Fragment key={index3}>
-<button className={"opt"} type={"button"} onClick={d.pick} aria-pressed={d.on} style={{"display": "flex", "alignItems": "center", "gap": "10px", "padding": "14px", "borderRadius": "12px", "border": "2px solid " + (d.line), "background": d.bg, "color": "var(--ink)", "textAlign": "left", "fontSize": "14px", "fontWeight": "700"}}>
-<span style={{"flex": "none", "width": "12px", "height": "12px", "borderRadius": "4px", "background": d.color}}></span>
-
-<span style={{"flex": "1"}}>{d.name}</span>
-
-<svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"var(--accentText)"} strokeWidth={"3"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} style={{"opacity": d.tick}}><path d={"M20 6L9 17l-5-5"}></path></svg>
-</button>
-</React.Fragment>)}
+<dl style={{gridColumn: '1 / -1', display: 'grid', gap: '12px', margin: 0, overflowWrap: 'anywhere'}}>{[['Organisasi', vals.form?.organizationName], ['Workspace', vals.form?.workspaceName], ['Klien pertama', vals.form?.clientName || 'Belum ditambahkan']].map(([label, value]) => <div key={label}><dt style={{fontSize: '13px', color: 'var(--soft)'}}>{label}</dt><dd style={{margin: '4px 0 0', fontWeight: 700}}>{value}</dd></div>)}</dl>
 </div>
 </> : null}
 
@@ -154,7 +146,7 @@ export function OnboardingWorkspaceForm({ vals }) {
 
 {vals.notLast ? <><button className={"btnp"} type={"button"} onClick={vals.next} style={{"marginLeft": "auto", "padding": "14px 28px", "border": "0", "borderRadius": "12px", "background": "var(--accent)", "color": "var(--onAccent)", "fontSize": "15px", "fontWeight": "700"}}>{"Lanjut"}</button></> : null}
 
-{vals.is3 ? <><a className={"btnp"} href={"/app"} style={{"marginLeft": "auto", "padding": "14px 28px", "borderRadius": "12px", "background": "var(--accent)", "color": "var(--onAccent)", "fontSize": "15px", "fontWeight": "700"}} onClick={vals.submitOnboarding} aria-disabled={vals.submitting}>{"Buka kantor"}</a></> : null}
+{vals.is3 ? <><button className={"btnp"} style={{"marginLeft": "auto", "padding": "14px 28px", "borderRadius": "12px", "background": "var(--accent)", "color": "var(--onAccent)", "fontSize": "15px", "fontWeight": "700"}} type="button" onClick={vals.submitOnboarding} disabled={vals.submitting}>{vals.submitting ? "Menyiapkan kantor…" : "Buka dashboard"}</button></> : null}
 </div>
 
 {vals.error ? <p role="alert" style={{color: '#b42318', fontSize: '14px', marginTop: '18px'}}>{vals.error}</p> : null}</div>

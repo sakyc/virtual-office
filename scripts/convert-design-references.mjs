@@ -49,6 +49,14 @@ for (const [name, slug, filename, archive] of designs) {
     if ('comment' in node) return '';
     if ('text' in node) {
       if (!node.text.trim()) return '';
+      if (name === 'Onboarding') {
+        const labels = {
+          'Pilih divisi untuk dimulai': 'Periksa kantor Anda',
+          'Semua divisi tetap ada di kantor. Pilihan ini hanya menentukan tempat Anda mulai.': 'Organisasi dan workspace berikut akan dibuat untuk akun Anda. Langkah ini tidak mengaktifkan paket berlangganan.',
+          'Buka kantor': 'Buka dashboard',
+        };
+        if (labels[node.text.trim()]) return `{${JSON.stringify(labels[node.text.trim()])}}`;
+      }
       if (name === 'Dashboard') {
         const labels = { 'Workspace Contoh': 'workspaceName', 'Organisasi Contoh': 'organizationName', 'Nama Pengguna': 'userName', 'Selamat siang, Nama': 'greeting' };
         if (labels[node.text.trim()]) return `{vals.${labels[node.text.trim()]} ?? ${JSON.stringify(node.text.trim())}}`;
@@ -59,6 +67,7 @@ for (const [name, slug, filename, archive] of designs) {
     const children = () => node.children.map((child) => compile(child, locals)).join('\n');
     if (node.tag === 'sc-if') return `{${resolveExpr(node.attrs.value.slice(2,-2), locals)} ? <>${children()}</> : null}`;
     if (node.tag === 'sc-for') {
+      if (name === 'Onboarding' && node.attrs.list === '{{divs}}') return `<dl style={{gridColumn: '1 / -1', display: 'grid', gap: '12px', margin: 0, overflowWrap: 'anywhere'}}>{[['Organisasi', vals.form?.organizationName], ['Workspace', vals.form?.workspaceName], ['Klien pertama', vals.form?.clientName || 'Belum ditambahkan']].map(([label, value]) => <div key={label}><dt style={{fontSize: '13px', color: 'var(--soft)'}}>{label}</dt><dd style={{margin: '4px 0 0', fontWeight: 700}}>{value}</dd></div>)}</dl>`;
       const alias = node.attrs.as; const index = `index${++listCount}`; const inner = new Set([...locals, alias]);
       return `{${resolveExpr(node.attrs.list.slice(2,-2), locals)}.map((${alias}, ${index}) => <React.Fragment key={${index}}>${node.children.map((child) => compile(child, inner)).join('\n')}</React.Fragment>)}`;
     }
@@ -84,10 +93,15 @@ for (const [name, slug, filename, archive] of designs) {
     if (name === 'Onboarding') {
       const fields = { 'mis. Studio Kreatif Nusantara': 'organizationName', 'mis. Tim Kreatif': 'workspaceName', 'Nama klien': 'clientName', 'Brand voice, produk, dan target audiens': 'clientBrief' };
       const field = fields[node.attrs.placeholder];
-      if (field) attrs.push(`value={vals.form?.${field} ?? ''}`, `onChange={(event) => vals.updateField?.('${field}', event.target.value)}`);
-      if (node.tag === 'a' && node.attrs.href === 'Dashboard.dc.html') attrs.push('onClick={vals.submitOnboarding}', 'aria-disabled={vals.submitting}');
+      if (field) attrs.push(`value={vals.form?.${field} ?? ''}`, `onChange={(event) => vals.updateField?.('${field}', event.target.value)}`, `maxLength={${field === 'clientBrief' ? 4000 : 150}}`);
+      if (node.tag === 'a' && node.attrs.href === 'Dashboard.dc.html') {
+        node = { ...node, tag: 'button' };
+        attrs.splice(attrs.findIndex((attr) => attr.startsWith('href=')), 1);
+        attrs.push('type="button"', 'onClick={vals.submitOnboarding}', 'disabled={vals.submitting}');
+      }
     }
     let contents = children();
+    if (name === 'Onboarding' && node.tag === 'button' && node.attrs.href === 'Dashboard.dc.html') contents = '{vals.submitting ? "Menyiapkan kantor…" : "Buka dashboard"}';
     if (name === 'Onboarding' && node.attrs.class === 'card') contents += `\n{vals.error ? <p role="alert" style={{color: '#b42318', fontSize: '14px', marginTop: '18px'}}>{vals.error}</p> : null}`;
     return `<${node.tag} ${attrs.join(' ')}${voids.has(node.tag) ? ' />' : `>${contents}</${node.tag}>`}`;
   };

@@ -4,9 +4,10 @@ import { ClientsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
 import { DashboardPage, LandingPage, OnboardingPage } from './design-pages.jsx';
 import './shell.css';
 import { AuthPage } from './auth-pages.jsx';
+import { SessionBoundary } from './session-boundary.jsx';
 
 const pages = { '/app': 'Dashboard', '/app/workers': 'Workers', '/app/jobs': 'Jobs', '/app/settings': 'Settings' };
-const go = (path) => { history.pushState({}, '', path); dispatchEvent(new PopStateEvent('popstate')); };
+const go = (path, { replace = false } = {}) => { history[replace ? 'replaceState' : 'pushState']({}, '', path); dispatchEvent(new PopStateEvent('popstate')); };
 
 function App() {
   const [path, setPath] = useState(location.pathname);
@@ -24,7 +25,8 @@ function App() {
   else if (path === '/app/settings') page = <SettingsPage onNavigate={go} />;
   else if (path === '/app/reference') page = <ReferencePage title="Virtual Office dashboard reference" src="/dashboard-reference/Dashboard.dc.html" />;
   else page = <div className="workspace"><aside><strong>Virtual Office</strong>{Object.entries(pages).map(([href, label]) => <button className={path === href ? 'active' : ''} onClick={() => go(href)} key={href}>{label}</button>)}<button onClick={() => go('/app/office')}>Kantor</button></aside><main><p>WORKSPACE</p><h1>{pages[path] || 'Halaman belum tersedia'}</h1><span>Kerangka React siap. Desain halaman belum dimulai.</span></main></div>;
-  return page;
+  return path === '/onboarding' || path === '/app' || path.startsWith('/app/')
+    ? <SessionBoundary path={path} onNavigate={go}>{page}</SessionBoundary> : page;
 }
 
 function ReferencePage({ title, src }) {

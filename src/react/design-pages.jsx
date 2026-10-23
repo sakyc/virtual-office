@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './reference/reset.css';
 import { LandingDesign } from './reference/landing.jsx';
 import { OnboardingDesign } from './reference/onboarding.jsx';
 import { DashboardDesign } from './reference/dashboard.jsx';
 import { TenantWork } from './tenant-work.jsx';
 import { ProfileMenu } from './profile-menu.jsx';
-import { logoutSession } from './auth-flow.js';
+import { destinationForProfile, loadAuthProfile, logoutSession } from './auth-flow.js';
+import { onboardingErrors } from '../../shared/onboarding-validation.js';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -15,12 +16,24 @@ export function OnboardingPage({ onNavigate }) {
   const [form, setForm] = useState({ organizationName: '', workspaceName: '', clientName: '', clientBrief: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const inFlight = useRef(false);
   const decorate = (values, design) => ({
     ...values, form, submitting, error,
-    updateField: (field, value) => setForm((current) => ({ ...current, [field]: value })),
+    divs: [],
+    steps: values.steps.map((step, index) => index === 2 ? { ...step, title: 'Konfirmasi', sub: 'Periksa kantor Anda' } : step),
+    updateField: (field, value) => { setError(''); setForm((current) => ({ ...current, [field]: value })); },
+    next: () => {
+      const errors = onboardingErrors(form, design.state.step);
+      setError(Object.values(errors)[0] || '');
+      if (!Object.keys(errors).length) values.next();
+    },
+    back: () => { setError(''); values.back(); },
     submitOnboarding: async (event) => {
       event.preventDefault();
-      if (submitting) return;
+      if (inFlight.current) return;
+      const errors = onboardingErrors(form);
+      if (Object.keys(errors).length) { setError(Object.values(errors)[0]); design.setState({ step: errors.organizationName ? 1 : 2 }); return; }
+      inFlight.current = true;
       setSubmitting(true); setError('');
       try {
         const response = await fetch('/api/onboarding', {
@@ -28,10 +41,15 @@ export function OnboardingPage({ onNavigate }) {
           body: JSON.stringify({ ...form, teamSize: ['1-5', '6-20', '21-50', '50+'][design.state.size] }),
         });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error || 'Onboarding belum dapat diselesaikan.');
-        onNavigate('/app');
+        if (response.status === 401) { onNavigate('/login', { replace: true }); return; }
+        if (!response.ok) throw new Error(response.status === 409 ? 'Nama organisasi sudah digunakan. Kembali dan gunakan nama lain.' : 'Onboarding belum dapat diselesaikan. Coba lagi.');
+        const profile = await loadAuthProfile();
+        if (!profile || destinationForProfile(profile) !== '/app' || profile.activeWorkspace.id !== body.workspace?.id) throw new Error('Workspace belum aktif. Coba lagi untuk memeriksa hasil penyiapan.');
+        onNavigate('/app', { replace: true });
       } catch (failure) {
-        setError(failure.message); setSubmitting(false);
+        setError(failure instanceof TypeError ? 'Tidak dapat menghubungi layanan. Coba lagi.' : failure.message);
+      } finally {
+        inFlight.current = false; setSubmitting(false);
       }
     },
   });

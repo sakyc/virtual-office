@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { destinationForProfile, loadAuthProfile, logoutSession } from '../src/react/auth-flow.js';
+import { destinationForProfile, loadAuthProfile, logoutSession, redirectForProtectedPath } from '../src/react/auth-flow.js';
 
 test('post-login destination uses server profile with no user-controlled redirects', () => {
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [] }), '/onboarding');
@@ -8,6 +8,20 @@ test('post-login destination uses server profile with no user-controlled redirec
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [{ id: 3 }], activeWorkspace: { id: 3 } }), '/app');
   assert.throws(() => destinationForProfile({ workspaces: [] }), /Profil sesi/);
   assert.throws(() => destinationForProfile({ user: { id: 1 } }), /Profil sesi/);
+});
+
+test('protected pages require a session and onboarding only runs before first workspace', () => {
+  const fresh = { user: { id: 1 }, workspaces: [] };
+  const choosing = { ...fresh, workspaces: [{ id: 3 }] };
+  const ready = { ...choosing, activeWorkspace: { id: 3 } };
+  for (const path of ['/app', '/app/office', '/app/board', '/onboarding']) assert.equal(redirectForProtectedPath(null, path), '/login');
+  assert.equal(redirectForProtectedPath(fresh, '/app'), '/onboarding');
+  assert.equal(redirectForProtectedPath(fresh, '/onboarding'), null);
+  assert.equal(redirectForProtectedPath(choosing, '/onboarding'), '/login/complete');
+  assert.equal(redirectForProtectedPath(choosing, '/app'), '/login/complete');
+  assert.equal(redirectForProtectedPath(ready, '/onboarding'), '/app');
+  assert.equal(redirectForProtectedPath(ready, '/app'), null);
+  assert.equal(redirectForProtectedPath(ready, '/app/office'), null);
 });
 
 test('logout uses existing same-origin POST endpoint and sanitizes service failures', async (t) => {

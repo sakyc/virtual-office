@@ -1,5 +1,6 @@
 import { readCookie, resolveSession } from './sessions.js';
 import { authenticationEnabled } from './config.js';
+import { onboardingErrors } from '../../shared/onboarding-validation.js';
 
 const TEAM_SIZES = new Set(['1-5', '6-20', '21-50', '50+']);
 
@@ -14,6 +15,8 @@ export function slugify(value) {
 }
 
 export function validateOnboardingPayload(body) {
+  const errors = onboardingErrors(body);
+  if (Object.keys(errors).length) throw Object.assign(new Error(Object.values(errors)[0]), { status: 400 });
   const organizationName = String(body?.organizationName ?? '').trim().replace(/\s+/g, ' ').slice(0, 150);
   const workspaceName = String(body?.workspaceName ?? '').trim().replace(/\s+/g, ' ').slice(0, 150);
   const clientName = String(body?.clientName ?? '').trim().replace(/\s+/g, ' ').slice(0, 150);
@@ -35,9 +38,11 @@ function publicResult({ organizationId, organizationName, workspaceId, workspace
   };
 }
 
-export function installOnboardingRoutes(app, { getPool, authEnabled = authenticationEnabled() } = {}) {
+export function installOnboardingRoutes(app, { getPool, authEnabled = authenticationEnabled(), appOrigin = process.env.APP_ORIGIN || 'http://localhost:5173' } = {}) {
   app.post('/api/onboarding', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     if (!authEnabled) return res.status(503).json({ error: 'Onboarding requires configured authentication.' });
+    if (req.headers.origin !== appOrigin || !req.is('application/json')) return res.status(403).json({ error: 'Permintaan onboarding tidak valid.' });
     const pool = getPool?.();
     if (!pool) return res.status(503).json({ error: 'Authentication service unavailable.' });
 
@@ -52,16 +57,18 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
 
       await connection.beginTransaction();
       // Serializes first-time provisioning per user without trusting any client-supplied tenant ID.
-      const [userRows] = await connection.execute('SELECT id FROM users WHERE id = ? FOR UPDATE', [principal.userId]);
+      const [userRows] = await connection.execute("SELECT id FROM users WHERE id = ? AND status = 'active' FOR UPDATE", [principal.userId]);
       if (!userRows[0]) throw Object.assign(new Error('Authenticated user no longer exists.'), { status: 401 });
 
       const [existingRows] = await connection.execute(
         `SELECT o.id AS organization_id, o.name AS organization_name, w.id AS workspace_id, w.name AS workspace_name
-         FROM organizations o JOIN organization_memberships om ON om.organization_id = o.id
+         FROM organizations o
          JOIN workspaces w ON w.organization_id = o.id AND w.status = 'active'
-         WHERE om.user_id = ? AND om.role = 'owner' AND om.revoked_at IS NULL AND o.status = 'active'
-         ORDER BY o.id, w.id LIMIT 1`,
-        [principal.userId],
+         LEFT JOIN organization_memberships om ON om.organization_id = o.id AND om.user_id = ? AND om.revoked_at IS NULL
+         LEFT JOIN workspace_memberships wm ON wm.workspace_id = w.id AND wm.user_id = ? AND wm.revoked_at IS NULL
+         WHERE (om.role = 'owner' OR wm.user_id IS NOT NULL) AND o.status = 'active'
+         ORDER BY (w.id = ?) DESC, o.id, w.id LIMIT 1`,
+        [principal.userId, principal.userId, principal.activeWorkspaceId],
       );
       const existing = existingRows[0];
       if (existing) {
@@ -76,7 +83,7 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
       const [organization] = await connection.execute('INSERT INTO organizations (slug, name, created_by_user_id) VALUES (?, ?, ?)', [input.organizationSlug, input.organizationName, principal.userId]);
       const organizationId = organization.insertId;
       await connection.execute('INSERT INTO organization_memberships (organization_id, user_id, role, created_by_user_id) VALUES (?, ?, \'owner\', ?)', [organizationId, principal.userId, principal.userId]);
-      const [workspace] = await connection.execute('INSERT INTO workspaces (organization_id, slug, name, created_by_user_id) VALUES (?, \'main\', \'Main workspace\', ?)', [organizationId, principal.userId]);
+      const [workspace] = await connection.execute('INSERT INTO workspaces (organization_id, slug, name, created_by_user_id) VALUES (?, \'main\', ?, ?)', [organizationId, input.workspaceName, principal.userId]);
       const workspaceId = workspace.insertId;
       await connection.execute('INSERT INTO workspace_memberships (workspace_id, user_id, role, created_by_user_id) VALUES (?, ?, \'admin\', ?)', [workspaceId, principal.userId, principal.userId]);
 
@@ -90,12 +97,12 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
       }
       await connection.execute('UPDATE sessions SET active_workspace_id = ? WHERE id = ? AND user_id = ?', [workspaceId, principal.sessionId, principal.userId]);
       await connection.commit();
-      res.status(201).json({ ...publicResult({ organizationId, organizationName: input.organizationName, workspaceId, workspaceName: 'Main workspace', clientId }), existing: false });
+      res.status(201).json({ ...publicResult({ organizationId, organizationName: input.organizationName, workspaceId, workspaceName: input.workspaceName, clientId }), existing: false });
     } catch (error) {
       await connection?.rollback().catch(() => {});
       if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Data onboarding sudah ada atau slug organisasi digunakan.' });
       if (error?.status && error.status < 500) return res.status(error.status).json({ error: error.message, code: error.code });
-      console.error('[onboarding error]', error?.message || error);
+      console.error('[onboarding error] Provisioning failed.');
       res.status(503).json({ error: 'Onboarding belum dapat diselesaikan. Coba lagi.' });
     } finally { connection?.release(); }
   });
