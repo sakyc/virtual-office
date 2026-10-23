@@ -18,6 +18,7 @@
     "test:authorization": "node --test test/tenant-authorization.test.js",
     "test:sessions": "node --test test/sessions.test.js",
     "test:auth0": "node --test test/auth0.test.js",
+    "test:native-auth": "node --test test/native-auth.test.js test/auth-flow.test.js",
     "test:profile": "node --test test/profile.test.js",
     "test:dashboard": "node --test test/dashboard-routes.test.js",
     "test:work": "node --test test/work-api.test.js test/work-routes.test.js test/tenant-items.test.js test/tenant-review.test.js test/tenant-jobs.test.js test/dashboard-routes.test.js",

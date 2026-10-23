@@ -26,13 +26,26 @@ const TENANT_OWNERSHIP = { clients: ['organization_id', 'workspace_id', 'created
 const TENANT_INDEXES = { users: ['PRIMARY', 'uq_users_provider_subject', 'idx_users_email', 'idx_users_status_id'], organizations: ['PRIMARY', 'uq_organizations_slug', 'idx_organizations_status_id'], organization_memberships: ['PRIMARY', 'idx_org_memberships_user', 'idx_org_memberships_role'], workspaces: ['PRIMARY', 'uq_workspaces_organization_slug', 'idx_workspaces_organization_status_id'], workspace_memberships: ['PRIMARY', 'idx_workspace_memberships_user', 'idx_workspace_memberships_role'], sessions: ['PRIMARY', 'uq_sessions_token_hash', 'idx_sessions_user_expiry', 'idx_sessions_workspace'], clients: ['idx_clients_workspace_name_id'], jobs: ['idx_jobs_workspace_created_id', 'idx_jobs_workspace_agent_id'], items: ['idx_items_workspace_board', 'idx_items_workspace_job', 'idx_items_workspace_parent'], revisions: ['idx_revisions_workspace_item_id'] };
 const TENANT_FOREIGN_KEYS = ['fk_organizations_creator', 'fk_org_memberships_organization', 'fk_org_memberships_user', 'fk_org_memberships_creator', 'fk_workspaces_organization', 'fk_workspaces_creator', 'fk_workspace_memberships_workspace', 'fk_workspace_memberships_user', 'fk_workspace_memberships_creator', 'fk_sessions_user', 'fk_sessions_workspace', 'fk_clients_organization', 'fk_clients_workspace', 'fk_clients_creator', 'fk_clients_updater', 'fk_jobs_organization', 'fk_jobs_workspace', 'fk_jobs_creator', 'fk_items_organization', 'fk_items_workspace', 'fk_items_creator', 'fk_items_updater', 'fk_revisions_organization', 'fk_revisions_workspace', 'fk_revisions_creator'];
 
-export async function validateCurrentSchema(connection, { requireTenantFoundation = false } = {}) {
+export async function validateCurrentSchema(connection, { requireTenantFoundation = false, requireNativeCredentials = false } = {}) {
   const [rows] = await connection.execute(
-    "SELECT table_name AS tableName, column_name AS columnName FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('clients', 'jobs', 'items', 'revisions', 'users', 'organizations', 'organization_memberships', 'workspaces', 'workspace_memberships', 'sessions') ORDER BY table_name, ordinal_position",
+    "SELECT table_name AS tableName, column_name AS columnName FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('clients', 'jobs', 'items', 'revisions', 'users', 'organizations', 'organization_memberships', 'workspaces', 'workspace_memberships', 'sessions', 'native_credentials') ORDER BY table_name, ordinal_position",
   );
   const actual = new Map();
   for (const row of rows) actual.set(row.tableName, [...(actual.get(row.tableName) || []), row.columnName]);
   const missing = [];
+  if (requireNativeCredentials) {
+    if (!actual.has('native_credentials')) missing.push({ table: 'native_credentials', reason: 'table_missing' });
+    else for (const column of ['user_id', 'email_normalized', 'password_hash', 'created_at', 'password_changed_at']) {
+      if (!actual.get('native_credentials').includes(column)) missing.push({ table: 'native_credentials', column, reason: 'column_missing' });
+    }
+    const [nativeIndexes] = await connection.execute("SELECT index_name AS name, column_name AS columnName, non_unique AS nonUnique, seq_in_index AS position FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'native_credentials' ORDER BY index_name, seq_in_index");
+    for (const [name, column] of [['PRIMARY', 'user_id'], ['uq_native_credentials_email', 'email_normalized']]) {
+      const entries = nativeIndexes.filter((entry) => entry.name === name);
+      if (entries.length !== 1 || entries[0].columnName !== column || Number(entries[0].nonUnique) !== 0) missing.push({ table: 'native_credentials', index: name, reason: 'unique_index_mismatch' });
+    }
+    const [nativeKeys] = await connection.execute("SELECT column_name AS columnName, referenced_table_name AS referencedTable, referenced_column_name AS referencedColumn FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'native_credentials' AND constraint_name = 'fk_native_credentials_user'");
+    if (nativeKeys.length !== 1 || nativeKeys[0].columnName !== 'user_id' || nativeKeys[0].referencedTable !== 'users' || nativeKeys[0].referencedColumn !== 'id') missing.push({ constraint: 'fk_native_credentials_user', reason: 'foreign_key_mismatch' });
+  }
   for (const [table, columns] of Object.entries(CONTRACT)) {
     if (!actual.has(table)) missing.push({ table, reason: 'table_missing' });
     else for (const column of columns) if (!actual.get(table).includes(column)) missing.push({ table, column, reason: 'column_missing' });

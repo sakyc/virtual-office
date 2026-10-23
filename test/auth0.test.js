@@ -5,7 +5,7 @@ import { installAuthRoutes } from '../server/auth/auth-routes.js';
 
 test('disabled Auth0 gives explicit diagnostics without creating sessions or contacting a DB', () => {
   const routes = new Map();
-  const enabled = installAuthRoutes({ get: (path, handler) => routes.set(path, handler) }, { env: {}, getPool: () => { throw new Error('must not contact DB'); } });
+  const enabled = installAuthRoutes({ get: (path, handler) => routes.set(path, handler) }, { env: { AUTH_PROVIDER: 'auth0' }, getPool: () => { throw new Error('must not contact DB'); } });
   assert.equal(enabled, false);
   for (const path of ['/auth/me', '/auth/login']) {
     let status, body;
@@ -43,7 +43,7 @@ test('signup hint changes only Auth0 presentation and retains signed PKCE transa
 test('public auth readiness exposes only enabled flag and login ignores supplied redirect', () => {
   for (const configured of [false, true]) {
     const routes = new Map();
-    installAuthRoutes({ get: (path, handler) => routes.set(path, handler), post() {} }, { env: configured ? env : {}, getPool() { throw new Error('No database access allowed'); } });
+    installAuthRoutes({ get: (path, handler) => routes.set(path, handler), post() {} }, { env: configured ? { ...env, AUTH_PROVIDER: 'auth0' } : { AUTH_PROVIDER: 'auth0' }, getPool() { throw new Error('No database access allowed'); } });
     let body, location;
     const headers = {};
     const res = { setHeader(key, value) { headers[key] = value; }, json(value) { body = value; }, redirect(status, url) { assert.equal(status, 302); location = url; } };

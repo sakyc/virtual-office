@@ -8,6 +8,10 @@
     {
       "id": "002_tenant_foundation",
       "file": "002_tenant_foundation.sql"
+    },
+    {
+      "id": "003_native_credentials",
+      "file": "003_native_credentials.sql"
     }
   ]
 }

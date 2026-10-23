@@ -1,6 +1,7 @@
 import { readCookie, resolveSession } from './sessions.js';
+import { authenticationEnabled } from './config.js';
 
-export function createTenantGate({ getPool, authEnabled = process.env.AUTH0_ENABLED === '1', cookieName = 'vo_session', resourceQueriesScoped = false }) {
+export function createTenantGate({ getPool, authEnabled = authenticationEnabled(), cookieName = 'vo_session', resourceQueriesScoped = false }) {
   return async (req, res, next) => {
     if (!authEnabled) return res.status(503).json({ error: 'Customer API requires configured authentication.' });
     const pool = getPool(); if (!pool) return res.status(503).json({ error: 'Authentication service unavailable.' });

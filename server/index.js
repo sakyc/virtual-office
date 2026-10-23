@@ -33,7 +33,7 @@ const client = DEMO ? null : new Anthropic({ apiKey: API_KEY });
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
-// Auth0 remains opt-in for the local PoC; legacy API authorization is unchanged.
+// Native login shares the existing server sessions. Migrations remain explicit.
 installAuthRoutes(app, { getPool: () => pool });
 installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });

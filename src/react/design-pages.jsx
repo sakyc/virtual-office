@@ -47,7 +47,7 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
         if (!response.ok) {
           const diagnostic = await response.json().catch(() => ({}));
           const message = diagnostic.code === 'AUTHENTICATION_DISABLED'
-            ? 'Login belum aktif di server lokal. Lengkapi konfigurasi Auth0 di .env, lalu aktifkan AUTH0_ENABLED=1 dan restart backend. Board memerlukan login dan workspace aktif.'
+            ? 'Login belum tersedia. Coba lagi setelah layanan diaktifkan.'
             : response.status === 401 ? 'Login diperlukan untuk membuka pekerjaan workspace.' : 'Layanan autentikasi belum tersedia.';
           throw Object.assign(new Error(message), { status: response.status });
         }
@@ -69,7 +69,7 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   }, [profile?.activeWorkspace?.id, section]);
   const logout = useCallback(async (event) => {
     event.preventDefault();
-    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     if (response.ok) onNavigate('/');
   }, [onNavigate]);
   const decorate = (values, design) => {

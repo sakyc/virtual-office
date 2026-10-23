@@ -1,5 +1,11 @@
 # Virtual Office Multi-Tenant Foundation Design
 
+> Identity decision update, 2026-10-23: the project owner selected native
+> email/password authentication instead of Auth0. This supersedes the managed
+> OIDC choice below for the current implementation. Server sessions and tenant
+> authorization remain unchanged. See `docs/operations/auth-login-local.md` for
+> the local implementation, migration 003 and remaining release limitations.
+
 **Status:** Decision and implementation design; no implementation authorized.  
 **Scope:** First SaaS foundation milestone: identity, organization/workspace tenancy, authorization, sessions, legacy-data isolation, and migration approach.  
 **Out of scope:** Billing, BYOK, dynamic workers, workflow builder, React migration, durable job queue, and NestJS migration.

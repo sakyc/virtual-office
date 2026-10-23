@@ -1,4 +1,5 @@
 import { readCookie, resolveSession } from './sessions.js';
+import { authenticationEnabled } from './config.js';
 
 const TEAM_SIZES = new Set(['1-5', '6-20', '21-50', '50+']);
 
@@ -34,7 +35,7 @@ function publicResult({ organizationId, organizationName, workspaceId, workspace
   };
 }
 
-export function installOnboardingRoutes(app, { getPool, authEnabled = process.env.AUTH0_ENABLED === '1' } = {}) {
+export function installOnboardingRoutes(app, { getPool, authEnabled = authenticationEnabled() } = {}) {
   app.post('/api/onboarding', async (req, res) => {
     if (!authEnabled) return res.status(503).json({ error: 'Onboarding requires configured authentication.' });
     const pool = getPool?.();
