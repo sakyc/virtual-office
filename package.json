@@ -27,6 +27,7 @@
     "test:tenant-clients": "node --test test/tenant-clients.test.js",
     "test:tenant-items": "node --test test/tenant-items.test.js",
     "test:office-bridge": "node --test test/office-bridge.test.js",
+    "test:office-chat": "node --test test/office-chat.test.js test/office-chat-client.test.js",
     "test:onboarding": "node --test test/onboarding-routes.test.js",
     "test:tenant-gate": "node --test test/tenant-gate.test.js"
   },

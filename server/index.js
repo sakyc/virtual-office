@@ -14,6 +14,7 @@ import { createTenantGate } from './auth/tenant-gate.js';
 import { installDashboardRoutes } from './dashboard-routes.js';
 import { processTenantJob } from './tenant-jobs.js';
 import { processTenantRevision } from './tenant-review.js';
+import { installOfficeChatRoutes } from './office-chat.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -88,6 +89,12 @@ function dailyCap(req, res, next) {
 }
 
 // ---------- Util ----------
+installOfficeChatRoutes(app, {
+  requireTenant: requireTenantDashboard, client,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
+  rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
+});
+
 function cleanMessages(raw) {
   if (!Array.isArray(raw)) return [];
   const out = raw

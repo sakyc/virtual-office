@@ -57,5 +57,6 @@ test('React office uses lifecycle cleanup and tenant mode never persists or load
   assert.match(host, /runner\.stop\(\)/); assert.match(host, /onLoad=/); assert.match(host, /postMessage\(message, location\.origin\)/);
   assert.match(host, /office.html\?tenant=1/);
   assert.match(chat, /histories = tenantOffice \? \{\}/); assert.match(chat, /if \(!tenantOffice\) safe.set/);
-  assert.match(chat, /if \(tenantOffice\) throw new Error/);
+  assert.match(chat, /tenantOffice \? '\/api\/office\/chat' : '\/api\/chat'/);
+  assert.match(chat, /await prepareChat\(signal\)/);
 });

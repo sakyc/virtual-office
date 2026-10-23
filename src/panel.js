@@ -1,6 +1,6 @@
 import { agentById, agentsOf, divisionById } from '../shared/roster.js';
 import { renderMarkdown } from './md.js';
-import { getHistory, setHistory, clearHistory, streamChat } from './chat.js';
+import { getHistory, setHistory, clearHistory, streamChat, prepareChat, tenantOffice, getChatScope } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -21,6 +21,8 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   };
 
   let currentId = null;
+  let preparing = false;
+  let openVersion = 0;
   const live = new Map(); // agentId -> { text, el, abort }
 
   const scrollDown = (force = false) => {
@@ -116,18 +118,19 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
 
   function syncSend() {
     const busy = live.has(currentId);
-    els.send.disabled = busy || !els.input.value.trim();
+    els.send.disabled = preparing || busy || !els.input.value.trim();
     els.input.placeholder = busy ? `${agentById(currentId).name.split(' ')[0]} lagi ngetik…` : 'Tulis pesan…';
   }
 
   async function submit(text) {
     const id = currentId;
     text = (text || '').trim();
-    if (!id || !text || live.has(id)) return;
+    if (!id || !text || preparing || live.has(id)) return;
 
     const history = getHistory(id);
+    const scope = getChatScope();
     const sent = [...history, { role: 'user', content: text }];
-    setHistory(id, sent);
+    setHistory(id, sent, scope);
 
     els.messages.querySelector('.empty')?.remove();
     els.quick.innerHTML = '';
@@ -147,6 +150,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
       const full = await streamChat(id, sent, {
         signal: l.abort.signal,
         onText: (_t, all) => {
+          if (tenantOffice && getChatScope() !== scope) { l.abort.abort(); return; }
           l.text = all;
           if (!l.raf) {
             l.raf = requestAnimationFrame(() => {
@@ -156,18 +160,21 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
           }
         },
       });
-      setHistory(id, [...sent, { role: 'assistant', content: full }]);
+      if (live.get(id) !== l) return;
+      setHistory(id, [...sent, { role: 'assistant', content: full }], scope);
       live.delete(id);
-      if (l.el && currentId === id) l.el.querySelector('.bubble').innerHTML = renderMarkdown(full);
+      if (l.el && currentId === id && getChatScope() === scope) l.el.querySelector('.bubble').innerHTML = renderMarkdown(full);
       onStatus(id, 'done');
     } catch (err) {
+      if (live.get(id) !== l) return;
       live.delete(id);
       onStatus(id, 'idle');
       if (err.name === 'AbortError') {
-        setHistory(id, sent.slice(0, -1));
+        if (!err.resetHistory) setHistory(id, sent.slice(0, -1), scope);
       } else {
         // kembalikan teks ke kolom input supaya bisa dikirim ulang
-        setHistory(id, sent.slice(0, -1));
+        if (!err.resetHistory) setHistory(id, sent.slice(0, -1), scope);
+        else { for (const active of live.values()) active.abort.abort(); if (currentId) render(currentId); }
         if (currentId === id) {
           l.el?.remove();
           const e = bubble('assistant', '');
@@ -179,9 +186,10 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
           autosize();
           scrollDown(true);
         }
-        if (err.code === 401) onNeedCode();
+        if (err.code === 401 && !tenantOffice) onNeedCode();
       }
     } finally {
+      if (l.raf) cancelAnimationFrame(l.raf);
       if (currentId === id) syncSend();
     }
   }
@@ -210,6 +218,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   els.reset.addEventListener('click', () => {
     if (!currentId) return;
     live.get(currentId)?.abort.abort();
+    live.delete(currentId);
     clearHistory(currentId);
     render(currentId);
   });
@@ -245,8 +254,27 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
 
   return {
     setTab,
-    open(agentId) {
+    async open(agentId) {
       currentId = agentId;
+      const version = ++openVersion;
+      if (tenantOffice) {
+        preparing = true;
+        els.messages.textContent = 'Memeriksa sesi dan workspace…';
+        els.quick.innerHTML = '';
+        syncSend();
+        try {
+          const changed = await prepareChat();
+          if (changed) for (const active of live.values()) active.abort.abort();
+        } catch (error) {
+          if (version !== openVersion) return;
+          preparing = false;
+          els.messages.textContent = error.message;
+          els.send.disabled = true;
+          return;
+        }
+        if (version !== openVersion) return;
+        preparing = false;
+      }
       render(agentId);
       setTab('chat');
       jobs?.setAgent(agentId);
@@ -256,6 +284,8 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
       }, 350);
     },
     close() {
+      openVersion += 1;
+      if (tenantOffice) for (const active of live.values()) active.abort.abort();
       currentId = null;
     },
     get current() {

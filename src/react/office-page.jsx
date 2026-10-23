@@ -20,7 +20,7 @@ export function OfficePage({ onNavigate }) {
     <button onClick={() => onNavigate('/app')}>← Dashboard</button>
     <button onClick={() => onNavigate('/app/jobs')}>Buat perintah</button>
     <button onClick={() => onNavigate('/app/board')}>Lihat board</button>
-    <small>Chat lama belum terhubung ke workspace; gunakan Buat perintah.</small>
+    <small>Chat sesuai izin workspace · riwayat sementara di tab ini. Hasil pekerjaan ada di Board.</small>
     <span role={state.status === 'unavailable' ? 'alert' : 'status'}>{state.status === 'loading' ? 'Memuat aktivitas workspace…' : state.status === 'ready' ? `${state.activeJobs} pekerjaan berjalan · diperbarui ${state.updatedAt.toLocaleTimeString('id-ID')}` : 'Aktivitas belum dapat dimuat. Status agent tidak diketahui.'}</span>
     {state.status === 'unavailable' && <button onClick={() => sync.current?.refresh()}>Coba lagi</button>}
   </div><iframe ref={setFrame} onLoad={() => sync.current?.refresh()} title="Virtual Office 3D" src="/office.html?tenant=1" /></div>;

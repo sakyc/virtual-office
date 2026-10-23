@@ -1,4 +1,5 @@
 // Klien chat: simpan riwayat per karyawan (localStorage, opsional) dan baca stream SSE dari /api/chat.
+import { createChatContext } from './tenant-chat-context.js';
 
 const KEY_HISTORY = 'kantorai.history.v1';
 const KEY_CODE = 'kantorai.code';
@@ -21,9 +22,14 @@ let histories = {};
 try { histories = tenantOffice ? {} : JSON.parse(safe.get(KEY_HISTORY) || '{}') || {}; } catch { histories = {}; }
 
 const persist = () => { if (!tenantOffice) safe.set(KEY_HISTORY, JSON.stringify(histories)); };
+const chatContext = createChatContext({ reset: () => { histories = {}; } });
+export const prepareChat = (signal) => tenantOffice ? chatContext.prepare(signal) : Promise.resolve(false);
+export const getChatScope = () => tenantOffice ? chatContext.scope : null;
+if (tenantOffice) addEventListener('pagehide', () => chatContext.clear(), { once: true });
 
 export const getHistory = (id) => histories[id] || [];
-export function setHistory(id, list) {
+export function setHistory(id, list, scope = getChatScope()) {
+  if (tenantOffice && (!scope || scope !== getChatScope())) return;
   histories[id] = list.slice(-40);
   persist();
 }
@@ -48,13 +54,15 @@ export async function fetchConfig() {
 // Mengirim riwayat + pesan baru. Memanggil onText(potongan) saat streaming.
 // Melempar Error dengan .code === 401 bila kode akses salah.
 export async function streamChat(agentId, messages, { onText, signal }) {
-  if (tenantOffice) throw new Error('Chat kantor belum terhubung ke workspace. Gunakan tombol Buat perintah di atas kantor.');
+  const scope = chatContext.scope;
+  if (tenantOffice && (!scope || await prepareChat(signal))) throw Object.assign(new Error('Sesi atau workspace berubah. Buka ulang chat.'), { resetHistory: true });
   let res;
   try {
-    res = await fetch('/api/chat', {
+    res = await fetch(tenantOffice ? '/api/office/chat' : '/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-access-code': getCode() },
-      body: JSON.stringify({ agentId, messages }),
+      credentials: 'same-origin',
+      headers: tenantOffice ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json', 'x-access-code': getCode() },
+      body: JSON.stringify(tenantOffice ? { agentId, messages: messages.slice(-19), scope } : { agentId, messages }),
       signal,
     });
   } catch (e) {
@@ -67,6 +75,7 @@ export async function streamChat(agentId, messages, { onText, signal }) {
     try { msg = (await res.json()).error || msg; } catch { /* abaikan */ }
     const err = new Error(msg);
     err.code = res.status;
+    if (tenantOffice && [401, 403, 409].includes(res.status)) { chatContext.clear(); err.resetHistory = true; }
     throw err;
   }
 
@@ -74,24 +83,29 @@ export async function streamChat(agentId, messages, { onText, signal }) {
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+  let completed = false;
 
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buffer.indexOf('\n\n')) >= 0) {
-      const raw = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 2);
-      if (!raw.startsWith('data:')) continue;
-      let evt;
-      try { evt = JSON.parse(raw.slice(5).trim()); } catch { continue; }
-      if (evt.error) throw new Error(evt.error);
-      if (evt.t) {
-        full += evt.t;
-        onText(evt.t, full);
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) >= 0) {
+        const raw = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 2);
+        if (!raw.startsWith('data:')) continue;
+        let evt;
+        try { evt = JSON.parse(raw.slice(5).trim()); } catch { continue; }
+        if (evt.error) throw new Error(evt.error);
+        if (evt.done) completed = true;
+        if (evt.t) {
+          full += evt.t;
+          onText(evt.t, full);
+        }
       }
     }
-  }
-  return full;
+    if (tenantOffice && !completed) throw new Error('Koneksi chat terputus sebelum jawaban selesai. Coba lagi.');
+    return full;
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }

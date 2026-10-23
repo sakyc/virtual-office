@@ -1,8 +1,8 @@
 // Inputs must be resolved by trusted server-side authentication and membership loaders.
 // This module never treats request body, query, or header tenant IDs as identity evidence.
 const ROLE_PERMISSIONS = Object.freeze({
-  admin: new Set(['client:read', 'client:create', 'job:create', 'job:read', 'item:read', 'item:revise', 'item:review', 'item:update', 'item:delete', 'item:restore', 'item:purge', 'workspace:members:manage']),
-  member: new Set(['client:read', 'client:create', 'job:create', 'job:read', 'item:read', 'item:revise', 'item:review', 'item:update']),
+  admin: new Set(['chat:create', 'client:read', 'client:create', 'job:create', 'job:read', 'item:read', 'item:revise', 'item:review', 'item:update', 'item:delete', 'item:restore', 'item:purge', 'workspace:members:manage']),
+  member: new Set(['chat:create', 'client:read', 'client:create', 'job:create', 'job:read', 'item:read', 'item:revise', 'item:review', 'item:update']),
   viewer: new Set(['client:read', 'job:read', 'item:read']),
 });
 
