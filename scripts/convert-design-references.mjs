@@ -74,7 +74,8 @@ for (const [name, slug, filename, archive] of designs) {
       if (attr === 'href') {
         const routes = { 'Main.dc.html': '/', 'Dashboard.dc.html': '/app', 'Onboarding.dc.html': '/onboarding' };
         value = routes[value] || value;
-        if (name === 'Landing' && value === '/app' && node.children.some((child) => child.text?.trim() === 'Masuk')) value = '/auth/login';
+        if (name === 'Landing' && value === '/app' && node.children.some((child) => child.text?.trim() === 'Masuk')) value = '/login';
+        if (name === 'Landing' && value === '/onboarding') value = '/register';
       }
       if (attr === 'disabled' && value === '') return 'disabled';
       return `${prop}={${interpolate(value, locals)}}`;

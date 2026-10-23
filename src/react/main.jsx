@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ClientsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
 import { DashboardPage, LandingPage, OnboardingPage } from './design-pages.jsx';
 import './shell.css';
+import { AuthPage } from './auth-pages.jsx';
 
 const pages = { '/app': 'Dashboard', '/app/workers': 'Workers', '/app/jobs': 'Jobs', '/app/settings': 'Settings' };
 const go = (path) => { history.pushState({}, '', path); dispatchEvent(new PopStateEvent('popstate')); };
@@ -12,6 +13,7 @@ function App() {
   useEffect(() => { const update = () => setPath(location.pathname); addEventListener('popstate', update); return () => removeEventListener('popstate', update); }, []);
   let page;
   if (path === '/') page = <LandingPage onNavigate={go} />;
+  else if (path === '/login' || path === '/register' || path === '/login/complete') page = <AuthPage key={path} register={path === '/register'} complete={path === '/login/complete'} onNavigate={go} />;
   else if (path === '/onboarding') page = <OnboardingPage onNavigate={go} />;
   else if (path === '/app/office') page = <OfficePage onNavigate={go} />;
   else if (path === '/app') page = <DashboardPage onNavigate={go} />;

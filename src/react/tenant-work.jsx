@@ -50,7 +50,7 @@ function useWorkData(kind, id = null, refreshKey = 0) {
 export function WorkNotice({ error, loading, onRetry }) {
   return <section className="work-notice" role={error ? 'alert' : 'status'}>
     <p>{loading ? 'Memuat data workspace…' : error?.message || 'Workspace aktif diperlukan untuk melanjutkan.'}</p>
-    {error?.status === 401 ? <a className="work-button btnp" href="/auth/login">Login kembali</a>
+{error?.status === 401 ? <a className="work-button btnp" href="/login">Login kembali</a>
       : onRetry && <button className="work-button btns" onClick={onRetry}>Coba lagi</button>}
   </section>;
 }

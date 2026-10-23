@@ -59,9 +59,9 @@ export function LandingNavigation({ vals }) {
 <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={vals.themeIcon}></path></svg>
 </button>
 
-<a className={"btns hide-sm"} href={"/auth/login"} style={{"padding": "10px 16px", "borderRadius": "10px", "fontSize": "14px", "fontWeight": "700", "color": "var(--ink)"}}>{"Masuk"}</a>
+<a className={"btns hide-sm"} href={"/login"} style={{"padding": "10px 16px", "borderRadius": "10px", "fontSize": "14px", "fontWeight": "700", "color": "var(--ink)"}}>{"Masuk"}</a>
 
-<a className={"btnp"} href={"/onboarding"} style={{"padding": "11px 18px", "borderRadius": "10px", "fontSize": "14px", "fontWeight": "700", "background": "var(--accent)", "color": "var(--onAccent)"}}>{"Mulai sekarang"}</a>
+<a className={"btnp"} href={"/register"} style={{"padding": "11px 18px", "borderRadius": "10px", "fontSize": "14px", "fontWeight": "700", "background": "var(--accent)", "color": "var(--onAccent)"}}>{"Mulai sekarang"}</a>
 </div>
 </div>
 </header></>;
@@ -88,7 +88,7 @@ export function LandingHero({ vals }) {
 <p className={"fu d2"} style={{"margin": "22px auto 0", "maxWidth": "640px", "fontSize": "clamp(16px,1.6vw,19px)", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Virtual Office mengumpulkan agent, perintah, dan hasil kerja di satu ruang kerja 3D. Beri perintah, pantau prosesnya, lalu tinjau dan setujui hasilnya."}</p>
 
 <div className={"fu d3"} style={{"marginTop": "34px", "display": "flex", "gap": "12px", "justifyContent": "center", "flexWrap": "wrap"}}>
-<a className={"btnp"} href={"/onboarding"} style={{"display": "inline-flex", "alignItems": "center", "gap": "8px", "padding": "15px 26px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "background": "var(--accent)", "color": "var(--onAccent)"}}>{" Mulai sekarang "}
+<a className={"btnp"} href={"/register"} style={{"display": "inline-flex", "alignItems": "center", "gap": "8px", "padding": "15px 26px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "background": "var(--accent)", "color": "var(--onAccent)"}}>{" Mulai sekarang "}
 <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M5 12h14M13 6l6 6-6 6"}></path></svg>
 </a>
 
@@ -451,7 +451,7 @@ export function LandingPricing({ vals }) {
 <span style={{"fontSize": "14px", "fontWeight": "600", "color": "var(--mute)"}}>{p.per}</span>
 </div>
 
-<a className={p.btnClass} href={"/onboarding"} style={{"marginTop": "22px", "padding": "13px 18px", "borderRadius": "12px", "fontSize": "15px", "fontWeight": "700", "textAlign": "center", "background": p.btnBg, "color": p.btnInk, "border": "1px solid " + (p.btnLine)}}>{p.cta}</a>
+<a className={p.btnClass} href={"/register"} style={{"marginTop": "22px", "padding": "13px 18px", "borderRadius": "12px", "fontSize": "15px", "fontWeight": "700", "textAlign": "center", "background": p.btnBg, "color": p.btnInk, "border": "1px solid " + (p.btnLine)}}>{p.cta}</a>
 
 <ul style={{"listStyle": "none", "margin": "26px 0 0", "padding": "26px 0 0", "borderTop": "1px solid var(--line)", "display": "flex", "flexDirection": "column", "gap": "14px"}}>
 {p.rows.map((r, index7) => <React.Fragment key={index7}>
@@ -570,9 +570,9 @@ export function LandingFinalCallToAction({ vals }) {
 <p style={{"margin": "18px auto 0", "maxWidth": "520px", "fontSize": "17px", "lineHeight": "1.6", "color": "#c9d4f5"}}>{"Buat organisasi, pilih agent pertama, dan kirim perintah pertama dalam beberapa menit."}</p>
 
 <div style={{"marginTop": "32px", "display": "flex", "gap": "12px", "justifyContent": "center", "flexWrap": "wrap"}}>
-<a href={"/onboarding"} style={{"padding": "15px 28px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "background": "#ffffff", "color": "#1b2a5e"}}>{"Mulai sekarang"}</a>
+<a href={"/register"} style={{"padding": "15px 28px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "background": "#ffffff", "color": "#1b2a5e"}}>{"Mulai sekarang"}</a>
 
-<a href={"/auth/login"} style={{"padding": "15px 28px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "border": "1px solid #5a6fb5", "color": "#fff"}}>{"Masuk"}</a>
+<a href={"/login"} style={{"padding": "15px 28px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "border": "1px solid #5a6fb5", "color": "#fff"}}>{"Masuk"}</a>
 </div>
 </div>
 </section></>;

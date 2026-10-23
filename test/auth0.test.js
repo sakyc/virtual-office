@@ -28,6 +28,39 @@ test('PKCE state includes signed nonce and rejects tampering or expiry', () => {
   assert.equal(verifyState(config, `${tx.state}x`, { now: 1001 }), null);
   assert.equal(verifyState(config, tx.state, { now: 700000 }), null);
 });
+test('signup hint changes only Auth0 presentation and retains signed PKCE transaction', () => {
+  const config = auth0Config(env);
+  const normal = createLoginTransaction(config, 1000);
+  const signup = createLoginTransaction(config, 1000, { signup: true });
+  assert.equal(new URL(normal.authorizationUrl).searchParams.has('screen_hint'), false);
+  const url = new URL(signup.authorizationUrl);
+  assert.equal(url.origin, config.issuer);
+  assert.equal(url.searchParams.get('screen_hint'), 'signup');
+  assert.equal(url.searchParams.get('redirect_uri'), config.callbackUrl);
+  assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
+  assert.equal(verifyState(config, signup.state, { now: 1001 }).nonce, signup.nonce);
+});
+test('public auth readiness exposes only enabled flag and login ignores supplied redirect', () => {
+  for (const configured of [false, true]) {
+    const routes = new Map();
+    installAuthRoutes({ get: (path, handler) => routes.set(path, handler), post() {} }, { env: configured ? env : {}, getPool() { throw new Error('No database access allowed'); } });
+    let body, location;
+    const headers = {};
+    const res = { setHeader(key, value) { headers[key] = value; }, json(value) { body = value; }, redirect(status, url) { assert.equal(status, 302); location = url; } };
+    routes.get('/auth/status')({}, res);
+    assert.deepEqual(body, { enabled: configured });
+    assert.equal(headers['Cache-Control'], 'no-store');
+    if (configured) {
+      routes.get('/auth/login')({ query: { screen_hint: 'signup', returnTo: 'https://attacker.test', role: 'owner' } }, res);
+      const url = new URL(location);
+      assert.equal(url.searchParams.get('screen_hint'), 'signup');
+      assert.equal(url.searchParams.get('redirect_uri'), env.AUTH0_CALLBACK_URL);
+      assert.equal(url.searchParams.has('role'), false);
+      assert.equal(url.searchParams.has('returnTo'), false);
+      assert.match(headers['Set-Cookie'], /HttpOnly/);
+    }
+  }
+});
 test('identity mapping finds existing user or creates stable issuer-subject mapping', async () => {
   const identity = { issuer: 'https://example.us.auth0.com', subject: 'auth0|123', email: 'person@example.test', displayName: 'Person' };
   const existing = await findOrProvisionUser({ execute: async () => [[{ id: 4 }]] }, identity); assert.equal(existing, 4);

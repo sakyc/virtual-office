@@ -14,7 +14,7 @@ export function auth0Config(env = process.env) {
   return config;
 }
 
-export function createLoginTransaction(config, now = Date.now()) {
+export function createLoginTransaction(config, now = Date.now(), { signup = false } = {}) {
   const verifier = randomBytes(32).toString('base64url');
   const nonce = randomBytes(24).toString('base64url');
   const payload = b64(JSON.stringify({ verifier, nonce, issuedAt: now }));
@@ -22,6 +22,7 @@ export function createLoginTransaction(config, now = Date.now()) {
   const state = `${payload}.${signature}`;
   const url = new URL(`${config.issuer}/authorize`);
   url.search = new URLSearchParams({ response_type: 'code', client_id: config.clientId, redirect_uri: config.callbackUrl, scope: 'openid profile email', state, nonce, code_challenge: sha256(verifier), code_challenge_method: 'S256' });
+  if (signup) url.searchParams.set('screen_hint', 'signup');
   return { state, nonce, verifier, authorizationUrl: url.toString() };
 }
 
