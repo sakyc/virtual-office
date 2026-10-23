@@ -72,10 +72,13 @@ export function trackedClient(client, store, scope) {
   } };
 }
 
-export async function loadUsage(connection, tenant, principal) {
+export async function loadUsage(connection, tenant, principal, range = '30d') {
+  const periods = { today: 'UTC_DATE()', '7d': 'CURRENT_TIMESTAMP - INTERVAL 7 DAY', '14d': 'CURRENT_TIMESTAMP - INTERVAL 14 DAY', '30d': 'CURRENT_TIMESTAMP - INTERVAL 30 DAY' };
+  if (!Object.hasOwn(periods, range)) throw Object.assign(new Error('Periode pemakaian tidak valid.'), { status: 400 });
   const team = ['owner', 'admin'].includes(tenant.role);
   const params = [tenant.organizationId, tenant.workspaceId, ...(team ? [] : [principal.userId])];
-  const where = `organization_id = ? AND workspace_id = ?${team ? '' : ' AND user_id = ?'} AND started_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY`;
+  const scopeWhere = `organization_id = ? AND workspace_id = ?${team ? '' : ' AND user_id = ?'}`;
+  const where = `${scopeWhere} AND started_at >= ${periods[range]}`;
   const [totals] = await connection.execute(`SELECT COUNT(*) AS requests,
     SUM(status = 'completed') AS completed, SUM(status <> 'completed') AS unresolved,
     COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens,
@@ -84,7 +87,19 @@ export async function loadUsage(connection, tenant, principal) {
   const [recent] = await connection.execute(`SELECT id, operation, agent_id AS agentId, model, status,
     input_tokens AS inputTokens, output_tokens AS outputTokens, started_at AS startedAt
     FROM ai_usage WHERE ${where} ORDER BY started_at DESC, id DESC LIMIT 50`, params);
-  return { scope: team ? 'workspace' : 'self', periodDays: 30, totals: totals[0], recent, costAvailable: false };
+  const [models] = await connection.execute(`SELECT model, COUNT(*) AS requests,
+    COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens,
+    COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens, COALESCE(SUM(cache_creation_tokens), 0) AS cacheCreationTokens
+    FROM ai_usage WHERE ${where} GROUP BY model ORDER BY requests DESC, model`, params);
+  const windows = [];
+  for (const [id, interval] of [['fiveHour', '5 HOUR'], ['weekly', '7 DAY']]) {
+    const [rows] = await connection.execute(`SELECT COUNT(*) AS requests, SUM(status <> 'completed') AS unresolved,
+      COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) + COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0) AS tokens
+      FROM ai_usage WHERE ${scopeWhere} AND started_at >= CURRENT_TIMESTAMP - INTERVAL ${interval}`, params);
+    windows.push({ id, status: 'unconfigured', limit: null, used: null, resetsAt: null, observed: rows[0] });
+  }
+  return { scope: team ? 'workspace' : 'self', range, periodDays: range === 'today' ? 1 : Number(range.slice(0, -1)), totals: totals[0], recent, models, costAvailable: false,
+    quota: { configured: false, enforced: false, unit: 'USD', windows } };
 }
 
 export function installUsageRoutes(app, { getPool, requireTenant }) {
@@ -92,10 +107,10 @@ export function installUsageRoutes(app, { getPool, requireTenant }) {
     res.setHeader('Cache-Control', 'no-store');
     let connection;
     try {
-      if (Object.keys(req.query).length) return res.status(400).json({ error: 'Filter pemakaian tidak valid.' });
+      if (Object.keys(req.query).some((key) => key !== 'range') || (req.query.range !== undefined && !['today', '7d', '14d', '30d'].includes(req.query.range))) return res.status(400).json({ error: 'Filter pemakaian tidak valid.' });
       connection = await getPool()?.getConnection();
       if (!connection) throw unavailable();
-      res.json(await loadUsage(connection, req.tenantContext, req.authPrincipal));
+      res.json(await loadUsage(connection, req.tenantContext, req.authPrincipal, req.query.range || '30d'));
     } catch { res.status(503).json({ error: 'Pencatatan pemakaian belum tersedia. Periksa migrasi 004 dengan operator.' }); }
     finally { connection?.release(); }
   });

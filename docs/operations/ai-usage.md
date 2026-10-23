@@ -36,12 +36,29 @@ a job/revision does not erase its provider usage. Reserve pool capacity accordin
 ## Reading and access
 
 `GET /api/dashboard/usage` requires the existing validated session and tenant gate.
-It accepts no client tenant filters. Both totals and the 50 latest rows are scoped
-to the active organization/workspace and the last 30 days. Owners/admins see that
+It accepts no client tenant filters. The only optional query is `range`, with a
+fixed allowlist: `today` (UTC midnight), `7d`, `14d`, or `30d` (API default).
+Totals, model breakdowns, and the 50 latest rows are scoped
+to the active organization/workspace and the selected period. Owners/admins see that
 workspace; members/viewers see only their own rows. Platform-only access is denied.
 Other workspaces in the organization are NOT included. The dashboard menu
 “Penggunaan & Billing” reads this endpoint, with loading/error/empty states.
 Existing historical job counters are not backfilled into the ledger.
+
+The analytics UI defaults to 7 days and includes token/cache breakdowns and model
+and request logs. Independent trailing 5-hour and 7-day observations use the same
+tenant/self scope regardless of the reporting filter. These are NOT allowance
+windows: the response explicitly returns `configured: false`, `enforced: false`,
+and NULL limits, monetary usage, and reset times. The UI labels this state rather
+than displaying fictional balances, countdowns, or active quota progress bars.
+
+Read-only reference inspection of Aerolink on 2026-10-23 confirmed token/cache,
+model and request analytics, plus USD allowances resetting every 5 hours/7 days.
+The account had no plan; active allowance bars and exact reset anchoring were not
+verified. Our UI follows the layout pattern without copying package prices.
+Actual enforcement still requires approved allowance amounts, model pricing,
+reset policy and concurrency-safe reservations/reconciliation before provider
+calls. Exhausting either allowance must block; credit fallback is not approved.
 
 ## Limitations and recovery
 

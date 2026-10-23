@@ -10,7 +10,7 @@ import { onboardingErrors } from '../../shared/onboarding-validation.js';
 import { loadDashboardOverview } from './dashboard-data.js';
 import { DashboardUnavailable, LiveDashboardOverview } from './dashboard-overview.jsx';
 import { AccountSettings } from './account-settings.jsx';
-import { UsagePage } from './usage-page.jsx';
+import { UsageAnalytics as UsagePage } from './usage-analytics.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;

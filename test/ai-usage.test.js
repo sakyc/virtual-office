@@ -92,7 +92,7 @@ test('invalid server context fails before SQL or provider; demo does not create 
   assert.equal(trackedClient(null, f.store, scope), null); assert.equal(f.calls.length, 0);
 });
 
-test('usage aggregation scopes both queries by tenant and limits non-admins to themselves', async () => {
+test('all usage queries remain tenant-scoped; quota observations are not active allowances', async () => {
   for (const role of ['owner', 'admin', 'member', 'viewer']) {
     const calls = [];
     const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ requests: 0 }]]; } };
@@ -102,10 +102,36 @@ test('usage aggregation scopes both queries by tenant and limits non-admins to t
     for (const call of calls) {
       assert.match(call.sql, /organization_id = \? AND workspace_id = \?/);
       assert.deepEqual(call.values, team ? [3, 8] : [3, 8, 9]);
-      assert.match(call.sql, /INTERVAL 30 DAY/);
     }
+    assert.equal(calls.length, 5);
+    for (const call of calls.slice(0, 3)) assert.match(call.sql, /INTERVAL 30 DAY/);
+    assert.match(calls[2].sql, /GROUP BY model/);
+    assert.match(calls[3].sql, /INTERVAL 5 HOUR/);
+    assert.match(calls[4].sql, /INTERVAL 7 DAY/);
     assert.equal(result.costAvailable, false);
+    assert.equal(result.quota.configured, false);
+    assert.equal(result.quota.enforced, false);
+    for (const window of result.quota.windows) {
+      assert.equal(window.status, 'unconfigured');
+      assert.equal(window.limit, null); assert.equal(window.used, null); assert.equal(window.resetsAt, null);
+    }
   }
+});
+
+test('reporting ranges use fixed SQL and do not change five-hour or weekly observations', async () => {
+  for (const [range, expression] of [['today', 'UTC_DATE()'], ['7d', 'INTERVAL 7 DAY'], ['14d', 'INTERVAL 14 DAY']]) {
+    const calls = [];
+    const connection = { execute: async (sql) => { calls.push(sql); return [[{ requests: 2, unresolved: 1, tokens: 100 }]]; } };
+    const result = await loadUsage(connection, { ...scope, role: 'member' }, { userId: 9 }, range);
+    assert.equal(result.range, range);
+    for (const sql of calls.slice(0, 3)) assert.ok(sql.includes(expression));
+    assert.match(calls[3], /INTERVAL 5 HOUR/);
+    assert.match(calls[4], /INTERVAL 7 DAY/);
+    assert.equal(result.quota.windows[0].observed.unresolved, 1);
+  }
+  let queries = 0;
+  await assert.rejects(loadUsage({ execute: async () => { queries++; } }, scope, { userId: 9 }, '7 DAY; DROP TABLE ai_usage'), { status: 400 });
+  assert.equal(queries, 0);
 });
 
 test('usage route uses real session gate; denies forged scope, revoked sessions and platform-only users', async (t) => {
@@ -126,6 +152,13 @@ test('usage route uses real session gate; denies forged scope, revoked sessions 
   const request = (query = '', cookie = `vo_session=${'a'.repeat(43)}`) => fetch(`http://127.0.0.1:${server.address().port}/api/dashboard/usage${query}`, { headers: { Cookie: cookie } });
   assert.equal((await request('', '')).status, 401);
   assert.equal((await request('?organizationId=999')).status, 400); assert.equal(reads.length, 0);
+  for (const query of ['?range=invalid', '?range=7d&range=14d', '?range=7d&workspaceId=999', '?range[x]=today']) {
+    assert.equal((await request(query)).status, 400);
+    assert.equal(reads.length, 0);
+  }
+  assert.equal((await request('?range=today')).status, 200);
+  assert.ok(reads[0].sql.includes('UTC_DATE()'));
+  reads.length = 0;
   assert.equal((await request()).status, 200); assert.deepEqual(reads[0].values, [3, 8, 9]);
   state.revoked = true; assert.equal((await request()).status, 401);
   state.revoked = false; state.role = 'platform_admin'; assert.equal((await request()).status, 403);
