@@ -7,6 +7,8 @@ import { TenantWork } from './tenant-work.jsx';
 import { ProfileMenu } from './profile-menu.jsx';
 import { destinationForProfile, loadAuthProfile, logoutSession } from './auth-flow.js';
 import { onboardingErrors } from '../../shared/onboarding-validation.js';
+import { loadDashboardOverview } from './dashboard-data.js';
+import { DashboardUnavailable, LiveDashboardOverview } from './dashboard-overview.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -61,6 +63,8 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   const [profile, setProfile] = useState(null);
   const [sessionState, setSessionState] = useState({ loading: true, error: null });
   const [overview, setOverview] = useState(null);
+  const [overviewState, setOverviewState] = useState({ loading: true, error: '' });
+  const [overviewRetry, setOverviewRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     fetch('/auth/me', { credentials: 'same-origin', signal: controller.signal })
@@ -83,11 +87,12 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   useEffect(() => {
     if (section !== 'overview' || !profile?.activeWorkspace?.id) return undefined;
     const controller = new AbortController();
-    fetch('/api/dashboard/overview', { credentials: 'same-origin', signal: controller.signal })
-      .then((response) => response.ok ? response.json() : null)
-      .then(setOverview).catch(() => {});
+    setOverview(null); setOverviewState({ loading: true, error: '' });
+    loadDashboardOverview(controller.signal)
+      .then((body) => { if (!controller.signal.aborted) { setOverview(body); setOverviewState({ loading: false, error: '' }); } })
+      .catch((error) => { if (!controller.signal.aborted) setOverviewState({ loading: false, error: error.message }); });
     return () => controller.abort();
-  }, [profile?.activeWorkspace?.id, section]);
+  }, [profile?.activeWorkspace?.id, section, overviewRetry]);
   const logout = useCallback(async (event) => {
     event?.preventDefault();
     if (logoutState.busy) return;
@@ -97,17 +102,22 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   }, [onNavigate, logoutState.busy]);
   const decorate = (values, design) => {
     // Prototype role controls affect preview state only; real permissions always come from the session.
-    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board' };
+    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board', agents: '/app/jobs' };
     const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => {
       const active = item.id === 'jobs' && section !== 'overview';
       return { ...item, ...(active ? { current: 'page', bg: 'var(--accentSoft)', ink: 'var(--accentText)', weight: 800, shadow: 'inset 3px 0 0 var(--accent)' } : {}),
         ...(section !== 'overview' && item.id === 'overview' ? { current: undefined, bg: 'transparent', ink: 'var(--soft)', weight: 600, shadow: 'none' } : {}),
-        badge: item.id === 'jobs' && (profile || section !== 'overview') ? undefined : item.badge,
+        badge: item.id === 'jobs' ? undefined : item.badge,
         go: paths[item.id] ? () => { if (item.id === 'overview') design.setState({ view: 'overview' }); onNavigate(paths[item.id]); }
           : section !== 'overview' ? () => { design.setState({ view: item.id }); onNavigate('/app'); } : item.go,
       };
     }) }));
-    const result = { ...values, navGroups, goOffice: () => onNavigate('/app/office'), logout };
+    const result = { ...values, live: true, navGroups: navGroups.filter((group) => group.title !== 'Admin platform'),
+      workspaceName: 'Memuat workspace…', organizationName: '', userName: 'Memuat akun…', roleLabel: 'Memeriksa sesi',
+      userInitials: '', goOffice: () => onNavigate('/app/office'), logout };
+    if (section === 'overview') result.content = values.v.overview
+      ? <LiveDashboardOverview profile={profile} overview={overview} loading={overviewState.loading && !sessionState.error} error={sessionState.error?.message || overviewState.error} onRetry={() => sessionState.error ? onNavigate('/login') : setOverviewRetry((value) => value + 1)} onNavigate={onNavigate} />
+      : <DashboardUnavailable title={values.pageTitle} />;
     result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSettings={() => { design.setState({ view: 'settings' }); onNavigate('/app'); }} />;
     result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
     result.goAgents = () => onNavigate('/app/jobs');
@@ -127,23 +137,13 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
     result.workspaceName = workspace?.name || 'Pilih workspace';
     result.organizationName = workspace?.organization?.name || '';
     result.userName = profile.user.displayName || profile.user.email;
+    result.userInitials = result.userName.split(/\s+/).slice(0, 2).map((part) => [...part][0]).join('').toUpperCase();
     result.greeting = `Selamat siang, ${result.userName.split(/\s+/)[0]}`;
     result.roleLabel = workspace?.role || 'Tanpa workspace';
     result.asAdmin = result.asOwner = () => {};
     // Customer sessions do not gain platform admin capabilities via the design preview switch.
     result.navGroups = navGroups.filter((group) => group.title !== 'Admin platform');
     result.isAdmin = false; result.isOwner = workspace?.role === 'owner';
-    result.kpis = overview ? [
-      { label: 'Total perintah', value: String(overview.metrics.totalJobs), note: 'Workspace', bg: 'var(--accentSoft)', ink: 'var(--accentText)' },
-      { label: 'Sedang berjalan', value: String(overview.metrics.activeJobs), note: 'Aktif', bg: 'var(--warnSoft)', ink: 'var(--warn)' },
-      { label: 'Disetujui', value: String(overview.metrics.approvedItems), note: 'Item', bg: 'var(--okSoft)', ink: 'var(--ok)' },
-      { label: 'Client', value: String(overview.metrics.totalClients), note: 'Workspace', bg: 'var(--accentSoft)', ink: 'var(--accentText)' },
-    ] : values.kpis.map((kpi) => ({ ...kpi, value: '—', note: 'Belum tersedia' }));
-    result.recent = (overview?.recentJobs || []).map((job) => ({
-      title: job.clientName ? `${job.jobType} · ${job.clientName}` : job.jobType,
-      agent: job.agentId || 'Agent', when: job.createdAt, ini: (job.agentId || 'AI').slice(0, 2).toUpperCase(),
-      tint: 'var(--accentSoft)', status: job.status, sbg: 'var(--accentSoft)', sink: 'var(--accentText)',
-    }));
     result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
     result.goAgents = () => onNavigate('/app/jobs');
     return result;

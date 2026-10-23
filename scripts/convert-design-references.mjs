@@ -136,6 +136,11 @@ for (const [name, slug, filename, archive] of designs) {
     };
     replace('{"Data contoh"}</span>', '{vals.live ? "Workspace aktif" : "Data contoh"}</span>');
     replace('</div>\n</header>', '{vals.profileMenu}\n</div>\n</header>');
+    replace('{"Paket Dasar"}', '{vals.live ? "Langganan belum tersedia" : "Paket Dasar"}');
+    replace('{"62%"}', '{vals.live ? "—" : "62%"}');
+    replace('"width": "62%"', '"width": vals.live ? "0%" : "62%"');
+    replace('{"Kuota periode ini terpakai 62%."}', '{vals.live ? "Paket dan kuota akun belum ditetapkan." : "Kuota periode ini terpakai 62%."}');
+    replace('{"NP"}', '{vals.live ? vals.userInitials : "NP"}');
     const rolesStart = jsx.indexOf('<div role={"group"} aria-label={"Lihat sebagai"}');
     const rolesEnd = jsx.indexOf('</div>', rolesStart);
     if (rolesStart < 0 || rolesEnd < 0) throw new Error('Dashboard role preview extension point missing');

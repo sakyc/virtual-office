@@ -1,0 +1,22 @@
+.reference-dashboard .live-overview { display: grid; gap: 20px; color: var(--ink); }
+.reference-dashboard .live-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.reference-dashboard .live-overview h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.025em; }
+.reference-dashboard .live-overview h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.reference-dashboard .live-overview p { margin: 8px 0 0; color: var(--mute); font-size: 14px; line-height: 1.65; }
+.reference-dashboard .live-overview button { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.reference-dashboard .live-overview button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.reference-dashboard .live-overview .live-primary { background: var(--accent); color: var(--onAccent); border-color: var(--accent); }
+.reference-dashboard .live-metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 16px; }
+.reference-dashboard .live-card { padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; overflow-wrap: anywhere; }
+.reference-dashboard .live-metrics h2 { color: var(--mute); font-size: 13px; }
+.reference-dashboard .live-metrics strong { display: block; margin-top: 10px; font-size: 32px; font-weight: 800; }
+.reference-dashboard .live-columns { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: 16px; }
+.reference-dashboard .live-stack { display: flex; flex-direction: column; gap: 16px; }
+.reference-dashboard .live-jobs, .reference-dashboard .live-checklist { list-style: none; padding: 0; margin: 18px 0 0; }
+.reference-dashboard .live-jobs li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.reference-dashboard .live-jobs li > span { font-size: 12px; border-radius: 8px; padding: 5px 9px; background: var(--accentSoft); }
+.reference-dashboard .live-checklist li { display: flex; gap: 12px; padding: 8px 0; font-size: 14px; }
+.reference-dashboard .live-checklist small { display: block; margin-top: 3px; color: var(--mute); }
+.reference-dashboard .live-error { padding: 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; }
+.reference-dashboard .live-error p { margin: 0 0 10px; }
+@media (max-width: 850px) { .reference-dashboard .live-columns { grid-template-columns: minmax(0,1fr); } }

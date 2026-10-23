@@ -69,16 +69,16 @@ export function DashboardSidebar({ vals }) {
 </nav>
 
 <div style={{"padding": "14px", "borderRadius": "14px", "border": "1px solid var(--line)", "background": "var(--surface2)"}}>
-<div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between"}}><span style={{"fontSize": "13px", "fontWeight": "800"}}>{"Paket Dasar"}</span>
-<span style={{"fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"62%"}</span></div>
+<div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between"}}><span style={{"fontSize": "13px", "fontWeight": "800"}}>{vals.live ? "Langganan belum tersedia" : "Paket Dasar"}</span>
+<span style={{"fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{vals.live ? "—" : "62%"}</span></div>
 
-<div style={{"marginTop": "10px", "height": "8px", "borderRadius": "999px", "background": "var(--line)", "overflow": "hidden"}}><div className={"fill"} style={{"width": "62%", "height": "100%", "background": "var(--grad)"}}></div></div>
+<div style={{"marginTop": "10px", "height": "8px", "borderRadius": "999px", "background": "var(--line)", "overflow": "hidden"}}><div className={"fill"} style={{"width": vals.live ? "0%" : "62%", "height": "100%", "background": "var(--grad)"}}></div></div>
 
-<p style={{"margin": "10px 0 0", "fontSize": "12px", "lineHeight": "1.5", "color": "var(--mute)"}}>{"Kuota periode ini terpakai 62%."}</p>
+<p style={{"margin": "10px 0 0", "fontSize": "12px", "lineHeight": "1.5", "color": "var(--mute)"}}>{vals.live ? "Paket dan kuota akun belum ditetapkan." : "Kuota periode ini terpakai 62%."}</p>
 </div>
 
 <div style={{"display": "flex", "alignItems": "center", "gap": "10px", "padding": "4px 8px"}}>
-<span style={{"width": "36px", "height": "36px", "borderRadius": "50%", "background": "var(--accentSoft)", "color": "var(--accentText)", "fontWeight": "800", "fontSize": "13px", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>{"NP"}</span>
+<span style={{"width": "36px", "height": "36px", "borderRadius": "50%", "background": "var(--accentSoft)", "color": "var(--accentText)", "fontWeight": "800", "fontSize": "13px", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>{vals.live ? vals.userInitials : "NP"}</span>
 
 <span style={{"flex": "1", "lineHeight": "1.3", "minWidth": "0"}}><span style={{"display": "block", "fontSize": "13px", "fontWeight": "800"}}>{vals.userName ?? "Nama Pengguna"}</span>
 <span style={{"display": "block", "fontSize": "12px", "fontWeight": "600", "color": "var(--mute)"}}>{vals.roleLabel}</span></span>
