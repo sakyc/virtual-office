@@ -3,6 +3,7 @@ import { clearSessionCookie, issueSession, readCookie, resolveSession, revokeSes
 import { loadSessionProfile, selectActiveWorkspace } from './profile.js';
 import { authenticationMode } from './config.js';
 import { installNativeRoutes } from './native-routes.js';
+import { installAccountRoutes } from './account-routes.js';
 
 export function installAuthRoutes(app, { getPool, env = process.env }) {
   const mode = authenticationMode(env);
@@ -16,6 +17,7 @@ export function installAuthRoutes(app, { getPool, env = process.env }) {
     return false;
   }
   const secure = env.NODE_ENV === 'production';
+  installAccountRoutes(app, { getPool, appOrigin: env.APP_ORIGIN || (secure ? null : 'http://localhost:5173') });
   if (mode === 'native') installNativeRoutes(app, { getPool, env });
   if (mode === 'auth0') {
     app.get('/auth/login', (req, res) => { const tx = createLoginTransaction(config, Date.now(), { signup: req.query?.screen_hint === 'signup' }); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Set-Cookie', sessionCookie('vo_oidc_state', tx.state, { production: secure })); res.redirect(302, tx.authorizationUrl); });

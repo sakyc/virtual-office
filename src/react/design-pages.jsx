@@ -9,6 +9,7 @@ import { destinationForProfile, loadAuthProfile, logoutSession } from './auth-fl
 import { onboardingErrors } from '../../shared/onboarding-validation.js';
 import { loadDashboardOverview } from './dashboard-data.js';
 import { DashboardUnavailable, LiveDashboardOverview } from './dashboard-overview.jsx';
+import { AccountSettings } from './account-settings.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -102,9 +103,9 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   }, [onNavigate, logoutState.busy]);
   const decorate = (values, design) => {
     // Prototype role controls affect preview state only; real permissions always come from the session.
-    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board', agents: '/app/jobs' };
+    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board', agents: '/app/jobs', settings: '/app/settings' };
     const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => {
-      const active = item.id === 'jobs' && section !== 'overview';
+      const active = item.id === (section === 'settings' ? 'settings' : 'jobs') && section !== 'overview';
       return { ...item, ...(active ? { current: 'page', bg: 'var(--accentSoft)', ink: 'var(--accentText)', weight: 800, shadow: 'inset 3px 0 0 var(--accent)' } : {}),
         ...(section !== 'overview' && item.id === 'overview' ? { current: undefined, bg: 'transparent', ink: 'var(--soft)', weight: 600, shadow: 'none' } : {}),
         badge: item.id === 'jobs' ? undefined : item.badge,
@@ -118,10 +119,14 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
     if (section === 'overview') result.content = values.v.overview
       ? <LiveDashboardOverview profile={profile} overview={overview} loading={overviewState.loading && !sessionState.error} error={sessionState.error?.message || overviewState.error} onRetry={() => sessionState.error ? onNavigate('/login') : setOverviewRetry((value) => value + 1)} onNavigate={onNavigate} />
       : <DashboardUnavailable title={values.pageTitle} />;
-    result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSettings={() => { design.setState({ view: 'settings' }); onNavigate('/app'); }} />;
+    if (section === 'settings') {
+      result.pageTitle = 'Pengaturan';
+      result.content = profile ? <AccountSettings key={profile.activeWorkspace?.id} profile={profile} onSaved={setProfile}/> : <p role="status">Memuat pengaturan…</p>;
+    }
+    result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSaved={setProfile} onSettings={() => onNavigate('/app/settings')} />;
     result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
     result.goAgents = () => onNavigate('/app/jobs');
-    if (section !== 'overview') {
+    if (section !== 'overview' && section !== 'settings') {
       result.pageTitle = section === 'board' ? 'Perintah & Board' : 'Perintah';
       result.content = <TenantWork key={`${section}:${profile?.activeWorkspace?.id || 'none'}`} section={section} profile={profile} sessionState={sessionState} onNavigate={onNavigate} />;
       result.live = true;
