@@ -121,6 +121,7 @@ for (const [name, slug, filename, archive] of designs) {
       jsx = jsx.replace(before, after);
     };
     replace('{"Data contoh"}</span>', '{vals.live ? "Workspace aktif" : "Data contoh"}</span>');
+    replace('</div>\n</header>', '{vals.profileMenu}\n</div>\n</header>');
     const rolesStart = jsx.indexOf('<div role={"group"} aria-label={"Lihat sebagai"}');
     const rolesEnd = jsx.indexOf('</div>', rolesStart);
     if (rolesStart < 0 || rolesEnd < 0) throw new Error('Dashboard role preview extension point missing');

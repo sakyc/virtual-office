@@ -1,0 +1,24 @@
+.reference-dashboard .account-menu{position:relative;font-family:inherit}
+.reference-dashboard .account-trigger{display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 10px 0 5px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:700;white-space:nowrap}
+.reference-dashboard .account-trigger:hover,.reference-dashboard .account-action:hover{background:var(--surface2)}
+.reference-dashboard .account-avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:30px;height:30px;border-radius:9px;background:var(--accentSoft);color:var(--accentText);font-size:11px;font-weight:800}
+.reference-dashboard .account-dropdown{position:absolute;top:calc(100% + 10px);right:0;width:260px;max-width:calc(100vw - 32px);padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 16px 40px #0003;z-index:60}
+.reference-dashboard .account-identity{display:flex;flex-direction:column;gap:4px;padding:10px 10px 12px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.reference-dashboard .account-identity strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reference-dashboard .account-identity span{font-size:12px;color:var(--mute);overflow-wrap:anywhere}
+.reference-dashboard .account-action{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;padding:11px 10px;border:0;border-radius:8px;background:transparent;color:var(--soft);font-family:inherit;font-size:13px;font-weight:600;text-align:left;text-decoration:none}
+.reference-dashboard .account-divider{height:1px;margin:5px 4px;background:var(--line)}
+.reference-dashboard .account-logout{color:var(--err,#d14c55)}
+.reference-dashboard .account-action:disabled{opacity:.6;cursor:wait}
+.reference-dashboard .account-error{margin:5px;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:12px;line-height:1.6;color:var(--err,#d14c55)}
+.reference-dashboard .account-dialog{box-sizing:border-box;width:440px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--ink);font-family:inherit;box-shadow:0 24px 70px #0005}
+.reference-dashboard .account-dialog::backdrop{background:#050b1799;backdrop-filter:blur(4px)}
+.reference-dashboard .account-dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.reference-dashboard .account-dialog-heading h2{margin:0;font-size:20px;letter-spacing:-.02em}
+.reference-dashboard .account-close{width:32px;height:32px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);color:var(--soft);font-size:22px}
+.reference-dashboard .account-profile-heading{display:flex;align-items:center;gap:12px;margin-top:24px}
+.reference-dashboard .account-profile-heading .account-avatar{width:44px;height:44px;border-radius:13px;font-size:15px}
+.reference-dashboard .account-profile-heading strong{overflow-wrap:anywhere;min-width:0}
+.reference-dashboard .account-details{display:grid;gap:8px;margin:24px 0 0}
+.reference-dashboard .account-details dt{margin-top:8px;font-size:12px;font-weight:700;color:var(--mute)}
+.reference-dashboard .account-details dd{margin:0;font-size:14px;overflow-wrap:anywhere}

@@ -13,3 +13,10 @@ export async function loadAuthProfile(signal) {
   destinationForProfile(profile);
   return profile;
 }
+
+export async function logoutSession() {
+  try {
+    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!response.ok) throw new Error();
+  } catch { throw new Error('Logout belum berhasil. Coba lagi sebentar.'); }
+}

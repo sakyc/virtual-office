@@ -4,6 +4,8 @@ import { LandingDesign } from './reference/landing.jsx';
 import { OnboardingDesign } from './reference/onboarding.jsx';
 import { DashboardDesign } from './reference/dashboard.jsx';
 import { TenantWork } from './tenant-work.jsx';
+import { ProfileMenu } from './profile-menu.jsx';
+import { logoutSession } from './auth-flow.js';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -37,6 +39,7 @@ export function OnboardingPage({ onNavigate }) {
 }
 
 export function DashboardPage({ onNavigate, section = 'overview' }) {
+  const [logoutState, setLogoutState] = useState({ busy: false, error: '' });
   const [profile, setProfile] = useState(null);
   const [sessionState, setSessionState] = useState({ loading: true, error: null });
   const [overview, setOverview] = useState(null);
@@ -68,10 +71,12 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
     return () => controller.abort();
   }, [profile?.activeWorkspace?.id, section]);
   const logout = useCallback(async (event) => {
-    event.preventDefault();
-    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    if (response.ok) onNavigate('/');
-  }, [onNavigate]);
+    event?.preventDefault();
+    if (logoutState.busy) return;
+    setLogoutState({ busy: true, error: '' });
+    try { await logoutSession(); setProfile(null); setOverview(null); onNavigate('/login'); }
+    catch (error) { setLogoutState({ busy: false, error: error.message }); }
+  }, [onNavigate, logoutState.busy]);
   const decorate = (values, design) => {
     // Prototype role controls affect preview state only; real permissions always come from the session.
     const paths = { overview: '/app', office: '/app/office', jobs: '/app/board' };
@@ -85,6 +90,7 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
       };
     }) }));
     const result = { ...values, navGroups, goOffice: () => onNavigate('/app/office'), logout };
+    result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSettings={() => { design.setState({ view: 'settings' }); onNavigate('/app'); }} />;
     result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
     result.goAgents = () => onNavigate('/app/jobs');
     if (section !== 'overview') {

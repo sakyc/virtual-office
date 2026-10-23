@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { destinationForProfile, loadAuthProfile } from '../src/react/auth-flow.js';
+import { destinationForProfile, loadAuthProfile, logoutSession } from '../src/react/auth-flow.js';
 
 test('post-login destination uses server profile with no user-controlled redirects', () => {
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [] }), '/onboarding');
@@ -8,6 +8,24 @@ test('post-login destination uses server profile with no user-controlled redirec
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [{ id: 3 }], activeWorkspace: { id: 3 } }), '/app');
   assert.throws(() => destinationForProfile({ workspaces: [] }), /Profil sesi/);
   assert.throws(() => destinationForProfile({ user: { id: 1 } }), /Profil sesi/);
+});
+
+test('logout uses existing same-origin POST endpoint and sanitizes service failures', async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/auth/logout');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.headers['Content-Type'], 'application/json');
+    assert.equal(options.body, '{}');
+    return { ok: true, status: 204 };
+  };
+  await logoutSession();
+  globalThis.fetch = async () => ({ ok: false, status: 503 });
+  await assert.rejects(logoutSession(), { message: 'Logout belum berhasil. Coba lagi sebentar.' });
+  globalThis.fetch = async () => { throw new Error('mysql://private-secret@internal'); };
+  await assert.rejects(logoutSession(), { message: 'Logout belum berhasil. Coba lagi sebentar.' });
 });
 
 test('profile fetch requires a valid session and never treats disabled service as a new account', async (t) => {

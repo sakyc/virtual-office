@@ -117,6 +117,7 @@ export function DashboardTopbar({ vals }) {
 
 <button className={"btns"} type={"button"} aria-label={"Notifikasi"} style={{"position": "relative", "width": "42px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--soft)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}><svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"}></path></svg>
 <span style={{"position": "absolute", "top": "9px", "right": "10px", "width": "8px", "height": "8px", "borderRadius": "50%", "background": "var(--accent)", "border": "2px solid var(--surface)"}}></span></button>
+{vals.profileMenu}
 </div>
 </header></>;
 }
