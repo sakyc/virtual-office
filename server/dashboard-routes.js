@@ -46,12 +46,12 @@ export async function loadWorkspaceClients(connection, workspaceId) {
 
 export async function loadWorkspaceItems(connection, workspaceId) {
   const [rows] = await connection.execute(
-    `SELECT id, type, title, status FROM items
+    `SELECT id, type, title, status, agent_id, version, updated_at FROM items
       WHERE workspace_id = ? AND deleted_at IS NULL
       ORDER BY updated_at DESC, id DESC LIMIT 100`,
     [workspaceId],
   );
-  return rows.map((item) => ({ id: item.id, type: item.type, title: item.title, status: item.status }));
+  return rows.map((item) => ({ id: item.id, type: item.type, title: item.title, status: item.status, agentId: item.agent_id, version: item.version, updatedAt: item.updated_at }));
 }
 
 export async function loadWorkspaceWorkerLoads(connection, workspaceId) {
@@ -74,7 +74,7 @@ export async function loadWorkspaceMembers(connection, workspaceId) {
   return rows.map((member) => ({ id: member.id, email: member.email, displayName: member.display_name, role: member.role }));
 }
 
-export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob }) {
+export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob, runTenantRevision }) {
   app.get('/api/dashboard/overview', requireTenant, async (req, res) => {
     let connection;
     try {
@@ -137,6 +137,17 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       res.status(503).json({ error: 'Item service unavailable.' });
     } finally { connection?.release(); }
   });
+  app.get('/api/dashboard/items/:id', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Item service unavailable.' });
+      const { loadTenantItemDetail } = await import('./tenant-items.js');
+      res.json({ item: await loadTenantItemDetail(connection, { tenantContext: req.tenantContext, itemId: Number(req.params.id) }) });
+    } catch (error) {
+      res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' });
+    } finally { connection?.release(); }
+  });
   app.get('/api/dashboard/workers', requireTenant, async (req, res) => {
     let connection;
     try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Dashboard service unavailable.' }); res.json({ workers: await loadWorkspaceWorkerLoads(connection, req.tenantContext.workspaceId) }); } catch { res.status(503).json({ error: 'Dashboard service unavailable.' }); } finally { connection?.release(); }
@@ -148,6 +159,37 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
   app.post('/api/dashboard/items/:id/approve', requireTenant, async (req, res) => {
     let connection;
     try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Item service unavailable.' }); const { approveTenantItem } = await import('./tenant-items.js'); await approveTenantItem(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id) }); res.status(204).end(); } catch (error) { res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' }); } finally { connection?.release(); }
+  });
+  app.post('/api/dashboard/items/:id/reject', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Item service unavailable.' });
+      const { rejectTenantItem } = await import('./tenant-review.js');
+      await rejectTenantItem(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id), body: req.body });
+      res.status(204).end();
+    } catch (error) {
+      res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' });
+    } finally { connection?.release(); }
+  });
+  app.post('/api/dashboard/items/:id/revise', requireTenant, async (req, res) => {
+    let connection;
+    try {
+      if (!runTenantRevision) return res.status(503).json({ error: 'Item revision service unavailable.' });
+      connection = await getPool()?.getConnection();
+      if (!connection) return res.status(503).json({ error: 'Item service unavailable.' });
+      const { reserveTenantRevision, recoverTenantRevision } = await import('./tenant-review.js');
+      const reservation = await reserveTenantRevision(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id), body: req.body });
+      res.status(202).json({ itemId: reservation.itemId, status: 'revising' });
+      void Promise.resolve().then(() => runTenantRevision(reservation)).catch(async () => {
+        let recovery;
+        try { recovery = await getPool()?.getConnection(); if (recovery) await recoverTenantRevision(recovery, reservation); }
+        catch { /* Operator recovery is required if the database is unavailable. No automatic replay. */ }
+        finally { recovery?.release(); }
+      });
+    } catch (error) {
+      res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item revision service unavailable.' });
+    } finally { connection?.release(); }
   });
   app.delete('/api/dashboard/items/:id', requireTenant, async (req, res) => {
     let connection;

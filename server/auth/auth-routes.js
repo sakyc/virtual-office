@@ -3,7 +3,14 @@ import { clearSessionCookie, issueSession, readCookie, resolveSession, revokeSes
 import { loadSessionProfile, selectActiveWorkspace } from './profile.js';
 
 export function installAuthRoutes(app, { getPool, env = process.env }) {
-  const config = auth0Config(env); if (!config.enabled) return false;
+  const config = auth0Config(env);
+  if (!config.enabled) {
+    // Explicit JSON prevents the SPA fallback from masquerading as a successful session response.
+    const unavailable = (_req, res) => res.status(503).json({ error: 'Auth0 login is not configured on this server.', code: 'AUTHENTICATION_DISABLED' });
+    app.get('/auth/me', unavailable);
+    app.get('/auth/login', unavailable);
+    return false;
+  }
   const secure = env.NODE_ENV === 'production';
   app.get('/auth/login', (req, res) => { const tx = createLoginTransaction(config); res.setHeader('Set-Cookie', sessionCookie('vo_oidc_state', tx.state, { production: secure })); res.redirect(302, tx.authorizationUrl); });
   app.get('/auth/callback', async (req, res) => { let connection; try { const state = req.query?.state; const cookie = req.headers.cookie?.split(';').map((v) => v.trim()).find((v) => v.startsWith('vo_oidc_state='))?.slice(14); if (!state || state !== cookie) return res.status(400).json({ error: 'OIDC state rejected.' }); const tokens = await exchangeCode(config, { authorizationCode: req.query?.code, state }); const identity = await validateIdToken(config, tokens.id_token, tokens.nonce); connection = await getPool()?.getConnection(); if (!connection) throw Object.assign(new Error('Database unavailable.'), { code: 'DATABASE_UNAVAILABLE' }); const userId = await findOrProvisionUser(connection, identity); const session = await issueSession(connection, { userId }); res.setHeader('Set-Cookie', [sessionCookie('vo_session', session.token, { production: secure }), clearSessionCookie('vo_oidc_state', { production: secure })]); res.redirect('/'); } catch (error) { res.status(401).json({ error: 'OIDC login failed.', code: error?.code || 'OIDC_ERROR' }); } finally { connection?.release(); } });

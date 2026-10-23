@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BoardPage, ClientsPage, JobsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
+import { ClientsPage, SettingsPage, WorkersPage } from './workspace-pages.jsx';
 import { DashboardPage, LandingPage, OnboardingPage } from './design-pages.jsx';
 import './shell.css';
 
@@ -17,8 +17,8 @@ function App() {
   else if (path === '/app') page = <DashboardPage onNavigate={go} />;
   else if (path === '/app/workers') page = <WorkersPage onNavigate={go} />;
   else if (path === '/app/clients') page = <ClientsPage onNavigate={go} />;
-  else if (path === '/app/board') page = <BoardPage onNavigate={go} />;
-  else if (path === '/app/jobs') page = <JobsPage onNavigate={go} />;
+  else if (path === '/app/board') page = <DashboardPage section="board" onNavigate={go} />;
+  else if (path === '/app/jobs') page = <DashboardPage section="jobs" onNavigate={go} />;
   else if (path === '/app/settings') page = <SettingsPage onNavigate={go} />;
   else if (path === '/app/reference') page = <ReferencePage title="Virtual Office dashboard reference" src="/dashboard-reference/Dashboard.dc.html" />;
   else page = <div className="workspace"><aside><strong>Virtual Office</strong>{Object.entries(pages).map(([href, label]) => <button className={path === href ? 'active' : ''} onClick={() => go(href)} key={href}>{label}</button>)}<button onClick={() => go('/app/office')}>Kantor</button></aside><main><p>WORKSPACE</p><h1>{pages[path] || 'Halaman belum tersedia'}</h1><span>Kerangka React siap. Desain halaman belum dimulai.</span></main></div>;

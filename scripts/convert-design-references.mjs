@@ -112,7 +112,27 @@ for (const [name, slug, filename, archive] of designs) {
   let logic = source.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/)[1].trim().replace('class Component extends DCLogic', `export class ${name}Design extends React.Component`);
   logic = logic.slice(0, logic.lastIndexOf('}')) + `\n  render() {\n    const vals = this.props.decorate ? this.props.decorate(this.renderVals(), this) : this.renderVals();\n    vals.rootClass += ' reference-page reference-${slug}';\n    return <${name}Layout vals={vals} />;\n  }\n}\n`;
   const directory = resolve(root, 'src/react/reference'); mkdirSync(directory, { recursive: true });
-  writeFileSync(resolve(directory, `${slug}.jsx`), `// Converted from ${archive}/${filename}; original SVG paths, layout and motion preserved.\nimport React from 'react';\nimport './${slug}.css';\n\n${functions.join('\n\n')}\n\nexport function ${name}Layout({ vals }) { return ${compile(rootNode)}; }\n\n${logic}\n`.trimEnd() + '\n');
+  let jsx = `// Converted from ${archive}/${filename}; original SVG paths, layout and motion preserved.\nimport React from 'react';\nimport './${slug}.css';\n\n${functions.join('\n\n')}\n\nexport function ${name}Layout({ vals }) { return ${compile(rootNode)}; }\n\n${logic}\n`;
+  if (name === 'Dashboard') {
+    // Extension points for live data. The default reference preview remains visually unchanged.
+    const replace = (before, after) => {
+      if (!jsx.includes(before)) throw new Error(`Dashboard extension point missing: ${before.slice(0, 60)}`);
+      jsx = jsx.replace(before, after);
+    };
+    replace('{"Data contoh"}</span>', '{vals.live ? "Workspace aktif" : "Data contoh"}</span>');
+    const rolesStart = jsx.indexOf('<div role={"group"} aria-label={"Lihat sebagai"}');
+    const rolesEnd = jsx.indexOf('</div>', rolesStart);
+    if (rolesStart < 0 || rolesEnd < 0) throw new Error('Dashboard role preview extension point missing');
+    jsx = jsx.slice(0, rolesStart) + '{!vals.live && ' + jsx.slice(rolesStart, rolesEnd + 6) + '}' + jsx.slice(rolesEnd + 6);
+    const detailLabel = jsx.indexOf('aria-label={"Detail item"}');
+    const detailStart = jsx.lastIndexOf('<aside', detailLabel);
+    const detailEnd = jsx.indexOf('</aside>', detailLabel);
+    if (detailStart < 0 || detailEnd < 0) throw new Error('Dashboard detail extension point missing');
+    jsx = jsx.slice(0, detailStart) + '{vals.detailPanel ?? ' + jsx.slice(detailStart, detailEnd + 8) + '}' + jsx.slice(detailEnd + 8);
+    replace('<DashboardOverview vals={vals} />', '{vals.content !== undefined ? vals.content : <><DashboardOverview vals={vals} />');
+    replace('<DashboardComingSoon vals={vals} />', '<DashboardComingSoon vals={vals} /></>}');
+  }
+  writeFileSync(resolve(directory, `${slug}.jsx`), jsx.trimEnd() + '\n');
   writeFileSync(resolve(directory, `${slug}.css`), `/* Original ${filename} styles, scoped to this React page. */\n${css}\n`.trimEnd() + '\n');
   console.log(`${name}: ${targets.length} React sections, ${[...source.matchAll(/<svg\b/g)].length} original SVGs preserved.`);
 }

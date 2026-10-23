@@ -13,6 +13,7 @@ import { installOnboardingRoutes } from './auth/onboarding-routes.js';
 import { createTenantGate } from './auth/tenant-gate.js';
 import { installDashboardRoutes } from './dashboard-routes.js';
 import { processTenantJob } from './tenant-jobs.js';
+import { processTenantRevision } from './tenant-review.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -41,6 +42,7 @@ installDashboardRoutes(app, {
   getPool: () => pool,
   requireTenant: requireTenantDashboard,
   runTenantJob: (jobId, tenantContext, userId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId }),
+  runTenantRevision: (reservation) => processTenantRevision({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, reservation }),
 });
 
 // ---------- Pembatas: akses, rate limit per IP, batas harian ----------

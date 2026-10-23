@@ -105,13 +105,13 @@ export function DashboardTopbar({ vals }) {
 <div style={{"marginLeft": "auto", "display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "10px"}}>
 <button className={"btns hide-sm"} type={"button"} onClick={vals.replaySplash} aria-label={"Putar ulang splash screen"} title={"Putar ulang splash"} style={{"width": "42px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--soft)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}><svg width={"17"} height={"17"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M3 12a9 9 0 1 0 3-6.7M3 4v5h5"}></path></svg></button>
 
-<span className={"hide-sm"} style={{"padding": "5px 11px", "borderRadius": "999px", "background": "var(--warnSoft)", "color": "var(--warn)", "fontSize": "12px", "fontWeight": "700"}}>{"Data contoh"}</span>
+<span className={"hide-sm"} style={{"padding": "5px 11px", "borderRadius": "999px", "background": "var(--warnSoft)", "color": "var(--warn)", "fontSize": "12px", "fontWeight": "700"}}>{vals.live ? "Workspace aktif" : "Data contoh"}</span>
 
-<div role={"group"} aria-label={"Lihat sebagai"} style={{"display": "flex", "padding": "3px", "borderRadius": "11px", "background": "var(--surface2)", "border": "1px solid var(--line)"}}>
+{!vals.live && <div role={"group"} aria-label={"Lihat sebagai"} style={{"display": "flex", "padding": "3px", "borderRadius": "11px", "background": "var(--surface2)", "border": "1px solid var(--line)"}}>
 <button type={"button"} onClick={vals.asOwner} aria-pressed={vals.isOwner} style={{"padding": "7px 12px", "border": "0", "borderRadius": "8px", "fontSize": "13px", "fontWeight": "700", "background": vals.ownerBg, "color": vals.ownerInk}}>{"Owner"}</button>
 
 <button type={"button"} onClick={vals.asAdmin} aria-pressed={vals.isAdmin} style={{"padding": "7px 12px", "border": "0", "borderRadius": "8px", "fontSize": "13px", "fontWeight": "700", "background": vals.adminBg, "color": vals.adminInk}}>{"Admin platform"}</button>
-</div>
+</div>}
 
 <button className={"btns"} type={"button"} onClick={vals.toggleTheme} aria-label={"Ganti mode tampilan"} style={{"width": "42px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--soft)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}><svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={vals.themeIcon}></path></svg></button>
 
@@ -507,7 +507,7 @@ export function DashboardBoard({ vals }) {
 </div>
 </section>
 
-<aside style={{"flex": "1 1 340px", "minWidth": "0", "border": "1px solid var(--line)", "borderRadius": "16px", "background": "var(--surface)", "boxShadow": "var(--shadow)", "padding": "22px", "display": "flex", "flexDirection": "column", "gap": "16px"}} aria-label={"Detail item"}>
+{vals.detailPanel ?? <aside style={{"flex": "1 1 340px", "minWidth": "0", "border": "1px solid var(--line)", "borderRadius": "16px", "background": "var(--surface)", "boxShadow": "var(--shadow)", "padding": "22px", "display": "flex", "flexDirection": "column", "gap": "16px"}} aria-label={"Detail item"}>
 <div style={{"display": "flex", "alignItems": "center", "gap": "8px", "flexWrap": "wrap"}}>
 <span style={{"padding": "4px 10px", "borderRadius": "999px", "background": "var(--surface2)", "fontSize": "12px", "fontWeight": "700", "color": "var(--soft)"}}>{vals.sel.type}</span>
 
@@ -536,7 +536,7 @@ export function DashboardBoard({ vals }) {
 </div>
 
 <button className={"btns"} type={"button"} style={{"padding": "11px 14px", "border": "1px solid var(--line)", "borderRadius": "10px", "background": "var(--surface)", "color": "var(--ink)", "fontSize": "14px", "fontWeight": "700"}}>{"Salin teks"}</button>
-</aside>
+</aside>}
 </div>
 </> : null}</>;
 }
@@ -826,7 +826,7 @@ export function DashboardLayout({ vals }) { return <div className={vals.rootClas
 <main style={{"padding": "28px 32px 56px", "display": "flex", "flexDirection": "column", "gap": "24px"}}>
 
 
-<DashboardOverview vals={vals} />
+{vals.content !== undefined ? vals.content : <><DashboardOverview vals={vals} />
 
 
 
@@ -862,7 +862,7 @@ export function DashboardLayout({ vals }) { return <div className={vals.rootClas
 
 
 
-<DashboardComingSoon vals={vals} />
+<DashboardComingSoon vals={vals} /></>}
 </main>
 </div>
 </div>

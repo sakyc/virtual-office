@@ -39,8 +39,8 @@ test('workspace client list only returns clients owned by the active workspace',
 
 test('workspace item picker excludes deleted and cross-workspace items', async () => {
   const calls = [];
-  const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved' }]]; } };
-  assert.deepEqual(await loadWorkspaceItems(connection, 22), [{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved' }]);
+  const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved', agent_id: 'bagas', version: 2, updated_at: '2026-10-23' }]]; } };
+  assert.deepEqual(await loadWorkspaceItems(connection, 22), [{ id: 4, type: 'brief', title: 'Launch brief', status: 'approved', agentId: 'bagas', version: 2, updatedAt: '2026-10-23' }]);
   assert.match(calls[0].sql, /workspace_id = \? AND deleted_at IS NULL/);
   assert.deepEqual(calls[0].values, [22]);
 });

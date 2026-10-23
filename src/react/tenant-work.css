@@ -1,0 +1,53 @@
+/* Functional pages reuse the original dashboard tokens, typography, sidebar and SVGs. */
+.reference-dashboard .work-heading{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.reference-dashboard .work-heading h1{margin:0;font-size:28px;letter-spacing:-.025em;font-weight:800}
+.reference-dashboard .work-heading p{margin:6px 0 0;font-size:15px;color:var(--soft)}
+.reference-dashboard .work-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.reference-dashboard .work-button{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700}
+.reference-dashboard .work-button.btnp{border:0;background:var(--accent);color:var(--onAccent)}
+.reference-dashboard button:disabled{cursor:not-allowed;opacity:.5;transform:none}
+.reference-dashboard .work-panel{border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.reference-dashboard .work-hint{margin:6px 0 0;color:var(--mute);font-size:13px;line-height:1.6}
+.reference-dashboard .work-notice{padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);font-size:14px;line-height:1.6}
+.reference-dashboard .work-notice p{margin:0 0 8px}
+.reference-dashboard .work-notice[role=alert]{background:var(--errSoft);color:var(--err)}
+.reference-dashboard .work-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:12px 14px 0;border-bottom:1px solid var(--line)}
+.reference-dashboard .work-tabs button{display:flex;align-items:center;gap:8px;padding:10px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--mute);font-size:14px;font-weight:700}
+.reference-dashboard .work-tabs button[aria-selected=true]{color:var(--accentText);border-bottom-color:var(--accent)}
+.reference-dashboard .work-tabs span,.reference-dashboard .work-badge{padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--soft);font-size:12px;font-weight:700}
+.reference-dashboard .work-job{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:18px;border-bottom:1px solid var(--line)}
+.reference-dashboard .work-job:last-child{border-bottom:0}
+.reference-dashboard .work-avatar{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--accentSoft);color:var(--accentText);font-size:13px;font-weight:800}
+.reference-dashboard .work-job-title{flex:1 1 220px;min-width:0}
+.reference-dashboard .work-job h2{margin:0;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.reference-dashboard .work-job p{margin:4px 0 0;font-size:12px;color:var(--mute)}
+.reference-dashboard .work-job time{font-size:12px;color:var(--mute)}
+.reference-dashboard .work-empty{padding:48px 24px;text-align:center;color:var(--mute);font-size:14px}
+.reference-dashboard .work-overlay{position:fixed;inset:0;z-index:400;background:rgba(11,15,23,.55);overflow:auto;padding:24px}
+.reference-dashboard .work-dialog{max-width:680px;margin:24px auto;padding:24px;display:flex;flex-direction:column;gap:18px;outline:none}
+.reference-dashboard .work-dialog h2{font-size:20px;font-weight:800;margin:0;letter-spacing:-.015em}
+.reference-dashboard .work-dialog fieldset{padding:0;border:0;margin:0;min-width:0}
+.reference-dashboard .work-dialog label{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:700;margin-top:16px}
+.reference-dashboard .work-dialog input,.reference-dashboard .work-dialog select,.reference-dashboard .work-dialog textarea{font:inherit;font-weight:500;width:100%;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.reference-dashboard .work-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.reference-dashboard .work-wide,.reference-dashboard .work-multi{grid-column:1/-1}
+.reference-dashboard fieldset.work-multi{margin-top:16px}
+.reference-dashboard .work-multi legend{font-size:13px;font-weight:700}
+.reference-dashboard .work-multi label{display:inline-flex;flex-direction:row;align-items:center;margin:12px 14px 0 0}
+.reference-dashboard .work-multi input{width:auto}
+.reference-dashboard .work-dialog footer{justify-content:flex-end}
+.reference-dashboard .work-detail{flex:1 1 340px;min-width:0;padding:22px;display:flex;flex-direction:column;gap:16px;overflow-wrap:anywhere}
+.reference-dashboard .work-detail h2{margin:0;font-size:18px;font-weight:800;line-height:1.35;letter-spacing:-.015em}
+.reference-dashboard .work-detail h3{font-size:12px;font-weight:800;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
+.reference-dashboard .work-content{display:flex;flex-direction:column;gap:14px;padding:16px;border-radius:12px;background:var(--surface2);font-size:14px;line-height:1.6}
+.reference-dashboard .work-text{white-space:pre-wrap;margin:4px 0 0}
+.reference-dashboard .work-content ul{list-style:disc;padding-left:18px}
+.reference-dashboard .work-content pre{overflow:auto;white-space:pre-wrap;font-family:monospace}
+.reference-dashboard .work-history{margin:12px 0 0;padding-left:18px;list-style:decimal;font-size:13px}
+.reference-dashboard .work-history li{margin-bottom:14px}
+.reference-dashboard .work-history time{display:block;color:var(--mute);font-size:12px;margin-top:4px}
+.reference-dashboard .work-error{color:var(--err)!important}
+.reference-dashboard .work-review-form{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
+.reference-dashboard .work-review-form label{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:700}
+.reference-dashboard .work-review-form textarea{font:inherit;font-weight:500;padding:11px 12px;width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+@media(max-width:560px){.reference-dashboard .work-fields{grid-template-columns:1fr}.reference-dashboard .work-overlay{padding:12px}.reference-dashboard .work-dialog{padding:18px;margin:12px auto}}

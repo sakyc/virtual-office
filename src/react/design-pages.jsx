@@ -3,6 +3,7 @@ import './reference/reset.css';
 import { LandingDesign } from './reference/landing.jsx';
 import { OnboardingDesign } from './reference/onboarding.jsx';
 import { DashboardDesign } from './reference/dashboard.jsx';
+import { TenantWork } from './tenant-work.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -35,37 +36,70 @@ export function OnboardingPage({ onNavigate }) {
   return <OnboardingDesign decorate={decorate} />;
 }
 
-export function DashboardPage({ onNavigate }) {
+export function DashboardPage({ onNavigate, section = 'overview' }) {
   const [profile, setProfile] = useState(null);
+  const [sessionState, setSessionState] = useState({ loading: true, error: null });
   const [overview, setOverview] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
     fetch('/auth/me', { credentials: 'same-origin', signal: controller.signal })
-      .then((response) => response.ok ? response.json() : null)
-      .then(setProfile).catch(() => {});
+      .then(async (response) => {
+        if (!response.ok) {
+          const diagnostic = await response.json().catch(() => ({}));
+          const message = diagnostic.code === 'AUTHENTICATION_DISABLED'
+            ? 'Login belum aktif di server lokal. Lengkapi konfigurasi Auth0 di .env, lalu aktifkan AUTH0_ENABLED=1 dan restart backend. Board memerlukan login dan workspace aktif.'
+            : response.status === 401 ? 'Login diperlukan untuk membuka pekerjaan workspace.' : 'Layanan autentikasi belum tersedia.';
+          throw Object.assign(new Error(message), { status: response.status });
+        }
+        const body = await response.json();
+        if (!body?.user) throw new Error('Profil sesi tidak valid.');
+        return body;
+      })
+      .then((body) => { if (!controller.signal.aborted) { setProfile(body); setSessionState({ loading: false, error: null }); } })
+      .catch((error) => { if (!controller.signal.aborted) { setProfile(null); setSessionState({ loading: false, error: { message: error.status ? error.message : 'Tidak dapat memuat sesi. Coba lagi.', status: error.status } }); } });
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (!profile?.activeWorkspace?.id) return undefined;
+    if (section !== 'overview' || !profile?.activeWorkspace?.id) return undefined;
     const controller = new AbortController();
     fetch('/api/dashboard/overview', { credentials: 'same-origin', signal: controller.signal })
       .then((response) => response.ok ? response.json() : null)
       .then(setOverview).catch(() => {});
     return () => controller.abort();
-  }, [profile?.activeWorkspace?.id]);
+  }, [profile?.activeWorkspace?.id, section]);
   const logout = useCallback(async (event) => {
     event.preventDefault();
     const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
     if (response.ok) onNavigate('/');
   }, [onNavigate]);
-  const decorate = (values) => {
+  const decorate = (values, design) => {
     // Prototype role controls affect preview state only; real permissions always come from the session.
-    const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => ({
-      ...item, go: item.id === 'office' ? () => onNavigate('/app/office') : item.go,
-    })) }));
+    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board' };
+    const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => {
+      const active = item.id === 'jobs' && section !== 'overview';
+      return { ...item, ...(active ? { current: 'page', bg: 'var(--accentSoft)', ink: 'var(--accentText)', weight: 800, shadow: 'inset 3px 0 0 var(--accent)' } : {}),
+        ...(section !== 'overview' && item.id === 'overview' ? { current: undefined, bg: 'transparent', ink: 'var(--soft)', weight: 600, shadow: 'none' } : {}),
+        badge: item.id === 'jobs' && (profile || section !== 'overview') ? undefined : item.badge,
+        go: paths[item.id] ? () => { if (item.id === 'overview') design.setState({ view: 'overview' }); onNavigate(paths[item.id]); }
+          : section !== 'overview' ? () => { design.setState({ view: item.id }); onNavigate('/app'); } : item.go,
+      };
+    }) }));
     const result = { ...values, navGroups, goOffice: () => onNavigate('/app/office'), logout };
+    result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
+    result.goAgents = () => onNavigate('/app/jobs');
+    if (section !== 'overview') {
+      result.pageTitle = section === 'board' ? 'Perintah & Board' : 'Perintah';
+      result.content = <TenantWork key={`${section}:${profile?.activeWorkspace?.id || 'none'}`} section={section} profile={profile} sessionState={sessionState} onNavigate={onNavigate} />;
+      result.live = true;
+      result.workspaceName = profile?.activeWorkspace?.name || 'Workspace';
+      result.organizationName = profile?.activeWorkspace?.organization?.name || '';
+      result.userName = profile?.user?.displayName || profile?.user?.email || 'Belum login';
+      result.roleLabel = profile?.activeWorkspace?.role || 'Sesi diperlukan';
+      result.navGroups = navGroups.filter((group) => group.title !== 'Admin platform');
+    }
     if (!profile) return result;
     const workspace = profile.activeWorkspace;
+    result.live = true;
     result.workspaceName = workspace?.name || 'Pilih workspace';
     result.organizationName = workspace?.organization?.name || '';
     result.userName = profile.user.displayName || profile.user.email;
@@ -86,7 +120,7 @@ export function DashboardPage({ onNavigate }) {
       agent: job.agentId || 'Agent', when: job.createdAt, ini: (job.agentId || 'AI').slice(0, 2).toUpperCase(),
       tint: 'var(--accentSoft)', status: job.status, sbg: 'var(--accentSoft)', sink: 'var(--accentText)',
     }));
-    result.goJobs = () => onNavigate('/app/board');
+    result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
     result.goAgents = () => onNavigate('/app/jobs');
     return result;
   };

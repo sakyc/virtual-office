@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { auth0Config, createLoginTransaction, findOrProvisionUser, validateIdTokenClaims, verifyState } from '../server/auth/auth0.js';
+import { installAuthRoutes } from '../server/auth/auth-routes.js';
+
+test('disabled Auth0 gives explicit diagnostics without creating sessions or contacting a DB', () => {
+  const routes = new Map();
+  const enabled = installAuthRoutes({ get: (path, handler) => routes.set(path, handler) }, { env: {}, getPool: () => { throw new Error('must not contact DB'); } });
+  assert.equal(enabled, false);
+  for (const path of ['/auth/me', '/auth/login']) {
+    let status, body;
+    const res = { status(value) { status = value; return this; }, json(value) { body = value; return this; } };
+    routes.get(path)({}, res);
+    assert.equal(status, 503); assert.equal(body.code, 'AUTHENTICATION_DISABLED');
+  }
+  assert.equal(routes.has('/auth/callback'), false);
+});
 
 const env = { AUTH0_ENABLED: '1', AUTH0_ISSUER: 'https://example.us.auth0.com', AUTH0_CLIENT_ID: 'client', AUTH0_CLIENT_SECRET: 'secret', AUTH0_CALLBACK_URL: 'http://localhost:3001/auth/callback', AUTH0_STATE_SECRET: 'state-secret' };
 test('Auth0 config rejects missing required values', () => {
