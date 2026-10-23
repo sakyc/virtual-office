@@ -52,9 +52,15 @@ the current frontend credential forms are for native authentication.
 
 ## Remaining verification and release limits
 
-Offline tests use SQL fixtures. Migration 003 has not been applied during this
-implementation; real local registration/login/logout still requires that
-operator step and live verification.
+On 2026-10-23, the approved local Laragon database `virtual_office` was backed
+up and restored to `vo_native_restore_1792725188620`. Its original four tables
+were empty. Columns, types, nullability, defaults, indexes and foreign-key
+definitions matched the restored copy and an independently applied baseline.
+Baseline 001 was then adopted and migrations 002 and 003 applied first to the
+isolated restore and then to the development target. Both validations returned
+`valid: true` with no differences; history checksums matched all three sources.
+Backup: `D:/VetendCode/database-backups/virtual-office-native-xMZLPe/before-native.sql`.
+See `native-auth-local-verification.md` for evidence and verification limits.
 
 Email ownership is not verified. Email delivery, password reset, recovery, MFA,
 breached-password screening and persistent shared abuse controls are not yet

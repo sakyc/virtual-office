@@ -3,6 +3,14 @@ import { HISTORY_TABLE } from './status.js';
 
 const LOCK_NAME = 'virtual-office:migration';
 
+export function baselineForAdoption(migrations) {
+  if (migrations[0]?.id !== '001_current_schema_baseline'
+      || migrations.filter((migration) => migration.id === '001_current_schema_baseline').length !== 1) {
+    throw Object.assign(new Error('Adoption hanya berlaku untuk baseline awal immutable.'), { code: 'BASELINE_ADOPTION_INVALID' });
+  }
+  return migrations[0];
+}
+
 function splitSql(source) {
   // Baseline SQL intentionally contains ordinary statements only; no routines/delimiters.
   return source.split(/;\s*(?:\r?\n|$)/).map((sql) => sql.trim()).filter(Boolean);
