@@ -25,12 +25,11 @@ function hasSequence(value) {
 export function passwordRequirements(value) {
   const password = typeof value === 'string' ? value : '';
   return [
-    { id: 'length', label: 'Minimal 12 karakter', passed: [...password].length >= 12 },
+    { id: 'length', label: 'Minimal 8 karakter', passed: [...password].length >= 8 },
     { id: 'capital', label: 'Diawali huruf kapital', passed: /^\p{Lu}/u.test(password) },
     { id: 'number', label: 'Mengandung angka', passed: /[0-9]/.test(password) },
     { id: 'symbol', label: 'Mengandung simbol, misalnya !, @, atau #', passed: /[^\p{L}\p{N}\s]/u.test(password) },
     { id: 'sequence', label: 'Tanpa urutan 3 huruf/angka, misalnya abc, 123, atau 321', passed: Boolean(password) && !hasSequence(password) },
-    { id: 'bytes', label: 'Maksimal 256 byte', passed: Boolean(password) && new TextEncoder().encode(password).length <= 256 },
   ];
 }
 

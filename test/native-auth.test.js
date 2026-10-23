@@ -48,10 +48,14 @@ test('password checklist reports each rule independently, including forward/reve
   for (const [password, failing] of [
     ['lentera!9Kantor', 'capital'], ['Lentera!Kantor', 'number'], ['Lentera9Kantor', 'symbol'],
     ['La!9', 'length'], ['Lentera!123Kantor', 'sequence'], ['Lentera!321Kantor', 'sequence'],
-    ['Lentera!aBc9Kantor', 'sequence'], ['Lentera!cBa9Kantor', 'sequence'], ['Lentera!9' + '界'.repeat(90), 'bytes'],
+    ['Lentera!aBc9Kantor', 'sequence'], ['Lentera!cBa9Kantor', 'sequence'],
   ]) assert.equal(passwordRequirements(password).find((rule) => rule.id === failing).passed, false, failing);
   assert.ok(passwordRequirements('').every((rule) => !rule.passed));
   assert.equal(passwordRequirements('Lentera 9Kantor').find((rule) => rule.id === 'symbol').passed, false);
+  assert.equal(passwordRequirements('Loka!9Xm').find((rule) => rule.id === 'length').passed, true);
+  assert.equal(passwordRequirements('Loka!9X').find((rule) => rule.id === 'length').passed, false);
+  // The byte limit is an input bound, not a checklist requirement.
+  assert.match(validateAuthFields({ ...registration, password: 'Lentera!9' + '界'.repeat(90) }, { register: true }).password, /256 byte/);
 });
 
 test('email validation and field errors are shared by the UI and server', () => {
@@ -76,7 +80,7 @@ test('existing passwords that predate new signup policy can still log in', async
 
 test('registration enforces the checklist server-side before SQL', async (t) => {
   const { request, calls } = await fixture(t);
-  for (const password of ['lentera!9Kantor', 'Lentera!Kantor', 'Lentera9Kantor', 'Lentera!123Kantor']) {
+  for (const password of ['lentera!9Kantor', 'Lentera!Kantor', 'Lentera9Kantor', 'Lentera!123Kantor', 'Loka!9X', 'Lentera!9' + '界'.repeat(90)]) {
     assert.equal((await request('/auth/register', { ...registration, password })).status, 400);
   }
   assert.equal(calls.length, 0);
