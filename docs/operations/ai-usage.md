@@ -7,7 +7,7 @@ behind their existing fail-closed tenant gate. No migration is run at startup.
 ## Activation / verification
 
 `004_ai_usage.sql` is an additive migration registered in the existing manifest.
-It has NOT been applied or tested against a real database in this task. Use the
+Local application and restore verification passed on 2026-10-23 (see below). Use the
 existing migration runbook, isolated non-production target identification, backup,
 and explicit operator procedure before enabling live AI. Do not run schema.sql,
 baseline adoption, or migration commands blindly against development/production.
@@ -59,3 +59,51 @@ Verification: `npm run test:usage`, full offline Node tests, and `npm run build`
 `node scripts/serve-usage-ui-verification.mjs` serves the built UI on loopback 5221
 with visibly labeled fixtures only. It imports no DB/provider modules and does
 not exercise real login or database behavior. Send `stop` on stdin to close it.
+
+## Local migration execution — 2026-10-23
+
+Owner explicitly requested migration execution. Target `virtual_office` was
+identified through loopback port 3306, local process PID 16392, executable
+`C:/laragon/bin/mysql/mysql-8.0.30-winx64/bin/mysqld.exe`, MySQL 8.0.30,
+and server data directory `C:/laragon/data/mysql-8/`. This identity is evidence
+for this run only, not authorization for future runs or other targets.
+
+Executed, with approval confined to this shell/child processes:
+
+```
+node scripts/apply-local-usage-migration.mjs
+```
+
+The utility invoked `scripts/migrate.js --apply --confirm-non-production` first
+on the isolated restore, then the development database. Both applied ONLY
+`004_ai_usage`. No schema.sql, baseline adoption, initDb, or provider was invoked.
+
+- Backup: `D:/VetendCode/database-backups/virtual-office-ai-usage-zdcEGK/before-004.sql`.
+- SHA-256: `df0bac2a61c81b29c5fbd274a32c2eaae59abe7a50c771348bbe21ed057fe00c`.
+- Retained restore: `vo_usage_restore_1792750024166`.
+- Backup restore matched all 12 original tables: column definitions, indexes,
+  foreign keys/rules, engines/collations, row counts, and full-row content digests.
+- After apply, existing non-history table data and structure remained unchanged.
+  Only the new usage table and migration-history record were added.
+- Both schema validations returned `valid: true`, `differences: []`.
+- Migration 004 checksum:
+  `5c354471df27b50874496bf3430b94e047629479103b1ae4fc78f821d382ed65`.
+- Development usage table was empty after migration.
+- Real SQL ledger insert/finalize/read test passed in the retained restore only,
+  using a mock provider response: one fixture request, 11 input / 7 output tokens.
+  This is not real Anthropic usage; the fixture row is retained outside development.
+- Full evidence (no credentials or row contents):
+  `D:/VetendCode/database-backups/virtual-office-ai-usage-zdcEGK/verification.json`.
+
+Final commands: `node scripts/migration-validate.js --confirm-non-production`
+returned valid with no differences; `node scripts/migration-status.js --db
+--confirm-non-production` returned no diagnostics and matching history checksums.
+The first status invocation was correctly refused because its separate
+`MIGRATION_STATUS_NON_PROD_APPROVED` flag was absent; it was rerun once with that
+flag scoped to the child process. No guard was modified or bypassed.
+
+The backup contains private application/authentication data. Keep it outside Git
+and do not share it. No real-provider call or authenticated browser journey was
+performed in this migration run. Credit, cost calculation and quotas remain out
+of scope. The operator utility is intentionally one-shot: it refuses to apply
+again once history includes 004 rather than attempting recovery or deletion.
