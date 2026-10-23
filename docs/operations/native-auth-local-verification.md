@@ -125,3 +125,54 @@ navigation into the protected React page. Browser workload visuals used mocks,
 not real running AI jobs. Tenant chat remains unavailable; use the protected
 Perintah flow. Email/password changes, production security certification and
 subscription functionality are not part of this verification.
+
+## Real browser journey — 2026-10-23
+
+Executed the production frontend build in the in-app browser with real Express
+handlers and the existing local restore `vo_native_restore_1792725188620`.
+MySQL was identified as Laragon MySQL 8.0.30 at loopback port 3306, PID 20872.
+The verified backup file above still matched its recorded SHA-256. The isolated
+server ran at `http://127.0.0.1:5217` using:
+
+```
+node scripts/serve-local-journey-verification.mjs --database=vo_native_restore_1792725188620
+```
+
+`LOCAL_AUTH_VERIFICATION_APPROVED=1` was confined to its child verification
+shell. No development backend was running, no development database connection
+was opened, and no initDb, migrations or schema SQL were invoked. The harness
+injects the existing explicit DEMO job runner and no AI client. This is real
+authentication/database/browser integration, not real-provider verification.
+
+Observed through browser controls and HTTP completion logs:
+
+- Register: 201, all password checklist rules fulfilled, then onboarding.
+- Three onboarding steps: 201, one new organization, workspace and fixture client.
+- Submit brief analysis: 202; UI first showed running, then output reached Board.
+- Board: 200 for list/detail/history; output explicitly titled `[Demo]`.
+- Approve fixture output: 204; the approved tab showed one item.
+- Overview: one job, one client, one approved item, zero running jobs; checklist
+  reflected all four completed actions. An initially uncertain navigation result
+  resolved on inspection; no reproducible Overview defect was established.
+- Original Three.js office rendered; real workspace workload endpoint returned
+  200 and zero active jobs after completion. A running agent animation was not
+  observed because the short demo job had already finished.
+- Clicking a scene character opened the chat panel. Context returned 200 and
+  the UI correctly reported no AI service rather than producing a fake reply.
+- Navbar logout: 204. Visiting protected Board afterwards returned to login;
+  `/auth/me` returned 401.
+- Login again: 200, existing-workspace selection: 200, no repeat onboarding.
+  Overview retained the same persisted job/client/approval counts. Final logout
+  returned 204.
+
+QA organization `Browser QA 1792737722751` and its generated fixture records
+are retained only in the isolated restore. No credentials or session tokens are
+recorded. The temporary server was stopped. Windows interrupt terminated it
+before its final schema-fingerprint log, so no before/after fingerprint result
+is claimed for this run; no schema-changing command was executed.
+
+Browser console showed two non-blocking Three.js compatibility warnings:
+`THREE.Clock` deprecation and removed `PCFSoftShadowMap` falling back to
+`PCFShadowMap`. No JavaScript error was captured in the inspected console.
+Visual inspection used the desktop breakpoint; mobile layout is not certified.
+Remaining verification: live AI chat/job responses and active-job animation.
