@@ -7,8 +7,8 @@ items, revisions, usage records, organizations or membership records are backfil
 ## Activation boundary
 
 `005_workspace_team.sql` is an additive, explicit migration. It creates only
-`workspace_divisions` and `workspace_agents`. It has NOT been applied or tested
-against a real database in this implementation task. Use the existing migration
+`workspace_divisions` and `workspace_agents`. It was applied and verified locally
+on 2026-10-24 (evidence below). For any other target, use the existing migration
 runbook with a verified local/non-production target, backup/restore evidence,
 and disposable-database verification before applying it to development data.
 Never run schema.sql or the retired one-shot 004 utility to activate this feature.
@@ -20,7 +20,7 @@ columns, lifecycle enums, nullable archived slot, ordered indexes/uniqueness, an
 composite division ownership foreign key. Offline tests do not prove MySQL DDL
 execution, locking, rollback or migration recovery on a real server.
 
-Until 005 is applied, team reads/writes and workspace agent chat fail closed with
+On targets where 005 is not applied, team reads/writes and workspace agent chat fail closed with
 a sanitized unavailable response. The office does not substitute the static roster
 on error. Unchanged legacy records remain stored; they do not become customer agents.
 Existing native authentication/session configuration and initDb are not changed.
@@ -69,3 +69,68 @@ Offline verification: `node --test test/workspace-team.test.js`,
 `npm run test:onboarding`, full `node --test`, and `npm run build`. Three.js room
 construction is tested without WebGL using fixture canvas, including empty,
 custom and copied-template teams; this does not establish visual browser parity.
+
+## Local activation evidence — 2026-10-24
+
+The owner explicitly requested application and testing. Target `virtual_office`
+was identified as loopback 127.0.0.1:3306, MySQL 8.0.30, local PID 21220 at the time,
+`C:/laragon/bin/mysql/mysql-8.0.30-winx64/bin/mysqld.exe`, with data directory
+`C:/laragon/data/mysql-8/`. This is evidence for this run, not blanket permission
+for another target or execution.
+
+Executed with approval scoped to that child process:
+
+```
+node --input-type=module -e "process.env.LOCAL_TEAM_MIGRATION_APPROVED='1'; await import('./scripts/apply-local-team-migration.mjs');"
+```
+
+The operator utility uses the existing approval guard, migration lock, history and
+checksum validation. It refuses an unexpected manifest or any source history other
+than final 001–004; do not rerun it after 005 is applied.
+
+- Fresh isolated database `vo_team_fresh_1792819701524`: applied 001 through 005;
+  complete schema contract `valid: true`, `differences: []`; duplicate apply returned
+  `[]`; a second migration-lock contender was denied.
+- Twelve real SQL/loopback HTTP integration checks passed: empty initial team,
+  real session requirement, forged scope/Origin rejection, copying one template,
+  custom-agent create/edit, cross-workspace/organization denial, unique-slot and
+  composite-tenant FK constraints, concurrent agent capacity, viewer denial,
+  selected-model mock chat with SQL usage recording (11 input / 7 output), archive
+  retention/slot reuse/chat denial, and session revocation.
+- Failure rehearsal `vo_team_failure_1792819701524`: an intentionally failing,
+  in-memory `006_isolated_failure_probe` was recorded as failed; rerun was refused.
+  This probe is NOT a real migration, is not in the manifest, and never ran on
+  development. The database/history is retained as test evidence.
+- Backup `D:/VetendCode/database-backups/virtual-office-team-kntPYt/before-005.sql`,
+  30,064 bytes, SHA-256
+  `405ad706a625b5cf43cfd76c99060acda24ab9f23bcc424b28659afda8a5d921`.
+- Restore `vo_team_restore_1792819701524` matched all 13 original tables, column
+  definitions, ordered indexes, foreign keys/rules, table engines/collations,
+  row counts and full-row content digests. Applying only 005 on this restore passed
+  full schema validation and preserved existing table data/structure.
+- Development then applied ONLY `005_workspace_team`. Full schema validation
+  returned `valid: true`, `differences: []`; read-only status had no diagnostics
+  and matching checksums. Both new team tables remained empty; no fixtures or
+  automatic legacy enrollment were written to development.
+- Migration 005 SHA-256:
+  `03bd0765af5212ccbf7411c3275d4c9fd2ca64c091cc679d87c7f4709509c790`.
+- Complete sanitized evidence:
+  `D:/VetendCode/database-backups/virtual-office-team-kntPYt/verification.json`.
+
+An earlier run stopped BEFORE development apply because the live application
+updated only `sessions.last_seen_at`/`idle_expires_at`. Its backup/evidence and all
+test databases remain preserved under `virtual-office-team-7IHxtN`. The cause was
+verified read-only. The controlled subsequent run held `LOCK TABLES sessions READ`
+on a separate local connection for about 3.6 seconds during backup/restore/apply,
+using a fresh baseline snapshot. The lock was released, no process was terminated,
+authentication was not disabled, and all preexisting rows matched the pre-backup
+snapshot after apply (excluding the intentional new migration-history record).
+
+No real AI/provider call was made, no startup schema execution was invoked, no
+development account was provisioned and no legacy ownership was transferred.
+Keep backups outside Git: they contain private authentication/application data.
+
+Final regression: `node --test --test-reporter=spec` passed 186/186 tests, with
+zero failures or skipped tests; `npm run build` passed. This includes two offline
+operator guards proving missing approval and production mode refuse before any
+database access. A live browser/real-provider custom-agent chat was not exercised.
