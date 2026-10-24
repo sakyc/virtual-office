@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AGENTS, DIVISIONS, agentsOf } from '../shared/roster.js';
 import { box, mat, createCharacter } from './character.js';
 import * as F from './furniture.js';
+import { officeRoomLayout } from '../shared/office-layout.js';
 
 export const ROOM_W = 10;
 export const ROOM_D = 8;
@@ -101,6 +102,18 @@ function buildDivisionRoom(div, scene, chars, roster) {
   room.add(inner);
 
   buildShell(inner, div.color, div.name);
+  if (div.roomState === 'locked') {
+    // A geometry lock, not a font-dependent emoji: consistent on every platform.
+    inner.add(box(1.4, 1.1, 0.35, '#64748b', 0, 1.1, 0));
+    const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.1, 10, 24, Math.PI), mat('#64748b'));
+    shackle.position.set(0, 1.65, 0);
+    inner.add(shackle);
+    inner.add(box(0.12, 0.3, 0.04, '#f8fafc', 0, 1.1, 0.2));
+  }
+  if (div.roomState === 'empty' || div.roomState === 'locked') {
+    scene.add(room);
+    return { id: div.id, state: div.roomState, center: new THREE.Vector3(cx, 0, cz), group: room };
+  }
   { const rug = F.rug(5.2, 3.2, tint(div.color, 0.3)); rug.position.set(0, 0.0, 1.0); inner.add(rug); }
 
   const members = roster.filter((a) => a.division === div.id);
@@ -221,7 +234,7 @@ export function buildOffice(scene, roster = { divisions: DIVISIONS, agents: AGEN
     scene.add(lane);
   }
 
-  roster.divisions.forEach((d) => rooms.set(d.id, buildDivisionRoom({ ...d, templateId: d.templateId || d.id }, scene, chars, roster.agents)));
+  officeRoomLayout(roster.divisions, roster.divisionCapacity ?? null).forEach((d) => rooms.set(d.id, buildDivisionRoom({ ...d, templateId: d.templateId || d.id }, scene, chars, roster.agents)));
   buildLounge(scene);
 
   const bounds = {

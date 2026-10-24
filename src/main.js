@@ -1,6 +1,7 @@
 import './style.css';
 import { DIVISIONS as TEMPLATE_DIVISIONS, AGENTS as TEMPLATE_AGENTS } from '../shared/roster.js';
 import { sceneRoster } from '../shared/workspace-team.js';
+import { officeRoomLayout } from '../shared/office-layout.js';
 import { createStage } from './stage.js';
 import { createTags } from './tags.js';
 import { createPanel } from './panel.js';
@@ -26,7 +27,7 @@ if (tenantOffice) {
     roster = sceneRoster(await response.json());
   } catch { teamError = 'Tim belum dapat dimuat. Tidak ada agen template yang diaktifkan sebagai pengganti. Periksa migration 005 dengan operator.'; }
 }
-const DIVISIONS = roster.divisions;
+const DIVISIONS = officeRoomLayout(roster.divisions);
 const agentById = (id) => roster.agents.find((a) => a.id === id);
 const divisionById = (id) => roster.divisions.find((d) => d.id === id);
 
@@ -257,7 +258,7 @@ $('gate-form').addEventListener('submit', async (e) => {
   banner.hidden = !(config.offline || (config.demo && selectedId));
   if (tenantOffice && (teamError || !roster.agents.length)) {
     banner.hidden = false;
-    banner.textContent = teamError || 'Kantor Anda masih kosong. Tambahkan divisi dan agen melalui menu Agent di dashboard.';
+    banner.textContent = teamError || 'Semua ruangan tetap tersedia di layout. Tambahkan divisi dan agen melalui Kelola divisi & agen. Paket langganan belum ditentukan.';
   }
   if (config.needsCode && !getCode()) showGate('');
 

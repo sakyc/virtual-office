@@ -6,6 +6,22 @@ items, revisions, usage records, organizations or membership records are backfil
 
 ## Activation boundary
 
+Office presentation now always renders all eight division room shells plus the
+existing pantry. Unused rooms have a neutral "Ruangan kosong" sign and no agents,
+desks, or template-specific props. Existing divisions retain their room and team;
+archiving frees the room without removing its walls. Empty room navigation chips
+focus the corresponding room, without creating any persisted division.
+
+`shared/office-layout.js` also supports a locked-room presentation with a geometry
+padlock for explicit capacity fixtures. No real subscription capacity exists yet:
+the live office supplies no capacity and therefore does not show invented plan
+locks. This helper is presentation only, never authorization. Before activating
+subscription locks, resolve entitlements server-side and enforce division creation
+under the existing workspace transaction lock, including an explicit downgrade
+policy for already occupied rooms. Never infer allowances from browser input.
+The existing four-agent-per-division limit is unchanged; no separate total-agent
+subscription limit or real package names/prices are introduced.
+
 `005_workspace_team.sql` is an additive, explicit migration. It creates only
 `workspace_divisions` and `workspace_agents`. It was applied and verified locally
 on 2026-10-24 (evidence below). For any other target, use the existing migration
