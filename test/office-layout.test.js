@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Scene } from 'three';
+import { readFile } from 'node:fs/promises';
 import { officeRoomLayout } from '../shared/office-layout.js';
 import { buildOffice } from '../src/office.js';
 
-test('all eight rooms stay visible without creating divisions or agents; pantry slot is reserved', () => {
+test('all eight division rooms stay visible without creating divisions, agents or a ninth room', () => {
   const input = [];
   const rooms = officeRoomLayout(input);
   assert.equal(rooms.length, 8);
@@ -40,6 +41,8 @@ test('empty and locked geometry has walls but no employee pickables, including a
     const scene = new Scene();
     const office = buildOffice(scene, { divisions: [], agents: [], divisionCapacity: capacity });
     assert.equal(office.rooms.size, 8);
+    // Exactly eight room groups, excluding base/corridor meshes: no extra lounge.
+    assert.equal(scene.children.filter((object) => object.isGroup).length, 8);
     assert.equal(office.chars.length, 0);
     assert.equal(office.pickables.length, 0);
     assert.equal(office.byId.size, 0);
@@ -48,4 +51,11 @@ test('empty and locked geometry has walls but no employee pickables, including a
     office.update(0.016, 1);
     scene.traverse((object) => { object.geometry?.dispose(); for (const material of Array.isArray(object.material) ? object.material : [object.material]) { material?.map?.dispose(); material?.dispose(); } });
   }
+});
+
+test('office navigation and scene no longer contain a pantry entry or builder', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const office = await readFile(new URL('../src/office.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(main, /pantry/i);
+  assert.doesNotMatch(office, /pantry|buildLounge/i);
 });

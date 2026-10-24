@@ -191,27 +191,6 @@ function buildDivisionRoom(div, scene, chars, roster) {
   return { id: div.id, center: new THREE.Vector3(cx, 0, cz), group: room };
 }
 
-function buildLounge(scene) {
-  const room = new THREE.Group();
-  room.position.set(PITCH_X, 0, PITCH_Z);
-  const inner = new THREE.Group();
-  inner.position.y = FLOOR_TOP;
-  room.add(inner);
-  const color = '#e08e5a';
-  buildShell(inner, color, 'Pantry');
-  { const rug = F.rug(5.5, 3.6, '#f1d4b8'); rug.position.set(0, 0, 0.5); inner.add(rug); }
-  place(inner, F.sofa(3.0, '#6b7a99'), 0, 0, -1.6);
-  place(inner, F.table(1.5, 0.9, '#d9b98c'), 0, 0, 0.2);
-  place(inner, F.mug('#ffffff'), -0.3, 0.0, 0.2);
-  place(inner, F.coffeeMachine(), 3.6, 0, -3.4);
-  place(inner, F.waterCooler(), 4.4, 0, -2.3);
-  place(inner, F.bookshelf(2.2, 2.1), -3.3, 0, -ROOM_D / 2 + 0.3);
-  place(inner, F.plant(1.2), -4.3, 0, 3.3);
-  place(inner, F.plant(1), 4.3, 0, 3.3);
-  scene.add(room);
-  return room;
-}
-
 export function buildOffice(scene, roster = { divisions: DIVISIONS, agents: AGENTS }) {
   const chars = [];
   const rooms = new Map();
@@ -235,7 +214,6 @@ export function buildOffice(scene, roster = { divisions: DIVISIONS, agents: AGEN
   }
 
   officeRoomLayout(roster.divisions, roster.divisionCapacity ?? null).forEach((d) => rooms.set(d.id, buildDivisionRoom({ ...d, templateId: d.templateId || d.id }, scene, chars, roster.agents)));
-  buildLounge(scene);
 
   const bounds = {
     minX: -(PITCH_X + ROOM_W / 2),

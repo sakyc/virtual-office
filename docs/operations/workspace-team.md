@@ -6,8 +6,8 @@ items, revisions, usage records, organizations or membership records are backfil
 
 ## Activation boundary
 
-Office presentation now always renders all eight division room shells plus the
-existing pantry. Unused rooms have a neutral "Ruangan kosong" sign and no agents,
+Office presentation now always renders all eight division room shells. The pantry
+and its navigation entry have been removed. Unused rooms have a neutral "Ruangan kosong" sign and no agents,
 desks, or template-specific props. Existing divisions retain their room and team;
 archiving frees the room without removing its walls. Empty room navigation chips
 focus the corresponding room, without creating any persisted division.
@@ -50,8 +50,9 @@ Existing native authentication/session configuration and initDb are not changed.
   creation. Repeated onboarding never overwrites an existing team's configuration.
 - `/app/office`: tenant mode loads its own team from `/api/team`, using the existing
   Three.js room shell, furniture, characters, camera and animation code. Only
-  selected rooms/employees are built. Pantry and the base floor remain. Empty
-  divisions are supported. Names are inserted as text, never HTML.
+  all eight room shells remain, with only workspace-selected divisions/employees
+  furnishing them. The base floor remains; no pantry is built. Empty divisions
+  are supported. Names are inserted as text, never HTML.
 - Chat resolves the active agent and model tier from the server-side workspace
   query. Static IDs, archived agents/divisions and foreign workspace IDs are denied.
   Custom instructions grant no tools, membership, data access or other privileges.

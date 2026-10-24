@@ -6,7 +6,6 @@ import { createStage } from './stage.js';
 import { createTags } from './tags.js';
 import { createPanel } from './panel.js';
 import { fetchConfig, getCode, setCode, tenantOffice } from './chat.js';
-import { PITCH_X, PITCH_Z } from './office.js';
 import './board.css';
 import { jobById } from '../shared/jobs.js';
 import { api, setAuthHandler } from './api.js';
@@ -46,7 +45,6 @@ const chipsEl = $('chips');
 const chipDefs = [
   { id: 'overview', label: 'Seluruh kantor', color: '#1d2433' },
   ...DIVISIONS.map((d) => ({ id: d.id, label: d.name, color: d.color })),
-  { id: 'pantry', label: 'Pantry', color: '#e08e5a' },
 ];
 for (const c of chipDefs) {
   const b = document.createElement('button');
@@ -71,11 +69,9 @@ function goTo(id) {
   if (id === 'overview') {
     stage.focus('overview');
     view = { kind: 'overview', id: null };
-  } else if (id === 'pantry') {
-    stage.focus('room', PITCH_X, PITCH_Z);
-    view = { kind: 'pantry', id };
   } else {
     const r = rooms.get(id);
+    if (!r) return;
     stage.focus('room', r.center.x, r.center.z);
     view = { kind: 'room', id };
   }
