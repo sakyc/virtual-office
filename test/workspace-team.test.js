@@ -194,7 +194,7 @@ test('existing Three.js geometry supports empty/custom/template teams without cr
   ];
   for (const roster of layouts) {
     const scene = new Scene(), office = buildOffice(scene, roster);
-    assert.equal(office.rooms.size, 8);
+    assert.equal(office.rooms.size, 9);
     assert.equal(office.chars.length, roster.agents.length);
     assert.deepEqual([...office.byId.keys()], office.chars.map((c) => c.agent.id));
     office.update(0.016, 1);

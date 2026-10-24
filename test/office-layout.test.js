@@ -5,13 +5,13 @@ import { readFile } from 'node:fs/promises';
 import { officeRoomLayout } from '../shared/office-layout.js';
 import { buildOffice } from '../src/office.js';
 
-test('all eight division rooms stay visible without creating divisions, agents or a ninth room', () => {
+test('all nine room shells stay visible, including the former lounge as an empty room', () => {
   const input = [];
   const rooms = officeRoomLayout(input);
-  assert.equal(rooms.length, 8);
+  assert.equal(rooms.length, 9);
   assert.ok(rooms.every((room) => room.roomState === 'empty'));
-  assert.equal(new Set(rooms.map((room) => `${room.row}:${room.col}`)).size, 8);
-  assert.ok(!rooms.some((room) => room.row === 2 && room.col === 2));
+  assert.equal(new Set(rooms.map((room) => `${room.row}:${room.col}`)).size, 9);
+  assert.equal(rooms.find((room) => room.row === 2 && room.col === 2).roomState, 'empty');
   assert.deepEqual(input, []);
 });
 
@@ -19,7 +19,7 @@ test('example capacities control empty versus locked rooms without defining real
   for (const capacity of [0, 1, 4, 8]) {
     const rooms = officeRoomLayout([], capacity);
     assert.equal(rooms.filter((room) => room.roomState === 'empty').length, capacity);
-    assert.equal(rooms.filter((room) => room.roomState === 'locked').length, 8 - capacity);
+    assert.equal(rooms.filter((room) => room.roomState === 'locked').length, 9 - capacity);
   }
   for (const invalid of [-1, 9, 1.5, '4', NaN]) assert.throws(() => officeRoomLayout([], invalid));
 });
@@ -40,13 +40,13 @@ test('empty and locked geometry has walls but no employee pickables, including a
   for (const capacity of [null, 0, 1, 4, 8]) {
     const scene = new Scene();
     const office = buildOffice(scene, { divisions: [], agents: [], divisionCapacity: capacity });
-    assert.equal(office.rooms.size, 8);
-    // Exactly eight room groups, excluding base/corridor meshes: no extra lounge.
-    assert.equal(scene.children.filter((object) => object.isGroup).length, 8);
+    assert.equal(office.rooms.size, 9);
+    // Nine identical room shells, excluding base/corridor meshes: no lounge props.
+    assert.equal(scene.children.filter((object) => object.isGroup).length, 9);
     assert.equal(office.chars.length, 0);
     assert.equal(office.pickables.length, 0);
     assert.equal(office.byId.size, 0);
-    assert.equal([...office.rooms.values()].filter((room) => room.state === 'locked').length, capacity === null ? 0 : 8 - capacity);
+    assert.equal([...office.rooms.values()].filter((room) => room.state === 'locked').length, capacity === null ? 0 : 9 - capacity);
     assert.ok([...office.rooms.values()].every((room) => room.group.children[0].children.length >= 10));
     office.update(0.016, 1);
     scene.traverse((object) => { object.geometry?.dispose(); for (const material of Array.isArray(object.material) ? object.material : [object.material]) { material?.map?.dispose(); material?.dispose(); } });

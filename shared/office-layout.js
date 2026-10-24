@@ -1,5 +1,7 @@
 import { MAX_DIVISIONS } from './workspace-team.js';
 
+export const OFFICE_ROOM_COUNT = 9;
+
 // Presentation only. This never grants permissions or enforces subscription access.
 // null means no subscription entitlement has been configured, NOT a paid plan.
 export function officeRoomLayout(divisions, divisionCapacity = null) {
@@ -14,7 +16,7 @@ export function officeRoomLayout(divisions, divisionCapacity = null) {
         slot < 0 || slot >= MAX_DIVISIONS || occupied.has(slot)) throw new Error('Posisi ruangan tidak valid.');
     occupied.set(slot, division);
   }
-  return Array.from({ length: MAX_DIVISIONS }, (_, slot) => {
+  return Array.from({ length: OFFICE_ROOM_COUNT }, (_, slot) => {
     const division = occupied.get(slot);
     // Existing divisions are never hidden/evicted by a presentation capacity change.
     // Downgrade and entitlement enforcement require a separate server policy.
