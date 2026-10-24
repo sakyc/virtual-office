@@ -233,3 +233,11 @@ body.chatting #panel { transform: none; opacity: 1; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+.conversation-tools { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.conversation-tools[hidden] { display: none; }
+.conversation-tools > div, .conversation-tools form { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.conversation-tools input, .conversation-tools select { flex: 1; min-width: 110px; max-width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px; background: white; color: #1e293b; font: inherit; font-size: 12px; }
+.conversation-tools button { border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #334155; padding: 7px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.conversation-tools button:disabled { opacity: .5; cursor: default; }
+.conversation-tools [hidden] { display: none; }
+#panel[data-tab="jobs"] .conversation-tools { display: none; }

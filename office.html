@@ -46,6 +46,11 @@
       <button type="button" data-tab="jobs" aria-pressed="false">Perintah</button>
     </div>
     <div id="jobs" class="jobs"></div>
+    <section id="conversation-tools" class="conversation-tools" aria-label="Riwayat percakapan" hidden>
+      <div><button id="chat-new" type="button">+ Chat Baru</button><select id="chat-list" aria-label="Pilih percakapan"></select><button id="chat-more" type="button" hidden>Riwayat lainnya</button></div>
+      <form id="chat-title-form"><input id="chat-title" aria-label="Judul percakapan" maxlength="100" placeholder="Judul percakapan" required><button type="submit">Simpan judul</button><button id="chat-archive" type="button">Arsipkan</button></form>
+      <button id="chat-older" type="button" hidden>Pesan sebelumnya</button>
+    </section>
     <div id="messages" class="messages" role="log" aria-live="polite"></div>
     <div id="quick" class="quick"></div>
     <form id="composer" class="composer" autocomplete="off">

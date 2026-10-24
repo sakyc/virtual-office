@@ -17,6 +17,7 @@ import { processTenantRevision } from './tenant-review.js';
 import { installOfficeChatRoutes } from './office-chat.js';
 import { createUsageStore, installUsageRoutes } from './ai-usage.js';
 import { installTeamRoutes, resolveWorkspaceAgent } from './workspace-team.js';
+import { createChatHistoryStore } from './chat-history.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -101,6 +102,7 @@ installOfficeChatRoutes(app, {
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
   usageStore,
+  historyStore: createChatHistoryStore(() => pool),
   resolveAgent: async (tenant, id) => {
     const connection = await pool.getConnection();
     try { return await resolveWorkspaceAgent(connection, tenant, id); } finally { connection.release(); }

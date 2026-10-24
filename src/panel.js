@@ -1,6 +1,7 @@
 import { agentById as defaultAgent, agentsOf as defaultAgents, divisionById as defaultDivision } from '../shared/roster.js';
 import { renderMarkdown } from './md.js';
 import { getHistory, setHistory, clearHistory, streamChat, prepareChat, tenantOffice, getChatScope } from './chat.js';
+import { persistentChat, getConversations, getConversationId, prepareConversation, changeConversation, loadOlderChat, hasOlderMessages, hasOlderConversations } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -29,6 +30,26 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   let prepareController = null;
   let openVersion = 0;
   const live = new Map(); // agentId -> { text, el, abort }
+
+  function renderConversations() {
+    const tools = $('conversation-tools');
+    if (!tools) return;
+    tools.hidden = !persistentChat() || preparing || Boolean(chatError);
+    if (tools.hidden) { $('chat-list').innerHTML = ''; $('chat-title').value = ''; return; }
+    const list = $('chat-list'), id = getConversationId(currentId);
+    list.innerHTML = '';
+    const empty = document.createElement('option'); empty.value = ''; empty.textContent = 'Chat baru'; list.appendChild(empty);
+    for (const conversation of getConversations(currentId)) {
+      const option = document.createElement('option'); option.value = conversation.id; option.textContent = conversation.title; list.appendChild(option);
+    }
+    list.value = id || '';
+    $('chat-title').value = getConversations(currentId).find((item) => item.id === id)?.title || '';
+    const disabled = preparing || live.has(currentId) || Boolean(chatError);
+    for (const key of ['chat-new', 'chat-list', 'chat-title', 'chat-archive', 'chat-more', 'chat-older']) $(key).disabled = disabled || (['chat-title', 'chat-archive'].includes(key) && !id);
+    $('chat-title-form').hidden = !id;
+    $('chat-more').hidden = !hasOlderConversations(currentId);
+    $('chat-older').hidden = !hasOlderMessages(currentId);
+  }
 
   const scrollDown = (force = false) => {
     const m = els.messages;
@@ -134,6 +155,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   }
 
   function syncSend() {
+    renderConversations();
     const busy = live.has(currentId);
     els.input.disabled = preparing || Boolean(chatError);
     els.send.disabled = preparing || Boolean(chatError) || busy || !els.input.value.trim();
@@ -181,6 +203,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
       if (live.get(id) !== l) return;
       setHistory(id, [...sent, { role: 'assistant', content: full }], scope);
       live.delete(id);
+      renderConversations();
       if (l.el && currentId === id && getChatScope() === scope) l.el.querySelector('.bubble').innerHTML = renderMarkdown(full);
       onStatus(id, 'done');
     } catch (err) {
@@ -233,12 +256,35 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     }
   });
   els.close.addEventListener('click', () => onClose());
+  $('chat-new')?.addEventListener('click', () => { if (currentId && !preparing && !live.has(currentId)) return openAgent(currentId, null); });
+  $('chat-list')?.addEventListener('change', (event) => { if (currentId && !preparing && !live.has(currentId)) return openAgent(currentId, event.target.value || null); });
+  async function conversationAction(action, nextChoice) {
+    if (!currentId || preparing || live.has(currentId)) return;
+    const id = currentId, version = ++openVersion;
+    prepareController?.abort(); prepareController = new AbortController();
+    preparing = true; renderConversations(); syncSend();
+    try {
+      await action(id, prepareController.signal);
+      if (version !== openVersion) return;
+      preparing = false;
+      if (nextChoice !== undefined) return openAgent(id, nextChoice);
+      render(id);
+    } catch (error) { if (version === openVersion) { preparing = false; chatError = error.message; render(id); } }
+  }
+  $('chat-title-form')?.addEventListener('submit', (event) => {
+    event.preventDefault(); const title = $('chat-title').value.trim();
+    if (!title || title.length > 100) return;
+    return conversationAction((id, signal) => changeConversation(id, { title }, signal), getConversationId(currentId));
+  });
+  $('chat-archive')?.addEventListener('click', () => conversationAction((id, signal) => changeConversation(id, { archive: true }, signal), null));
+  $('chat-more')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'conversations', signal)));
+  $('chat-older')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'messages', signal)));
   els.reset.addEventListener('click', () => {
     if (!currentId) return;
     live.get(currentId)?.abort.abort();
     live.delete(currentId);
     clearHistory(currentId);
-    if (tenantOffice) return openAgent(currentId);
+    if (tenantOffice) return openAgent(currentId, persistentChat() ? null : undefined);
     render(currentId);
   });
   els.messages.addEventListener('click', (e) => {
@@ -280,7 +326,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     live.clear();
   }
 
-  async function openAgent(agentId) {
+  async function openAgent(agentId, conversationId) {
     if (!agentById(agentId)) return;
     prepareController?.abort();
     if (tenantOffice) stopLive();
@@ -297,6 +343,8 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
       prepareController = new AbortController();
       try {
         await prepareChat(prepareController.signal);
+        if (version !== openVersion) return;
+        await prepareConversation(agentId, prepareController.signal, conversationId);
       } catch (error) {
         if (version !== openVersion) return;
         preparing = false;

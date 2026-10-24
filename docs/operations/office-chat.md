@@ -1,5 +1,11 @@
 # Workspace office chat
 
+The temporary-history behavior below describes the original implementation.
+The current server wires persistent private conversations via migration 006;
+see `chat-history.md` for activation, API and failure semantics. Customer chat
+fails closed until that migration is explicitly applied. Existing shared-office
+chat remains unchanged.
+
 The embedded React office uses `/api/office/chat/context` and
 `POST /api/office/chat`, not the gated legacy `/api/chat` endpoint.
 Both new endpoints resolve the existing server session and active workspace

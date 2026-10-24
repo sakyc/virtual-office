@@ -49,6 +49,36 @@ async function fixture(t, fetchImpl) {
 }
 const context = (available = true, scope = 'a'.repeat(64)) => Response.json({ scope, available });
 
+test('persistent panel opens saved messages and exposes new/select/rename/archive controls', async (t) => {
+  const records = [
+    { id: 'c1', title: 'Diskusi satu', agentId: 'kirana', messages: [{ role: 'user', content: 'Pesan tersimpan' }, { role: 'assistant', content: 'Jawaban tersimpan' }] },
+    { id: 'c2', title: 'Diskusi dua', agentId: 'kirana', messages: [{ role: 'user', content: 'Percakapan kedua' }, { role: 'assistant', content: 'Jawaban kedua' }] },
+  ];
+  const changes = [];
+  const f = await fixture(t, async (url, options = {}) => {
+    if (url.endsWith('/context')) return Response.json({ scope: 'a'.repeat(64), available: true, persistent: true });
+    if (options.method === 'PATCH') {
+      const body = JSON.parse(options.body); changes.push(body);
+      if (body.title) records.find((row) => url.endsWith(`/${row.id}`)).title = body.title;
+      return Response.json({ updated: true });
+    }
+    if (url.includes('?agentId=')) return Response.json({ conversations: records, nextOffset: null });
+    return Response.json(records.find((row) => url.endsWith(`/${row.id}`)));
+  });
+  await f.panel.open('kirana');
+  assert.equal(f.get('conversation-tools').hidden, false);
+  assert.match(f.get('messages').textContent, /Pesan tersimpan/);
+  assert.equal(f.get('chat-list').value, 'c1');
+  await f.get('chat-list').emit('change', { target: { value: 'c2' } });
+  assert.match(f.get('messages').textContent, /Percakapan kedua/);
+  assert.doesNotMatch(f.get('messages').textContent, /Pesan tersimpan/);
+  f.get('chat-title').value = 'Judul diperbarui'; await f.get('chat-title-form').emit('submit');
+  assert.deepEqual(changes[0], { title: 'Judul diperbarui' });
+  await f.get('chat-archive').emit('click'); assert.deepEqual(changes[1], { archive: true });
+  assert.doesNotMatch(f.get('messages').textContent, /Percakapan kedua/);
+  await f.get('chat-new').emit('click'); assert.equal(f.get('chat-list').value, '');
+});
+
 test('first selection always renders agent identity even when AI is unavailable; switching never retains the prior header', async (t) => {
   let requests = 0;
   const f = await fixture(t, async () => { requests++; return context(false); });

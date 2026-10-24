@@ -20,6 +20,10 @@
     {
       "id": "005_workspace_team",
       "file": "005_workspace_team.sql"
+    },
+    {
+      "id": "006_chat_history",
+      "file": "006_chat_history.sql"
     }
   ]
 }
