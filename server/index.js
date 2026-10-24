@@ -16,6 +16,7 @@ import { processTenantJob } from './tenant-jobs.js';
 import { processTenantRevision } from './tenant-review.js';
 import { installOfficeChatRoutes } from './office-chat.js';
 import { createUsageStore, installUsageRoutes } from './ai-usage.js';
+import { installTeamRoutes, resolveWorkspaceAgent } from './workspace-team.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -41,6 +42,9 @@ installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
 const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true });
 const usageStore = createUsageStore(() => pool);
+installTeamRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
+  models: { leader: MODEL_LEADER, team: MODEL_TEAM } });
 installUsageRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
 installDashboardRoutes(app, {
   getPool: () => pool,
@@ -97,6 +101,10 @@ installOfficeChatRoutes(app, {
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
   usageStore,
+  resolveAgent: async (tenant, id) => {
+    const connection = await pool.getConnection();
+    try { return await resolveWorkspaceAgent(connection, tenant, id); } finally { connection.release(); }
+  },
 });
 
 function cleanMessages(raw) {

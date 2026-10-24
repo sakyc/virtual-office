@@ -1,0 +1,38 @@
+CREATE TABLE workspace_divisions (
+  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  workspace_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  template_id VARCHAR(100) NULL,
+  slot TINYINT UNSIGNED NULL,
+  status ENUM('active','archived') NOT NULL DEFAULT 'active',
+  created_by_user_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
+  UNIQUE KEY uq_division_scope (id, organization_id, workspace_id),
+  UNIQUE KEY uq_division_slot (workspace_id, slot),
+  INDEX idx_divisions_scope_status (organization_id, workspace_id, status),
+  CONSTRAINT fk_division_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_division_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_division_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE workspace_agents (
+  id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  workspace_id BIGINT UNSIGNED NOT NULL,
+  division_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  template_id VARCHAR(100) NULL,
+  name VARCHAR(100) NOT NULL,
+  role VARCHAR(150) NOT NULL,
+  instructions TEXT NOT NULL,
+  model_tier ENUM('leader','team') NOT NULL DEFAULT 'team',
+  status ENUM('active','archived') NOT NULL DEFAULT 'active',
+  created_by_user_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
+  INDEX idx_agents_scope_division (organization_id, workspace_id, division_id, status),
+  CONSTRAINT fk_workspace_agent_division FOREIGN KEY (division_id, organization_id, workspace_id) REFERENCES workspace_divisions(id, organization_id, workspace_id) ON DELETE RESTRICT,
+  CONSTRAINT fk_workspace_agent_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

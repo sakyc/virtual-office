@@ -10,7 +10,7 @@ const CAM_DIST = 70;
 const SIN_ELEV = CAM_DIR.y; // sudut elevasi: y komponen dari arah ternormalisasi
 const VIEW_H = 11; // setengah tinggi frustum pada zoom = 1
 
-export function createStage(canvas) {
+export function createStage(canvas, roster) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   const small = Math.min(window.innerWidth, window.innerHeight) < 600;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -33,7 +33,7 @@ export function createStage(canvas) {
   scene.add(sun);
 
   // ---------- kantor ----------
-  const office = buildOffice(scene);
+  const office = buildOffice(scene, roster);
   const { bounds } = office;
 
   // cincin penanda karyawan terpilih

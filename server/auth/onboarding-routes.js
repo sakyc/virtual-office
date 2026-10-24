@@ -1,6 +1,8 @@
 import { readCookie, resolveSession } from './sessions.js';
 import { authenticationEnabled } from './config.js';
 import { onboardingErrors } from '../../shared/onboarding-validation.js';
+import { initialTeamInput } from '../../shared/workspace-team.js';
+import { initializeTeam } from '../workspace-team.js';
 
 const TEAM_SIZES = new Set(['1-5', '6-20', '21-50', '50+']);
 
@@ -47,7 +49,7 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
     if (!pool) return res.status(503).json({ error: 'Authentication service unavailable.' });
 
     let input;
-    try { input = validateOnboardingPayload(req.body); } catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
+    try { input = validateOnboardingPayload(req.body); initialTeamInput(req.body?.team); } catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
 
     let connection;
     try {
@@ -86,6 +88,7 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
       const [workspace] = await connection.execute('INSERT INTO workspaces (organization_id, slug, name, created_by_user_id) VALUES (?, \'main\', ?, ?)', [organizationId, input.workspaceName, principal.userId]);
       const workspaceId = workspace.insertId;
       await connection.execute('INSERT INTO workspace_memberships (workspace_id, user_id, role, created_by_user_id) VALUES (?, ?, \'admin\', ?)', [workspaceId, principal.userId, principal.userId]);
+      await initializeTeam(connection, { organizationId, workspaceId }, principal.userId, req.body.team);
 
       let clientId = null;
       if (input.clientName) {

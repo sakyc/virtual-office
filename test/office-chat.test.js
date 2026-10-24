@@ -4,6 +4,7 @@ import express from 'express';
 import { installOfficeChatRoutes } from '../server/office-chat.js';
 import { createTenantGate } from '../server/auth/tenant-gate.js';
 import { createChatContext } from '../src/tenant-chat-context.js';
+import { agentById, divisionById } from '../shared/roster.js';
 
 async function fixture(t, { available = true, failure = false, usageStore } = {}) {
   const state = { user: 7, session: 4, workspace: 12, organization: 11, role: 'member', organizationRole: null, revoked: false, membership: true };
@@ -19,7 +20,9 @@ async function fixture(t, { available = true, failure = false, usageStore } = {}
     calls.push(input);
     return { on(event, listener) { if (!failure) listener('Jawaban aman'); }, abort() {}, async finalMessage() { if (failure) throw new Error('private-provider-secret'); } };
   } } };
-  installOfficeChatRoutes(app, { usageStore, requireTenant: createTenantGate({ getPool: () => ({ getConnection: async () => connection }), authEnabled: true, resourceQueriesScoped: true }), client: available ? client : null, appOrigin: 'http://localhost:5173', models: { leader: 'leader-test', team: 'team-test' }, rateLimit: (req, res, next) => next(), dailyCap: (req, res, next) => next() });
+  installOfficeChatRoutes(app, { usageStore, requireTenant: createTenantGate({ getPool: () => ({ getConnection: async () => connection }), authEnabled: true, resourceQueriesScoped: true }), client: available ? client : null, appOrigin: 'http://localhost:5173', models: { leader: 'leader-test', team: 'team-test' }, rateLimit: (req, res, next) => next(), dailyCap: (req, res, next) => next(),
+    resolveAgent: async (_tenant, id) => { const a = agentById(id); return a && { ...a, instructions: a.focus, modelTier: a.leader ? 'leader' : 'team', divisionName: divisionById(a.division).name }; },
+  });
   const server = app.listen(0, '127.0.0.1'); await new Promise((resolve) => server.once('listening', resolve));
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
   const request = (body, headers = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/office/chat${body === undefined ? '/context' : ''}`, {

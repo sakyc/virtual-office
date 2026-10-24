@@ -62,6 +62,8 @@ async function runMigration(database) {
 
 try {
   assert.equal(process.env.LOCAL_USAGE_MIGRATION_APPROVED, '1', 'LOCAL_APPROVAL_REQUIRED');
+  const migrationSet = await inspectMigrationDirectory('migrations');
+  assert.equal(migrationSet.migrations.at(-1)?.id, '004_ai_usage', 'ONE_SHOT_004_RETIRED_NEWER_MIGRATIONS_EXIST');
   assert.notEqual(process.env.NODE_ENV, 'production', 'PRODUCTION_REFUSED');
   assert.ok(['127.0.0.1', 'localhost', '::1'].includes(options.host), 'LOOPBACK_REQUIRED');
   assert.equal(options.port, 3306, 'UNEXPECTED_PORT');

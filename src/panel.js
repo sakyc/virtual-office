@@ -1,11 +1,14 @@
-import { agentById, agentsOf, divisionById } from '../shared/roster.js';
+import { agentById as defaultAgent, agentsOf as defaultAgents, divisionById as defaultDivision } from '../shared/roster.js';
 import { renderMarkdown } from './md.js';
 import { getHistory, setHistory, clearHistory, streamChat, prepareChat, tenantOffice, getChatScope } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
-export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, jobs }) {
+export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, jobs, roster }) {
+  const agentById = roster ? (id) => roster.agents.find((a) => a.id === id) : defaultAgent;
+  const agentsOf = roster ? (id) => roster.agents.filter((a) => a.division === id) : defaultAgents;
+  const divisionById = roster ? (id) => roster.divisions.find((d) => d.id === id) : defaultDivision;
   const els = {
     avatar: $('avatar'),
     name: $('who-name'),
@@ -63,7 +66,9 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     const first = agent.name.split(' ')[0];
     const e = document.createElement('div');
     e.className = 'empty';
-    e.innerHTML = `<b>Halo, gue ${first}</b>${agent.role}. Tanya soal ${agent.focus}.`;
+    const greeting = document.createElement('b'); greeting.textContent = `Halo, gue ${first}`;
+    const detail = document.createElement('span'); detail.textContent = `${agent.role}. Tanya soal ${agent.focus}.`;
+    e.appendChild(greeting); e.appendChild(detail);
     els.messages.appendChild(e);
     els.quick.innerHTML = '';
     for (const q of agent.quick) {
@@ -95,7 +100,9 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
         b.className = 'mate';
         b.style.setProperty('--c', div.color);
         b.setAttribute('aria-current', String(m.id === agentId));
-        b.innerHTML = `<i>${initials(m.name)}</i>${m.name.split(' ')[0]}`;
+        const icon = document.createElement('i'); icon.textContent = initials(m.name);
+        b.appendChild(icon);
+        const label = document.createElement('span'); label.textContent = m.name.split(' ')[0]; b.appendChild(label);
         b.addEventListener('click', () => onSelect(m.id));
         els.mates.appendChild(b);
       }

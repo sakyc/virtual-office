@@ -132,6 +132,7 @@ export function OnboardingWorkspaceForm({ vals }) {
 
 
 {vals.is3 ? <>
+{vals.teamSetup}
 <h2 style={{"margin": "10px 0 0", "fontSize": "26px", "letterSpacing": "-.025em", "fontWeight": "800"}}>{"Periksa kantor Anda"}</h2>
 
 <p style={{"margin": "8px 0 0", "fontSize": "15px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Organisasi dan workspace berikut akan dibuat untuk akun Anda. Langkah ini tidak mengaktifkan paket berlangganan."}</p>

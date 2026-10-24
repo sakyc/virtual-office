@@ -27,7 +27,7 @@ test('shared onboarding validation checks the current step and bounds without si
 });
 
 const payload = { organizationName: 'Studio Uji', workspaceName: 'Tim Kreatif', clientName: 'Klien Uji', clientBrief: 'Brief uji', teamSize: '1-5' };
-async function fixture(t, { existing = null, revoked = false, conflict = false, failInsert = false } = {}) {
+async function fixture(t, { existing = null, revoked = false, conflict = false, failInsert = false, failTeam = false } = {}) {
   const calls = [];
   let workspace = existing;
   let staged = null;
@@ -52,6 +52,10 @@ async function fixture(t, { existing = null, revoked = false, conflict = false, 
         return [{ insertId: 12 }];
       }
       if (sql.startsWith('INSERT INTO clients')) return [{ insertId: 13 }];
+      if (sql.startsWith('SELECT slot FROM workspace_divisions')) return [[]];
+      if (sql.startsWith('SELECT id FROM workspace_divisions')) return [[{ id: values[2] }]];
+      if (sql.startsWith('SELECT COUNT(*) AS count FROM workspace_agents')) return [[{ count: 0 }]];
+      if (sql.startsWith('INSERT INTO workspace_divisions') && failTeam) throw new Error('mysql://private-secret@internal');
       if (sql.startsWith('UPDATE sessions SET active_workspace_id')) activeWorkspaceId = values[0];
       return [{ affectedRows: 1 }];
     },
@@ -84,6 +88,21 @@ test('onboarding provisions server-owned organization/workspace/client and activ
   const retry = await f.submit();
   assert.equal(retry.status, 200); assert.equal((await retry.json()).existing, true);
   assert.equal(f.calls.filter(({ sql }) => sql?.startsWith('INSERT')).length, inserts);
+});
+
+test('onboarding copies only the selected template atomically and retry never duplicates its agents', async (t) => {
+  const f = await fixture(t);
+  assert.equal((await f.submit({ ...payload, team: { mode: 'template', templateId: 'proposal' } })).status, 201);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_divisions')).length, 1);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 4);
+  assert.equal((await f.submit({ ...payload, team: { mode: 'template', templateId: 'social' } })).status, 200);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 4);
+  const failed = await fixture(t, { failTeam: true });
+  const response = await failed.submit({ ...payload, team: { mode: 'template', templateId: 'proposal' } });
+  assert.equal(response.status, 503); assert.doesNotMatch(await response.text(), /mysql|private-secret/);
+  assert.ok(failed.calls.some((c) => c.type === 'rollback'));
+  assert.ok(!failed.calls.some((c) => c.type === 'commit'));
+  assert.equal((await (await failed.request('/auth/me')).json()).activeWorkspace, null);
 });
 
 test('existing workspace member is returned to their workspace without creating another organization', async (t) => {

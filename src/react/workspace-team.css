@@ -1,0 +1,13 @@
+.wt-page { display:grid; gap:20px; color:var(--ink); }
+.wt-page header { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+.wt-page h1 { font-size:28px; }.wt-page h2 { font-size:19px; }.wt-page h3 { font-size:16px; }
+.wt-page p,.wt-page small,.wt-form small { color:var(--soft); line-height:1.7; }
+.wt-page button { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:10px 14px; margin:5px; cursor:pointer; }
+.wt-page button:disabled { opacity:.5; cursor:wait; }
+.wt-card { border:1px solid var(--line); border-radius:14px; padding:22px; background:var(--surface); display:grid; gap:16px; }
+.wt-form { display:grid; gap:16px; border:1px solid var(--line); border-radius:12px; padding:20px; min-width:0; }
+.wt-form label { display:grid; gap:8px; font-size:14px; font-weight:600; }
+.wt-form input,.wt-form textarea,.wt-form select { width:100%; min-width:0; background:var(--bg); color:var(--ink); border:1px solid var(--line); padding:12px; border-radius:8px; font:inherit; }
+.wt-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+.wt-agent { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:18px; display:grid; gap:10px; overflow-wrap:anywhere; }
+.wt-page [role=alert] { border:1px solid #a75c38; padding:16px; border-radius:12px; }

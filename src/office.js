@@ -91,7 +91,7 @@ function addSeat(inner, chars, agent, x, z, opts) {
   return { ch, deskGroup };
 }
 
-function buildDivisionRoom(div, scene, chars) {
+function buildDivisionRoom(div, scene, chars, roster) {
   const room = new THREE.Group();
   const cx = (div.col - 1) * PITCH_X;
   const cz = (div.row - 1) * PITCH_Z;
@@ -103,11 +103,11 @@ function buildDivisionRoom(div, scene, chars) {
   buildShell(inner, div.color, div.name);
   { const rug = F.rug(5.2, 3.2, tint(div.color, 0.3)); rug.position.set(0, 0.0, 1.0); inner.add(rug); }
 
-  const members = agentsOf(div.id);
+  const members = roster.filter((a) => a.division === div.id);
   const leader = members.find((m) => m.leader);
   const team = members.filter((m) => !m.leader);
   const glowColors = { proposal: '#cfe0ff', ads: '#ffd9bd', social: '#ffd0e6', qa: '#c9f2dc', dev: '#1f2a44', reporting: '#c8f3ee', account: '#fff0c4', finance: '#d9e2f2' };
-  const lc = glowColors[div.id] || '#8ec5ff';
+  const lc = glowColors[div.templateId || div.id] || '#8ec5ff';
 
   if (leader) {
     // tim 4 orang: leader di belakang, 3 anggota satu baris
@@ -121,7 +121,7 @@ function buildDivisionRoom(div, scene, chars) {
     place(inner, F.plant(1), -4.3, 0, 3.3);
     place(inner, F.plant(1.15), 4.3, 0, 3.3);
     place(inner, F.plant(0.9), 4.4, 0, -3.5);
-  } else {
+  } else if (members.length) {
     const m = members[0];
     const S = addSeat(inner, chars, m, 0, -2.4, { deskW: 2.6, deskD: 1.3, color: div.color, index: 0, laptopColor: lc });
     S.ch.roams = true;
@@ -133,7 +133,7 @@ function buildDivisionRoom(div, scene, chars) {
 
   // properti khas divisi
   const wallZ = -ROOM_D / 2 + 0.2;
-  switch (div.id) {
+  switch (div.templateId || div.id) {
     case 'proposal':
       place(inner, F.whiteboard(2.6, 1.3), -3.3, 1.75, -ROOM_D / 2 + 0.06);
       place(inner, F.bookshelf(2.2, 2.1), 3.3, 0, wallZ + 0.1);
@@ -199,7 +199,7 @@ function buildLounge(scene) {
   return room;
 }
 
-export function buildOffice(scene) {
+export function buildOffice(scene, roster = { divisions: DIVISIONS, agents: AGENTS }) {
   const chars = [];
   const rooms = new Map();
 
@@ -221,7 +221,7 @@ export function buildOffice(scene) {
     scene.add(lane);
   }
 
-  DIVISIONS.forEach((d) => rooms.set(d.id, buildDivisionRoom(d, scene, chars)));
+  roster.divisions.forEach((d) => rooms.set(d.id, buildDivisionRoom({ ...d, templateId: d.templateId || d.id }, scene, chars, roster.agents)));
   buildLounge(scene);
 
   const bounds = {

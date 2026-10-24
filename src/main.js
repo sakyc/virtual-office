@@ -1,5 +1,6 @@
 import './style.css';
-import { DIVISIONS, agentById, divisionById } from '../shared/roster.js';
+import { DIVISIONS as TEMPLATE_DIVISIONS, AGENTS as TEMPLATE_AGENTS } from '../shared/roster.js';
+import { sceneRoster } from '../shared/workspace-team.js';
 import { createStage } from './stage.js';
 import { createTags } from './tags.js';
 import { createPanel } from './panel.js';
@@ -16,9 +17,21 @@ const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(max-width: 760px)');
 
 const config = { demo: false, needsCode: false, offline: false };
+let roster = { divisions: TEMPLATE_DIVISIONS, agents: TEMPLATE_AGENTS }, teamError = '';
+if (tenantOffice) {
+  roster = { divisions: [], agents: [] };
+  try {
+    const response = await fetch('/api/team', { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    roster = sceneRoster(await response.json());
+  } catch { teamError = 'Tim belum dapat dimuat. Tidak ada agen template yang diaktifkan sebagai pengganti. Periksa migration 005 dengan operator.'; }
+}
+const DIVISIONS = roster.divisions;
+const agentById = (id) => roster.agents.find((a) => a.id === id);
+const divisionById = (id) => roster.divisions.find((d) => d.id === id);
 
 // ---------- scene ----------
-const stage = createStage($('scene'));
+const stage = createStage($('scene'), roster);
 const tags = createTags(stage, $('tags'));
 const { byId, rooms } = stage.office;
 
@@ -136,6 +149,7 @@ $('btn-board').addEventListener('click', () => {
 });
 
 const panel = createPanel({
+  roster,
   onSelect: (id) => selectAgent(id),
   onClose: () => closeChat(true),
   onStatus: tenantOffice ? () => {} : setStatus,
@@ -241,6 +255,10 @@ $('gate-form').addEventListener('submit', async (e) => {
     banner.textContent = 'Mode demo: server belum punya ANTHROPIC_API_KEY, jadi jawaban hanya contoh.';
   }
   banner.hidden = !(config.offline || (config.demo && selectedId));
+  if (tenantOffice && (teamError || !roster.agents.length)) {
+    banner.hidden = false;
+    banner.textContent = teamError || 'Kantor Anda masih kosong. Tambahkan divisi dan agen melalui menu Agent di dashboard.';
+  }
   if (config.needsCode && !getCode()) showGate('');
 
   // buka karyawan dari URL, mis. https://office.devan.my.id/#rina
