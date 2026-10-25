@@ -56,10 +56,12 @@ test('persistent panel opens saved messages and exposes new/select/rename/archiv
   ];
   const changes = [];
   const f = await fixture(t, async (url, options = {}) => {
-    if (url.endsWith('/context')) return Response.json({ scope: 'a'.repeat(64), available: true, persistent: true });
+    if (url.endsWith('/context')) return Response.json({ scope: 'a'.repeat(64), available: true, persistent: true,
+      models: [{ id: 'mock-team', label: 'Anggota', description: 'Biaya belum ditentukan' }, { id: 'mock-leader', label: 'Leader', description: 'Periksa pemakaian token' }] });
     if (options.method === 'PATCH') {
       const body = JSON.parse(options.body); changes.push(body);
       if (body.title) records.find((row) => url.endsWith(`/${row.id}`)).title = body.title;
+      if (Object.hasOwn(body, 'modelId')) records.find((row) => url.endsWith(`/${row.id}`)).modelId = body.modelId;
       return Response.json({ updated: true });
     }
     if (url.includes('?agentId=')) return Response.json({ conversations: records, nextOffset: null });
@@ -77,6 +79,14 @@ test('persistent panel opens saved messages and exposes new/select/rename/archiv
   await f.get('chat-archive').emit('click'); assert.deepEqual(changes[1], { archive: true });
   assert.doesNotMatch(f.get('messages').textContent, /Percakapan kedua/);
   await f.get('chat-new').emit('click'); assert.equal(f.get('chat-list').value, '');
+  await f.get('chat-model').emit('change', { target: { value: 'mock-leader' } });
+  assert.equal(f.get('chat-model').value, 'mock-leader');
+  assert.match(f.get('chat-model-info').textContent, /Tarif rupiah belum tersedia/);
+  assert.equal(changes.length, 2, 'unsent new chat has no database record to update');
+  await f.get('chat-list').emit('change', { target: { value: 'c1' } });
+  await f.get('chat-model').emit('change', { target: { value: 'mock-team' } });
+  assert.deepEqual(changes[2], { modelId: 'mock-team' });
+  await f.panel.open('kirana'); assert.equal(f.get('chat-model').value, 'mock-team');
 });
 
 test('first selection always renders agent identity even when AI is unavailable; switching never retains the prior header', async (t) => {

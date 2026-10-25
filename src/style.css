@@ -241,3 +241,7 @@ body.chatting #panel { transform: none; opacity: 1; pointer-events: auto; }
 .conversation-tools button:disabled { opacity: .5; cursor: default; }
 .conversation-tools [hidden] { display: none; }
 #panel[data-tab="jobs"] .conversation-tools { display: none; }
+.conversation-tools > label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.chat-model-info, .message-model { color: #64748b; font-size: 11px; line-height: 1.5; }
+.chat-model-info { margin: 6px 0 10px; }
+.message-model { display: block; margin: 4px 0; overflow-wrap: anywhere; }

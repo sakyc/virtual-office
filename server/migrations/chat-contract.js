@@ -12,11 +12,12 @@ export const CHAT_CONTRACT = {
     keys: { fk_chat_message_conversation: ['conversation_id', 'chat_conversations', 'id'] },
   },
 };
-export async function validateChatSchema(connection) {
+export async function validateChatSchema(connection, { requireModelSelection = false } = {}) {
   const differences = [];
   for (const [table, spec] of Object.entries(CHAT_CONTRACT)) {
     const [columns] = await connection.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [table]);
     for (const name of spec.columns) if (!columns.some((column) => column.name === name)) differences.push({ table, column: name, reason: 'column_missing' });
+    if (requireModelSelection && !columns.some((column) => column.name === 'model_id' && column.type === 'varchar(191)' && column.nullable === 'YES')) differences.push({ table, column: 'model_id', reason: 'nullable_model_id_mismatch' });
     for (const [name, type] of Object.entries(spec.enums)) if (columns.find((column) => column.name === name)?.type !== type) differences.push({ table, column: name, reason: 'enum_mismatch' });
     const [indexes] = await connection.execute('SELECT index_name AS name, column_name AS columnName, non_unique AS nonUnique FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? ORDER BY index_name, seq_in_index', [table]);
     for (const [name, required] of Object.entries(spec.indexes)) {

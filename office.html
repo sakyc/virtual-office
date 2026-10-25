@@ -47,6 +47,8 @@
     </div>
     <div id="jobs" class="jobs"></div>
     <section id="conversation-tools" class="conversation-tools" aria-label="Riwayat percakapan" hidden>
+      <label id="chat-model-field">Model AI<select id="chat-model" aria-label="Pilih model AI"></select></label>
+      <p id="chat-model-info" class="chat-model-info"></p>
       <div><button id="chat-new" type="button">+ Chat Baru</button><select id="chat-list" aria-label="Pilih percakapan"></select><button id="chat-more" type="button" hidden>Riwayat lainnya</button></div>
       <form id="chat-title-form"><input id="chat-title" aria-label="Judul percakapan" maxlength="100" placeholder="Judul percakapan" required><button type="submit">Simpan judul</button><button id="chat-archive" type="button">Arsipkan</button></form>
       <button id="chat-older" type="button" hidden>Pesan sebelumnya</button>

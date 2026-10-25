@@ -24,6 +24,10 @@
     {
       "id": "006_chat_history",
       "file": "006_chat_history.sql"
+    },
+    {
+      "id": "007_chat_model_selection",
+      "file": "007_chat_model_selection.sql"
     }
   ]
 }

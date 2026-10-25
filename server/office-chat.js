@@ -3,9 +3,10 @@ import { authorizeTenantAction } from './auth/tenant-authorization.js';
 import { trackedClient } from './ai-usage.js';
 import { workspaceAgentPrompt } from './workspace-team.js';
 import { installConversationRoutes, validChatId } from './chat-history.js';
+import { createChatModelCatalog } from './chat-models.js';
 
 // Scope binding is not an authentication credential. Restart invalidates old tabs.
-export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500, usageStore, resolveAgent, historyStore }) {
+export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500, usageStore, resolveAgent, historyStore, modelCatalog = createChatModelCatalog(models) }) {
   const secret = randomBytes(32);
   const scopeOf = (req) => createHmac('sha256', secret).update(JSON.stringify([
     req.authPrincipal.sessionId, req.authPrincipal.userId,
@@ -22,9 +23,12 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
       return res.status(403).json({ error: 'Anda tidak memiliki izin menggunakan chat workspace.' });
     next();
   };
-  if (historyStore) installConversationRoutes(app, { store: historyStore, requireTenant, permitted, appOrigin });
-  app.get('/api/office/chat/context', requireTenant, permitted, (req, res) => {
-    res.json({ scope: scopeOf(req), available: Boolean(client), ephemeral: !historyStore, persistent: Boolean(historyStore) });
+  if (historyStore) installConversationRoutes(app, { store: historyStore, requireTenant, permitted, appOrigin, modelCatalog });
+  app.get('/api/office/chat/context', requireTenant, permitted, async (req, res) => {
+    try {
+      const modelSelection = Boolean(historyStore && await historyStore.supportsModelSelection());
+      res.json({ scope: scopeOf(req), available: Boolean(client), ephemeral: !historyStore, persistent: Boolean(historyStore), modelSelection, models: modelCatalog.list(), defaultModels: models });
+    } catch { res.status(503).json({ error: 'Riwayat chat belum tersedia.' }); }
   });
   app.post('/api/office/chat', requireTenant, permitted, async (req, res, next) => {
     if (!appOrigin || req.get('origin') !== appOrigin || !req.is('application/json'))
@@ -48,10 +52,11 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
     const agent = req.officeAgent;
     const context = { ...req.tenantContext, userId: req.authPrincipal.userId };
     let turn;
-    try { if (historyStore) turn = await historyStore.begin(context, req.body.conversationId, agent.id, req.body.content.trim()); }
+    try { if (historyStore) turn = await historyStore.begin(context, req.body.conversationId, agent.id, req.body.content.trim(), (override) => modelCatalog.resolve(override, agent)); }
     catch (error) { return res.status([404, 409].includes(error.status) ? error.status : 503).json({ error: [404, 409].includes(error.status) ? error.message : 'Riwayat chat belum dapat disimpan. Tidak ada panggilan AI yang dikirim.' }); }
     // Persistent mode uses ONLY server-owned completed history, never client messages.
     const messages = turn ? turn.messages : req.body.messages.map(({ role, content }) => ({ role, content }));
+    const model = turn?.modelId || modelCatalog.resolve(null, agent);
     res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
     let stream, closed = res.destroyed, answer = '';
     const disconnect = () => { closed = true; if (!res.writableFinished) stream?.abort(); };
@@ -61,8 +66,9 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
     timeout.unref?.();
     try {
       if (closed) throw new Error('Client disconnected');
+      send({ model });
       const apiClient = trackedClient(client, usageStore, { ...req.tenantContext, userId: req.authPrincipal.userId, operation: 'chat', agentId: agent.id });
-      stream = await apiClient.messages.stream({ model: agent.modelTier === 'leader' ? models.leader : models.team, max_tokens: maxTokens, system: workspaceAgentPrompt(agent), messages });
+      stream = await apiClient.messages.stream({ model, max_tokens: maxTokens, system: workspaceAgentPrompt(agent), messages });
       if (closed) stream.abort();
       stream.on('text', (text) => { answer += text; send({ t: text }); });
       await stream.finalMessage();

@@ -23,6 +23,10 @@ const check = (name) => { checks.push(name); console.log(JSON.stringify({ check:
 try {
   assert.equal(process.env.CHAT_HISTORY_LOCAL_TEST, '1', 'EXPLICIT_LOCAL_TEST_REQUIRED');
   assert.notEqual(process.env.NODE_ENV, 'production', 'PRODUCTION_FORBIDDEN');
+  // Historical 006 verifier only. Refuse BEFORE any connection/database creation
+  // now that development has moved on and the owner uses one local database.
+  const report = await inspectMigrationDirectory(fileURLToPath(new URL('../migrations/', import.meta.url)));
+  if (report.migrations.at(-1)?.id !== '006_chat_history') throw Object.assign(new Error(), { code: 'HISTORICAL_006_VERIFIER_DISABLED' });
   const options = migrationConnectionOptions();
   assert.ok(['127.0.0.1', 'localhost', '::1'].includes(options.host), 'LOOPBACK_REQUIRED');
   assert.equal(options.port, 3306, 'EXPECTED_LOCAL_PORT_REQUIRED');
@@ -36,7 +40,6 @@ try {
   await admin.execute(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   c = await mysql.createConnection({ ...options, database });
   pool = mysql.createPool({ ...options, database, connectionLimit: 8 });
-  const report = await inspectMigrationDirectory(fileURLToPath(new URL('../migrations/', import.meta.url)));
   assert.deepEqual(report.diagnostics, []);
   await acquireMigrationLock(c);
   try { assert.equal((await applyMigrations(c, report.migrations)).length, 6); assert.deepEqual(await applyMigrations(c, report.migrations), []); }

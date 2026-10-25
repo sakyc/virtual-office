@@ -19,16 +19,19 @@ const safe = {
 };
 
 let histories = {};
-let conversations = {}, selected = {}, olderMessages = {}, olderLists = {};
+let conversations = {}, selected = {}, olderMessages = {}, olderLists = {}, conversationModels = {};
 try { histories = tenantOffice ? {} : JSON.parse(safe.get(KEY_HISTORY) || '{}') || {}; } catch { histories = {}; }
 
 const persist = () => { if (!tenantOffice) safe.set(KEY_HISTORY, JSON.stringify(histories)); };
-const chatContext = createChatContext({ reset: () => { histories = {}; conversations = {}; selected = {}; olderMessages = {}; olderLists = {}; } });
+const chatContext = createChatContext({ reset: () => { histories = {}; conversations = {}; selected = {}; olderMessages = {}; olderLists = {}; conversationModels = {}; } });
 export const prepareChat = (signal) => tenantOffice ? chatContext.prepare(signal) : Promise.resolve(false);
 export const getChatScope = () => tenantOffice ? chatContext.scope : null;
 export const persistentChat = () => tenantOffice && chatContext.persistent;
 export const getConversations = (id) => conversations[id] || [];
 export const getConversationId = (id) => selected[id] || null;
+export const getChatModels = () => chatContext.models;
+export const canSelectChatModel = () => chatContext.modelSelection;
+export const getConversationModel = (id) => conversationModels[id] ?? null;
 export const hasOlderMessages = (id) => Boolean(olderMessages[id]);
 export const hasOlderConversations = (id) => olderLists[id] !== null && olderLists[id] !== undefined;
 
@@ -59,6 +62,7 @@ export async function prepareConversation(agentId, signal, choice) {
   conversations[agentId] = list.conversations; olderLists[agentId] = list.nextOffset;
   if (detail && !conversations[agentId].some((item) => item.id === id)) conversations[agentId].push({ id, title: detail.title });
   selected[agentId] = id;
+  conversationModels[agentId] = detail?.modelId ?? null;
   histories[agentId] = detail?.messages || [];
   olderMessages[agentId] = detail?.nextBefore || null;
 }
@@ -77,7 +81,13 @@ export async function changeConversation(agentId, body, signal) {
   if (!id) return;
   await historyRequest(`/${encodeURIComponent(id)}`, { method: 'PATCH', body, signal });
   unchanged(scope, signal);
-  if (body.archive) { selected[agentId] = null; histories[agentId] = []; }
+  if (body.archive) { selected[agentId] = null; histories[agentId] = []; conversationModels[agentId] = null; }
+}
+export async function selectConversationModel(agentId, modelId, signal) {
+  const scope = getChatScope();
+  if (selected[agentId]) await changeConversation(agentId, { modelId }, signal);
+  unchanged(scope, signal);
+  conversationModels[agentId] = modelId;
 }
 if (tenantOffice) addEventListener('pagehide', () => chatContext.clear(), { once: true });
 
@@ -114,7 +124,7 @@ export async function streamChat(agentId, messages, { onText, signal }) {
   if (persistentChat()) {
     conversationId = selected[agentId];
     if (!conversationId) {
-      const created = await historyRequest('', { method: 'POST', body: { agentId }, signal });
+      const created = await historyRequest('', { method: 'POST', body: { agentId, ...(conversationModels[agentId] ? { modelId: conversationModels[agentId] } : {}) }, signal });
       unchanged(scope, signal);
       selected[agentId] = conversationId = created.id;
       conversations[agentId] = [created, ...getConversations(agentId)];
@@ -164,6 +174,12 @@ export async function streamChat(agentId, messages, { onText, signal }) {
         try { evt = JSON.parse(raw.slice(5).trim()); } catch { continue; }
         if (evt.error) throw new Error(evt.error);
         if (evt.done) completed = true;
+        if (typeof evt.model === 'string') {
+          // Tag the optimistic user turn and the streamed assistant with the actual server choice.
+          const pending = histories[agentId]?.at(-1);
+          if (pending?.role === 'user' && scope === getChatScope()) pending.modelId = evt.model;
+          messages.at(-1).modelId = evt.model;
+        }
         if (evt.t) {
           full += evt.t;
           onText(evt.t, full);

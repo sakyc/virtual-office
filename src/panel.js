@@ -2,6 +2,7 @@ import { agentById as defaultAgent, agentsOf as defaultAgents, divisionById as d
 import { renderMarkdown } from './md.js';
 import { getHistory, setHistory, clearHistory, streamChat, prepareChat, tenantOffice, getChatScope } from './chat.js';
 import { persistentChat, getConversations, getConversationId, prepareConversation, changeConversation, loadOlderChat, hasOlderMessages, hasOlderConversations } from './chat.js';
+import { getChatModels, getConversationModel, selectConversationModel, canSelectChatModel } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -44,8 +45,18 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     }
     list.value = id || '';
     $('chat-title').value = getConversations(currentId).find((item) => item.id === id)?.title || '';
+    const modelSelect = $('chat-model'), modelId = getConversationModel(currentId);
+    $('chat-model-field').hidden = !canSelectChatModel();
+    $('chat-model-info').hidden = !canSelectChatModel();
+    modelSelect.innerHTML = '';
+    const defaultModel = document.createElement('option'); defaultModel.value = ''; defaultModel.textContent = 'Ikuti model default agen'; modelSelect.appendChild(defaultModel);
+    const options = getChatModels();
+    for (const model of options) { const option = document.createElement('option'); option.value = model.id; option.textContent = model.label; modelSelect.appendChild(option); }
+    if (modelId && !options.some((model) => model.id === modelId)) { const removed = document.createElement('option'); removed.value = modelId; removed.textContent = `${modelId} — tidak tersedia`; modelSelect.appendChild(removed); }
+    modelSelect.value = modelId || '';
+    $('chat-model-info').textContent = `${options.find((model) => model.id === modelId)?.description || (modelId ? 'Model ini tidak lagi diizinkan server. Pilih model lain.' : 'Mengikuti konfigurasi model agen.')} Tarif rupiah belum tersedia; belum ada pemotongan Saldo AI. Berlaku untuk pesan berikutnya.`;
     const disabled = preparing || live.has(currentId) || Boolean(chatError);
-    for (const key of ['chat-new', 'chat-list', 'chat-title', 'chat-archive', 'chat-more', 'chat-older']) $(key).disabled = disabled || (['chat-title', 'chat-archive'].includes(key) && !id);
+    for (const key of ['chat-new', 'chat-list', 'chat-title', 'chat-archive', 'chat-more', 'chat-older', 'chat-model']) $(key).disabled = disabled || (['chat-title', 'chat-archive'].includes(key) && !id);
     $('chat-title-form').hidden = !id;
     $('chat-more').hidden = !hasOlderConversations(currentId);
     $('chat-older').hidden = !hasOlderMessages(currentId);
@@ -143,7 +154,9 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     const l = live.get(agentId);
     if (!history.length && !l) renderEmpty(agent);
     for (const m of history) {
-      els.messages.appendChild(m.role === 'user' ? bubble('user', '', { text: m.content }) : bubble('assistant', renderMarkdown(m.content)));
+      const message = m.role === 'user' ? bubble('user', '', { text: m.content }) : bubble('assistant', renderMarkdown(m.content));
+      if (m.role === 'assistant' && m.modelId) { const label = document.createElement('small'); label.className = 'message-model'; label.textContent = m.modelId; message.appendChild(label); }
+      els.messages.appendChild(message);
     }
     if (l) {
       l.el = bubble('assistant', typingHtml);
@@ -201,10 +214,11 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
         },
       });
       if (live.get(id) !== l) return;
-      setHistory(id, [...sent, { role: 'assistant', content: full }], scope);
+      setHistory(id, [...sent, { role: 'assistant', content: full, ...(sent.at(-1).modelId ? { modelId: sent.at(-1).modelId } : {}) }], scope);
       live.delete(id);
       renderConversations();
       if (l.el && currentId === id && getChatScope() === scope) l.el.querySelector('.bubble').innerHTML = renderMarkdown(full);
+      if (l.el && sent.at(-1).modelId) { const label = document.createElement('small'); label.className = 'message-model'; label.textContent = sent.at(-1).modelId; l.el.appendChild(label); }
       onStatus(id, 'done');
     } catch (err) {
       if (live.get(id) !== l) return;
@@ -279,6 +293,10 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
   $('chat-archive')?.addEventListener('click', () => conversationAction((id, signal) => changeConversation(id, { archive: true }, signal), null));
   $('chat-more')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'conversations', signal)));
   $('chat-older')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'messages', signal)));
+  $('chat-model')?.addEventListener('change', (event) => {
+    const modelId = event.target.value || null;
+    return conversationAction((id, signal) => selectConversationModel(id, modelId, signal));
+  });
   els.reset.addEventListener('click', () => {
     if (!currentId) return;
     live.get(currentId)?.abort.abort();

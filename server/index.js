@@ -18,6 +18,7 @@ import { installOfficeChatRoutes } from './office-chat.js';
 import { createUsageStore, installUsageRoutes } from './ai-usage.js';
 import { installTeamRoutes, resolveWorkspaceAgent } from './workspace-team.js';
 import { createChatHistoryStore } from './chat-history.js';
+import { createChatModelCatalog } from './chat-models.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -30,6 +31,7 @@ const RATE_PER_MINUTE = Number(process.env.RATE_PER_MINUTE || 15);
 const DAILY_MAX_REQUESTS = Number(process.env.DAILY_MAX_REQUESTS || 300);
 const MAX_HISTORY = 20;
 const MAX_CHARS = 4000;
+const chatModels = createChatModelCatalog({ leader: MODEL_LEADER, team: MODEL_TEAM }, process.env.CHAT_MODELS_JSON || '');
 
 const DEMO = !API_KEY;
 const client = DEMO ? null : new Anthropic({ apiKey: API_KEY });
@@ -103,6 +105,7 @@ installOfficeChatRoutes(app, {
   rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
   usageStore,
   historyStore: createChatHistoryStore(() => pool),
+  modelCatalog: chatModels,
   resolveAgent: async (tenant, id) => {
     const connection = await pool.getConnection();
     try { return await resolveWorkspaceAgent(connection, tenant, id); } finally { connection.release(); }

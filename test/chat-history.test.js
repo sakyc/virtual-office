@@ -8,30 +8,33 @@ import { createTenantGate } from '../server/auth/tenant-gate.js';
 import { CHAT_CONTRACT, validateChatSchema } from '../server/migrations/chat-contract.js';
 import { inspectMigrationDirectory } from '../server/migrations/status.js';
 import { fileURLToPath } from 'node:url';
+import { createChatModelCatalog } from '../server/chat-models.js';
 
 async function fixture(t, { available = true } = {}) {
-  const state = { user: 1, organization: 2, workspace: 3, role: 'member', revoked: false, failure: false, databaseFail: false, expired: false };
-  const agentId = randomUUID(), conversations = new Map(), messages = [], calls = [], sqlCalls = [];
+  const state = { user: 1, organization: 2, workspace: 3, role: 'member', revoked: false, failure: false, databaseFail: false, expired: false, modelReady: true };
+  const agentId = randomUUID(), conversations = new Map(), messages = [], calls = [], sqlCalls = [], usage = [];
   const connection = { release() {}, async beginTransaction() {}, async commit() {}, async rollback() {}, async execute(sql, v = []) {
     sqlCalls.push({ sql, values: v });
+    if (sql.includes('information_schema.columns')) return [state.modelReady ? [{ tableName: 'chat_conversations' }, { tableName: 'chat_messages' }] : []];
     if (sql.startsWith('SELECT s.')) return [[{ id: 1, user_id: state.user, active_workspace_id: state.workspace, revoked_at: state.revoked ? new Date() : null, user_status: 'active', idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
     if (sql.startsWith('UPDATE sessions')) return [{}];
     if (sql.includes('LEFT JOIN workspace_memberships')) return [[{ organizationId: state.organization, role: state.role }]];
     if (sql.includes('FROM workspace_agents')) return [v[0] === 2 && v[1] === 3 && v[2] === agentId ? [{ id: agentId, modelTier: 'team', name: 'Agen', role: 'Penulis', divisionName: 'Konten', instructions: 'Draft only' }] : []];
     if (state.databaseFail) throw new Error('private-sql-secret');
-    if (sql.startsWith('INSERT INTO chat_conversations')) { conversations.set(v[0], { id: v[0], organization_id: v[1], workspace_id: v[2], user_id: v[3], agent_id: v[4], title: 'Chat baru', status: 'active', pending_turn: null }); return [{}]; }
+    if (sql.startsWith('INSERT INTO chat_conversations')) { conversations.set(v[0], { id: v[0], organization_id: v[1], workspace_id: v[2], user_id: v[3], agent_id: v[4], model_id: v[5] ?? null, title: 'Chat baru', status: 'active', pending_turn: null }); return [{}]; }
     if (sql.startsWith('SELECT') && sql.includes('FROM chat_conversations')) {
       const rows = [...conversations.values()].filter((row) => row.organization_id === v[0] && row.workspace_id === v[1] && row.user_id === v[2] && row.status === 'active' && (sql.includes('agent_id = ?') ? row.agent_id === v[3] : row.id === v[3]));
       return [rows.map((row) => ({ ...row, busy: state.expired ? 0 : 1 }))];
     }
-    if (sql.startsWith('SELECT') && sql.includes('FROM chat_messages')) return [messages.filter((m) => m.conversation_id === v[0] && m.status === 'complete' && (!v[1] || Number(m.id) < Number(v[1]))).slice(-Number(sql.match(/LIMIT (\d+)/)[1])).reverse().map(({ id, role, content }) => ({ id: String(id), role, content }))];
-    if (sql.startsWith('INSERT INTO chat_messages')) { messages.push({ id: messages.length + 1, conversation_id: v[0], turn_id: v[1], role: sql.includes("'assistant'") ? 'assistant' : 'user', content: v[2], status: sql.includes("'complete'") ? 'complete' : 'pending' }); return [{}]; }
+    if (sql.startsWith('SELECT') && sql.includes('FROM chat_messages')) return [messages.filter((m) => m.conversation_id === v[0] && m.status === 'complete' && (!v[1] || Number(m.id) < Number(v[1]))).slice(-Number(sql.match(/LIMIT (\d+)/)[1])).reverse().map(({ id, role, content, modelId }) => ({ id: String(id), role, content, modelId }))];
+    if (sql.startsWith('INSERT INTO chat_messages')) { messages.push({ id: messages.length + 1, conversation_id: v[0], turn_id: v[1], role: sql.includes("'assistant'") ? 'assistant' : 'user', content: v[2], modelId: v[3] ?? null, status: sql.includes("'complete'") ? 'complete' : 'pending' }); return [{}]; }
     if (sql.startsWith('UPDATE chat_messages')) { for (const m of messages) if (m.conversation_id === v[0] && m.turn_id === v[1] && m.status === 'pending') m.status = sql.includes("'failed'") ? 'failed' : 'complete'; return [{}]; }
     if (sql.startsWith('UPDATE chat_conversations')) {
       const row = conversations.get(v.at(-1));
       if (sql.includes('pending_turn = ?')) row.pending_turn = v[0];
       else if (sql.includes('pending_turn = NULL')) row.pending_turn = null;
       else if (sql.includes("status = 'archived'")) row.status = 'archived';
+      else if (sql.includes('SET model_id = ?')) row.model_id = v[0];
       else row.title = v[0];
       return [{}];
     }
@@ -40,6 +43,7 @@ async function fixture(t, { available = true } = {}) {
   const pool = { getConnection: async () => connection }, store = createChatHistoryStore(() => pool);
   const app = express(); app.use(express.json());
   installOfficeChatRoutes(app, { historyStore: store, requireTenant: createTenantGate({ getPool: () => pool, authEnabled: true, resourceQueriesScoped: true }), appOrigin: 'http://localhost:5173', models: { team: 'mock-team', leader: 'mock-leader' },
+    usageStore: { async start(context, model) { usage.push({ context, model }); return randomUUID(); }, async finish() {} },
     rateLimit: (_r, _s, next) => next(), dailyCap: (_r, _s, next) => next(),
     resolveAgent: async (ctx, id) => { const [[agent]] = await connection.execute('SELECT a FROM workspace_agents', [ctx.organizationId, ctx.workspaceId, id]); if (!agent) throw Object.assign(new Error(), { status: 404 }); return agent; },
     client: available ? { messages: { stream(input) { calls.push(input); return { on(_event, fn) { fn('Jawaban mock'); }, abort() {}, async finalMessage() { if (state.failure) throw new Error('private-provider-secret'); } }; } } } : null,
@@ -50,8 +54,87 @@ async function fixture(t, { available = true } = {}) {
   const scope = async () => (await (await request('chat/context')).json()).scope;
   const create = async () => { const response = await request('conversations', 'POST', { agentId }); assert.equal(response.status, 200); return (await response.json()).id; };
   const send = async (id, content = 'Halo', extra = {}) => request('chat', 'POST', { agentId, conversationId: id, content, scope: await scope(), ...extra });
-  return { state, store, newStore: () => createChatHistoryStore(() => pool), request, create, send, calls, messages, conversations, agentId, sqlCalls, ctx: { organizationId: 2, workspaceId: 3, userId: 1 } };
+  return { state, store, newStore: () => createChatHistoryStore(() => pool), request, create, send, calls, messages, conversations, agentId, sqlCalls, usage, ctx: { organizationId: 2, workspaceId: 3, userId: 1 } };
 }
+
+test('006-only installation keeps existing chat working and hides model selection until 007 plus restart', async (t) => {
+  const f = await fixture(t); f.state.modelReady = false;
+  const context = await (await f.request('chat/context')).json(); assert.equal(context.modelSelection, false);
+  const id = await f.create();
+  assert.match(await (await f.send(id)).text(), /"done":true/);
+  assert.equal(f.calls[0].model, 'mock-team');
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { title: 'Tetap bekerja' })).status, 200);
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-leader' })).status, 503);
+  assert.equal((await f.request('conversations', 'POST', { agentId: f.agentId, modelId: 'mock-leader' })).status, 503);
+  assert.equal(f.conversations.size, 1);
+  assert.ok(f.sqlCalls.filter(({ sql }) => sql.startsWith('INSERT INTO chat_') || sql.startsWith('SELECT CAST')).every(({ sql }) => !sql.includes('model_id')));
+});
+
+test('conversation model override persists, snapshots each turn, records the selected usage model and resets to agent default', async (t) => {
+  const f = await fixture(t), id = await f.create();
+  const context = await (await f.request('chat/context')).json();
+  assert.deepEqual(context.models.map((m) => m.id), ['mock-team', 'mock-leader']);
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-leader' })).status, 200);
+  assert.equal((await f.newStore().read(f.ctx, id)).modelId, 'mock-leader');
+  assert.match(await (await f.send(id)).text(), /"model":"mock-leader"/);
+  assert.equal(f.calls[0].model, 'mock-leader'); assert.equal(f.usage[0].model, 'mock-leader');
+  assert.deepEqual(f.messages.map((m) => m.modelId), ['mock-leader', 'mock-leader']);
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: null })).status, 200);
+  await (await f.send(id, 'Default')).text();
+  assert.equal(f.calls[1].model, 'mock-team'); assert.equal(f.usage[1].model, 'mock-team');
+  assert.equal(f.messages[1].modelId, 'mock-leader'); assert.equal(f.messages[3].modelId, 'mock-team');
+  assert.equal(f.calls[1].messages[0].modelId, undefined);
+});
+
+test('new conversation model is saved atomically, invalid or removed models fail before provider usage and active turns cannot change model', async (t) => {
+  const f = await fixture(t);
+  const created = await f.request('conversations', 'POST', { agentId: f.agentId, modelId: 'mock-leader' });
+  assert.equal(created.status, 200); const { id } = await created.json();
+  assert.equal(f.conversations.get(id).model_id, 'mock-leader');
+  for (const modelId of ['forged', undefined, { role: 'owner' }, 7]) {
+    const invalid = modelId === undefined ? { modelId: 'mock-team', userId: 99 } : { modelId };
+    assert.equal((await f.request(`conversations/${id}`, 'PATCH', invalid)).status, 400);
+  }
+  assert.equal((await f.request('conversations', 'POST', { agentId: f.agentId, modelId: 'forged' })).status, 400);
+  const pending = await f.store.begin(f.ctx, id, f.agentId, 'Pending');
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-team' })).status, 409);
+  await f.store.fail(f.ctx, pending);
+  f.conversations.get(id).model_id = 'removed-from-config';
+  assert.equal((await f.send(id)).status, 409); assert.equal(f.calls.length, 0); assert.equal(f.usage.length, 0);
+  assert.equal(f.conversations.get(id).pending_turn, null);
+  f.state.user = 99;
+  assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-team' })).status, 404);
+});
+
+test('operator model catalog is strict, deduplicated and never invents prices or exposes malformed config', () => {
+  const defaults = { team: 'same-model', leader: 'same-model' };
+  const catalog = createChatModelCatalog(defaults, JSON.stringify([{ id: 'extra-model', label: 'Model tambahan', costClass: 'economy' }]));
+  assert.equal(catalog.list().length, 2); assert.match(catalog.list()[1].description, /konfigurasi operator/);
+  assert.equal(catalog.resolve(null, { modelTier: 'team' }), 'same-model');
+  assert.equal(catalog.resolve('extra-model', {}), 'extra-model');
+  assert.throws(() => catalog.validate(undefined), { status: 400 });
+  for (const json of ['bad-secret-json', '{}', '[{"id":"secret key"}]', '[{"id":"extra","label":"A","costClass":"free"}]']) {
+    assert.throws(() => createChatModelCatalog(defaults, json), (error) => !error.message.includes(json));
+  }
+  const publicEntry = catalog.list()[0]; publicEntry.id = 'modified'; assert.equal(catalog.resolve(null, { modelTier: 'team' }), 'same-model');
+});
+
+test('007 adds nullable model snapshots without rewriting prior migrations or legacy message content', async () => {
+  const report = await inspectMigrationDirectory(fileURLToPath(new URL('../migrations/', import.meta.url)));
+  assert.equal(report.diagnostics.length, 0); const migration = report.migrations.find((m) => m.id === '007_chat_model_selection');
+  assert.match(migration.checksum, /^[a-f0-9]{64}$/);
+  assert.match(migration.source, /ALTER TABLE chat_conversations ADD COLUMN model_id VARCHAR\(191\) NULL/);
+  assert.match(migration.source, /ALTER TABLE chat_messages ADD COLUMN model_id VARCHAR\(191\) NULL/);
+  assert.doesNotMatch(migration.source, /\b(DROP|DELETE|UPDATE|INSERT|RENAME)\b/);
+  const missing = await validateChatSchema({ execute: async () => [[]] }, { requireModelSelection: true });
+  assert.equal(missing.filter((d) => d.column === 'model_id').length, 2);
+  const valid = { async execute(sql, [table]) { const spec = CHAT_CONTRACT[table];
+    if (sql.includes('columns')) return [[...spec.columns.map((name) => ({ name, type: spec.enums[name] || '' })), { name: 'model_id', type: 'varchar(191)', nullable: 'YES' }]];
+    if (sql.includes('statistics')) return [Object.entries(spec.indexes).flatMap(([name, cols]) => cols.map((columnName) => ({ name, columnName, nonUnique: name.startsWith('idx_') ? 1 : 0 })))];
+    return [Object.entries(spec.keys).map(([name, [columnName, targetTable, targetColumn]]) => ({ name, columnName, targetTable, targetColumn }))];
+  } };
+  assert.deepEqual(await validateChatSchema(valid, { requireModelSelection: true }), []);
+});
 
 test('persistent chat creates multiple conversations, survives a new store instance, renames and archives without deleting messages', async (t) => {
   const f = await fixture(t), id = await f.create(), second = await f.create();
@@ -93,6 +176,7 @@ test('private conversations deny another member, workspace, organization, viewer
     const original = f.state[key]; f.state[key] = value;
     assert.equal((await f.request(`conversations/${id}`)).status, 404);
     assert.equal((await f.request(`conversations/${id}`, 'PATCH', { archive: true })).status, 404);
+    assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-leader' })).status, 404);
     f.state[key] = original;
   }
   for (const role of ['viewer', 'platform_admin']) { f.state.role = role; assert.equal((await f.request(`conversations/${id}`)).status, 403); }

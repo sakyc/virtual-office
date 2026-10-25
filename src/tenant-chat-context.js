@@ -2,10 +2,15 @@
 export function createChatContext({ fetchImpl = fetch, reset }) {
   let scope = null;
   let persistent = false;
+  let modelOptions = [], defaultModels = {};
+  let modelSelection = false;
   let generation = 0;
   return {
     get scope() { return scope; },
     get persistent() { return persistent; },
+    get models() { return modelOptions; },
+    get modelSelection() { return modelSelection; },
+    get defaultModels() { return defaultModels; },
     async prepare(signal) {
       const request = ++generation;
       try {
@@ -18,14 +23,17 @@ export function createChatContext({ fetchImpl = fetch, reset }) {
         if (changed) reset();
         scope = data.scope;
         persistent = data.persistent === true;
+        modelOptions = Array.isArray(data.models) ? data.models : [];
+        modelSelection = data.modelSelection !== false;
+        defaultModels = data.defaultModels || {};
         if (!data.available && !persistent) throw new Error('Layanan AI belum dikonfigurasi. Chat tidak mengirim jawaban demo.');
         return changed;
       } catch (error) {
-        if (request === generation) { scope = null; persistent = false; reset(); }
+        if (request === generation) { scope = null; persistent = false; modelOptions = []; defaultModels = {}; modelSelection = false; reset(); }
         error.resetHistory = true;
         throw error;
       }
     },
-    clear() { generation += 1; scope = null; persistent = false; reset(); },
+    clear() { generation += 1; scope = null; persistent = false; modelOptions = []; defaultModels = {}; modelSelection = false; reset(); },
   };
 }
