@@ -24,6 +24,19 @@ contract including tenant members. Expected output contains 16 applied IDs and
 `validation: { valid: true, differences: [] }`. No provider calls, model-catalog
 API seed, legacy ownership assignment, or application startup are performed.
 
+After initialization, validate without applying/replaying any migration:
+
+```sh
+node scripts/bootstrap-deployment.mjs --validate --confirm-production --database vetencode_karyora
+```
+
+This mode runs metadata/history SELECTs in a read-only transaction, requires all
+16 migration IDs to be applied with matching checksums, and validates the full
+schema. It is also the correct next step after a validation-only failure. The
+validator accepts MariaDB integer display widths and its JSON alias only when
+an exact JSON_VALID check exists on the corresponding LONGTEXT column. Signedness,
+nullability, foreign keys and index requirements are not relaxed.
+
 On any failure, stop and retain history/logs. MariaDB DDL is not transactional.
 Do not drop tables, re-label this production target as non-production, or rerun
 blindly. A successful second invocation is intentionally rejected as non-empty.

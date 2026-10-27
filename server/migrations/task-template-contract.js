@@ -1,3 +1,5 @@
+import { portableColumns } from './column-types.js';
+
 export const TASK_TEMPLATE_COLUMNS = {
   id: ['char(36)', 'NO'], organization_id: ['bigint unsigned', 'NO'], workspace_id: ['bigint unsigned', 'NO'],
   name: ['varchar(150)', 'NO'], description: ['varchar(500)', 'NO'], definition: ['json', 'NO'], version: ['int unsigned', 'NO'],
@@ -6,7 +8,8 @@ export const TASK_TEMPLATE_COLUMNS = {
 };
 export async function validateTaskTemplateSchema(c) {
   const table = 'workspace_task_templates', differences = [];
-  const [columns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [table]);
+  const [rawColumns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [table]);
+  const columns = await portableColumns(c, table, rawColumns);
   for (const [name, [type, nullable]] of Object.entries(TASK_TEMPLATE_COLUMNS)) {
     const column = columns.find(col => col.name === name);
     if (!column || column.type !== type || column.nullable !== nullable) differences.push({ table, column: name, reason: 'column_mismatch' });

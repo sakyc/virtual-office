@@ -1,3 +1,5 @@
+import { portableColumns } from './column-types.js';
+
 export const BILLING_CONTRACT = {
   billing_plans: {
     columns: ['code','version','name','monthly_price_idr','included_credit_idr','max_divisions','max_members','agents_per_division','whatsapp_enabled','quote_required','created_at'],
@@ -85,7 +87,8 @@ export async function validateBillingSchema(c, { adminCatalog = false, platformA
   if (billingAdmin) Object.assign(contract, BILLING_ADMIN_CONTRACT);
   if (modelCatalog) Object.assign(contract, MODEL_CATALOG_CONTRACT);
   for (const [table, spec] of Object.entries(contract)) {
-    const [columns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [table]);
+    const [rawColumns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [table]);
+    const columns = await portableColumns(c, table, rawColumns);
     for (const name of spec.columns) {
       const column = columns.find((row) => row.name === name);
       if (!column) { differences.push({ table, column: name, reason: 'column_missing' }); continue; }

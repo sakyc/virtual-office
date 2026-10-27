@@ -1,3 +1,5 @@
+import { portableColumns } from './column-types.js';
+
 const scope = { organization_id: ['bigint unsigned', 'NO'], workspace_id: ['bigint unsigned', 'NO'] };
 const user = { user_id: ['bigint unsigned', 'NO'] };
 const id = ['char(36)', 'NO'];
@@ -30,7 +32,8 @@ export const MEMBER_KEYS = {
 export async function validateTenantMemberSchema(c) {
   const differences = [];
   for (const table of new Set([...Object.keys(MEMBER_COLUMNS), ...Object.keys(MEMBER_INDEXES)])) {
-    const [columns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=?', [table]);
+    const [rawColumns] = await c.execute('SELECT column_name AS name, column_type AS type, is_nullable AS nullable FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=?', [table]);
+    const columns = await portableColumns(c, table, rawColumns);
     for (const [name, [type, nullable]] of Object.entries(MEMBER_COLUMNS[table] || {})) {
       if (!columns.some(col => col.name === name && col.type === type && col.nullable === nullable)) differences.push({ table, column: name, reason: 'column_mismatch' });
     }
