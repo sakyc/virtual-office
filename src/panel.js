@@ -2,7 +2,7 @@ import { agentById as defaultAgent, agentsOf as defaultAgents, divisionById as d
 import { renderMarkdown } from './md.js';
 import { getHistory, setHistory, clearHistory, streamChat, prepareChat, tenantOffice, getChatScope } from './chat.js';
 import { persistentChat, getConversations, getConversationId, prepareConversation, changeConversation, loadOlderChat, hasOlderMessages, hasOlderConversations } from './chat.js';
-import { getChatModels, getConversationModel, selectConversationModel, canSelectChatModel } from './chat.js';
+import { getChatModels, getDefaultChatModel, getConversationModel, selectConversationModel, canSelectChatModel, deleteConversation } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -36,6 +36,7 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     const tools = $('conversation-tools');
     if (!tools) return;
     tools.hidden = !persistentChat() || preparing || Boolean(chatError);
+    $('chat-model-controls').hidden = tools.hidden || !canSelectChatModel();
     if (tools.hidden) { $('chat-list').innerHTML = ''; $('chat-title').value = ''; return; }
     const list = $('chat-list'), id = getConversationId(currentId);
     list.innerHTML = '';
@@ -49,14 +50,26 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     $('chat-model-field').hidden = !canSelectChatModel();
     $('chat-model-info').hidden = !canSelectChatModel();
     modelSelect.innerHTML = '';
-    const defaultModel = document.createElement('option'); defaultModel.value = ''; defaultModel.textContent = 'Ikuti model default agen'; modelSelect.appendChild(defaultModel);
     const options = getChatModels();
-    for (const model of options) { const option = document.createElement('option'); option.value = model.id; option.textContent = model.label; modelSelect.appendChild(option); }
-    if (modelId && !options.some((model) => model.id === modelId)) { const removed = document.createElement('option'); removed.value = modelId; removed.textContent = `${modelId} — tidak tersedia`; modelSelect.appendChild(removed); }
-    modelSelect.value = modelId || '';
-    $('chat-model-info').textContent = `${options.find((model) => model.id === modelId)?.description || (modelId ? 'Model ini tidak lagi diizinkan server. Pilih model lain.' : 'Mengikuti konfigurasi model agen.')} Tarif rupiah belum tersedia; belum ada pemotongan Saldo AI. Berlaku untuk pesan berikutnya.`;
+    const defaultId = getDefaultChatModel(agentById(currentId));
+    const hasDefault = options.some(model => model.id === defaultId);
+    const defaultModel = document.createElement('option'); defaultModel.value = '';
+    defaultModel.textContent = hasDefault ? 'Ikuti model default agen' : options.length ? 'Pilih model aktif' : 'Belum ada model aktif';
+    defaultModel.disabled = !hasDefault; modelSelect.appendChild(defaultModel);
+    for (const model of options) {
+      const option = document.createElement('option'); option.value = model.id;
+      option.textContent = `${model.label}${model.costLabel ? ` — ${model.costLabel}` : ''}`;
+      option.disabled = model.selectable === false;
+      modelSelect.appendChild(option);
+    }
+    const unavailable = modelId && !options.some(model => model.id === modelId);
+    if (unavailable) { const placeholder = document.createElement('option'); placeholder.value = '__unavailable__'; placeholder.textContent = 'Pilih model aktif'; placeholder.disabled = true; modelSelect.appendChild(placeholder); }
+    modelSelect.value = unavailable ? '__unavailable__' : modelId || '';
+    const effectiveModel = modelId || getDefaultChatModel(agentById(currentId));
+    $('chat-model-info').textContent = `${options.find((model) => model.id === effectiveModel)?.description || (modelId ? 'Model ini tidak lagi diizinkan server. Pilih model lain.' : 'Mengikuti konfigurasi model agen.')} Saldo AI dipotong dalam rupiah sesuai penggunaan dan tarif aktif. Model lebih mahal bukan berarti memakai lebih banyak token. Berlaku untuk pesan berikutnya.`;
     const disabled = preparing || live.has(currentId) || Boolean(chatError);
-    for (const key of ['chat-new', 'chat-list', 'chat-title', 'chat-archive', 'chat-more', 'chat-older', 'chat-model']) $(key).disabled = disabled || (['chat-title', 'chat-archive'].includes(key) && !id);
+    for (const key of ['chat-new', 'chat-list', 'chat-title', 'chat-delete', 'chat-more', 'chat-older', 'chat-model']) $(key).disabled = disabled || (['chat-title', 'chat-delete'].includes(key) && !id);
+    modelSelect.disabled = disabled || !options.length;
     $('chat-title-form').hidden = !id;
     $('chat-more').hidden = !hasOlderConversations(currentId);
     $('chat-older').hidden = !hasOlderMessages(currentId);
@@ -290,7 +303,11 @@ export function createPanel({ onSelect, onClose, onStatus, onNeedCode, isDemo, j
     if (!title || title.length > 100) return;
     return conversationAction((id, signal) => changeConversation(id, { title }, signal), getConversationId(currentId));
   });
-  $('chat-archive')?.addEventListener('click', () => conversationAction((id, signal) => changeConversation(id, { archive: true }, signal), null));
+  $('chat-delete')?.addEventListener('click', () => {
+    if (!currentId || preparing || live.has(currentId) || !getConversationId(currentId)) return;
+    if (!globalThis.confirm('Hapus chat ini beserta seluruh pesannya secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
+    return conversationAction((id, signal) => deleteConversation(id, signal), null);
+  });
   $('chat-more')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'conversations', signal)));
   $('chat-older')?.addEventListener('click', () => conversationAction((id, signal) => loadOlderChat(id, 'messages', signal)));
   $('chat-model')?.addEventListener('change', (event) => {

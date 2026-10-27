@@ -76,7 +76,7 @@ test('onboarding provisions server-owned organization/workspace/client and activ
   const f = await fixture(t);
   const response = await f.submit({ ...payload, userId: 999, organizationId: 998, workspaceId: 997, role: 'platform_admin' });
   assert.equal(response.status, 201);
-  assert.deepEqual(await response.json(), { organization: { id: 11, name: 'Studio Uji' }, workspace: { id: 12, name: 'Tim Kreatif' }, clientId: 13, existing: false });
+  assert.deepEqual(await response.json(), { organization: { id: 11, name: 'Studio Uji' }, workspace: { id: 12, name: 'Tim Kreatif' }, clientId: 13, existing: false, teamDeferred: false });
   assert.deepEqual(f.calls.find(({ sql }) => sql?.startsWith('INSERT INTO workspaces')).values, [11, 'Tim Kreatif', 7]);
   assert.deepEqual(f.calls.find(({ sql }) => sql?.startsWith('INSERT INTO clients')).values, ['Klien Uji', 'Brief uji', 11, 12, 7, 7]);
   assert.deepEqual(f.calls.find(({ sql }) => sql?.startsWith('UPDATE sessions SET active_workspace_id')).values, [12, 4, 7]);
@@ -90,19 +90,19 @@ test('onboarding provisions server-owned organization/workspace/client and activ
   assert.equal(f.calls.filter(({ sql }) => sql?.startsWith('INSERT')).length, inserts);
 });
 
-test('onboarding copies only the selected template atomically and retry never duplicates its agents', async (t) => {
+test('onboarding defers paid team creation and retries never seed agents without a subscription', async (t) => {
   const f = await fixture(t);
-  assert.equal((await f.submit({ ...payload, team: { mode: 'template', templateId: 'proposal' } })).status, 201);
-  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_divisions')).length, 1);
-  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 4);
+  const first = await f.submit({ ...payload, team: { mode: 'template', templateId: 'proposal' } });
+  assert.equal(first.status, 201); assert.equal((await first.json()).teamDeferred, true);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_divisions')).length, 0);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 0);
   assert.equal((await f.submit({ ...payload, team: { mode: 'template', templateId: 'social' } })).status, 200);
-  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 4);
+  assert.equal(f.calls.filter((c) => c.sql?.startsWith('INSERT INTO workspace_agents')).length, 0);
   const failed = await fixture(t, { failTeam: true });
   const response = await failed.submit({ ...payload, team: { mode: 'template', templateId: 'proposal' } });
-  assert.equal(response.status, 503); assert.doesNotMatch(await response.text(), /mysql|private-secret/);
-  assert.ok(failed.calls.some((c) => c.type === 'rollback'));
-  assert.ok(!failed.calls.some((c) => c.type === 'commit'));
-  assert.equal((await (await failed.request('/auth/me')).json()).activeWorkspace, null);
+  assert.equal(response.status, 201);
+  assert.ok(!failed.calls.some((c) => /^INSERT INTO workspace_(divisions|agents)/.test(c.sql || '')));
+  assert.equal((await (await failed.request('/auth/me')).json()).activeWorkspace.id, 12);
 });
 
 test('existing workspace member is returned to their workspace without creating another organization', async (t) => {

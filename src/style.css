@@ -183,9 +183,21 @@ body.chatting #panel { transform: none; opacity: 1; pointer-events: auto; }
 }
 .q:hover { background: #f1f5fb; border-color: rgba(79, 124, 255, .5); }
 
-.composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 8px; border-top: 1px solid var(--line); }
+.composer { display: flex; flex-direction: column; gap: 8px; margin: 0 12px 8px; padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: #f6f8fb; }
+.composer:focus-within { border-color: var(--accent); }
+.composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.composer-actions > #btn-send { margin-left: auto; }
+.chat-model-controls { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.chat-model-controls[hidden] { display: none; }
+#chat-model-field { min-width: 0; }
+#chat-model { max-width: 100%; border: 0; border-radius: 8px; padding: 7px; background: transparent; color: var(--ink-soft); font: inherit; font-size: 12px; cursor: pointer; }
+.chat-model-help { flex: none; }
+.chat-model-help summary { cursor: pointer; color: var(--ink-soft); list-style: none; }
+.chat-model-help[open] { position: relative; }
+.chat-model-help .chat-model-info { position: absolute; bottom: 24px; left: -100px; width: 220px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: white; box-shadow: 0 6px 20px #0001; z-index: 2; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #input {
-  flex: 1; resize: none; max-height: 140px; border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px;
+  width: 100%; box-sizing: border-box; resize: none; max-height: 140px; border: 0; border-radius: 10px; padding: 4px;
   font-size: 14px; line-height: 1.45; background: #f6f8fb; outline: none; transition: border-color .15s, background .15s;
 }
 #input:focus { border-color: var(--accent); background: #fff; }
@@ -233,12 +245,18 @@ body.chatting #panel { transform: none; opacity: 1; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
-.conversation-tools { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.conversation-tools { display: flex; align-items: flex-start; gap: 8px; padding: 6px 14px; background: white; flex-shrink: 0; }
+.conversation-tools details { flex: 1; min-width: 0; }
+.conversation-tools summary { width: fit-content; padding: 7px 9px; border-radius: 8px; color: #64748b; font-size: 12px; cursor: pointer; }
+.chat-history-content { max-height: 180px; overflow-y: auto; padding: 8px 0; }
+.chat-history-content > label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; color: #64748b; font-size: 12px; }
 .conversation-tools[hidden] { display: none; }
 .conversation-tools > div, .conversation-tools form { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .conversation-tools input, .conversation-tools select { flex: 1; min-width: 110px; max-width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px; background: white; color: #1e293b; font: inherit; font-size: 12px; }
 .conversation-tools button { border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #334155; padding: 7px 9px; font: inherit; font-size: 12px; cursor: pointer; }
 .conversation-tools button:disabled { opacity: .5; cursor: default; }
+#chat-delete { color: #b42318; border-color: #fecaca; }
+#chat-delete:hover:not(:disabled) { background: #fff1f2; }
 .conversation-tools [hidden] { display: none; }
 #panel[data-tab="jobs"] .conversation-tools { display: none; }
 .conversation-tools > label { display: flex; align-items: center; gap: 8px; font-size: 12px; }

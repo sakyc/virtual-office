@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#dfe7f1" />
-  <title>Virtual Office</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f7cff'/%3E%3Crect x='7' y='9' width='18' height='12' rx='2' fill='white'/%3E%3Crect x='11' y='23' width='10' height='3' rx='1' fill='white'/%3E%3C/svg%3E" />
+  <title>Kantor 3D | Karyora</title>
+  <link rel="icon" type="image/svg+xml" href="/branding/karyora-mark.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -16,8 +16,8 @@
 
   <header id="topbar">
     <div class="brand">
-      <span class="brand-mark"></span>
-      <div><strong>Virtual</strong><small>Office</small></div>
+      <img src="/branding/karyora-mark.svg" width="28" height="28" alt="" />
+      <div><strong>Karyora</strong><small>Kantor AI</small></div>
     </div>
     <button id="btn-board" class="board-btn" type="button" aria-label="Buka board kerja">Board <span id="board-count" hidden></span></button>
     <nav id="chips" aria-label="Divisi"></nav>
@@ -46,20 +46,31 @@
       <button type="button" data-tab="jobs" aria-pressed="false">Perintah</button>
     </div>
     <div id="jobs" class="jobs"></div>
-    <section id="conversation-tools" class="conversation-tools" aria-label="Riwayat percakapan" hidden>
-      <label id="chat-model-field">Model AI<select id="chat-model" aria-label="Pilih model AI"></select></label>
-      <p id="chat-model-info" class="chat-model-info"></p>
-      <div><button id="chat-new" type="button">+ Chat Baru</button><select id="chat-list" aria-label="Pilih percakapan"></select><button id="chat-more" type="button" hidden>Riwayat lainnya</button></div>
-      <form id="chat-title-form"><input id="chat-title" aria-label="Judul percakapan" maxlength="100" placeholder="Judul percakapan" required><button type="submit">Simpan judul</button><button id="chat-archive" type="button">Arsipkan</button></form>
-      <button id="chat-older" type="button" hidden>Pesan sebelumnya</button>
-    </section>
     <div id="messages" class="messages" role="log" aria-live="polite"></div>
     <div id="quick" class="quick"></div>
+    <section id="conversation-tools" class="conversation-tools" aria-label="Kontrol percakapan" hidden>
+      <button id="chat-new" type="button">+ Chat baru</button>
+      <details id="chat-history-drawer">
+        <summary>Riwayat chat</summary>
+        <div class="chat-history-content">
+          <label>Percakapan<select id="chat-list" aria-label="Pilih percakapan"></select></label>
+          <button id="chat-more" type="button" hidden>Riwayat lainnya</button>
+          <form id="chat-title-form"><input id="chat-title" aria-label="Judul percakapan" maxlength="100" placeholder="Judul percakapan" required><button type="submit">Simpan judul</button><button id="chat-delete" type="button" title="Hapus chat dan seluruh pesannya secara permanen">Hapus chat</button></form>
+          <button id="chat-older" type="button" hidden>Pesan sebelumnya</button>
+        </div>
+      </details>
+    </section>
     <form id="composer" class="composer" autocomplete="off">
       <textarea id="input" rows="1" placeholder="Tulis pesan…" maxlength="4000" enterkeyhint="send"></textarea>
+      <div class="composer-actions">
+        <div id="chat-model-controls" class="chat-model-controls" hidden>
+          <label id="chat-model-field"><span class="sr-only">Model AI</span><select id="chat-model" aria-label="Pilih model AI" aria-describedby="chat-model-info"></select></label>
+          <details class="chat-model-help"><summary aria-label="Informasi penggunaan model">ⓘ</summary><p id="chat-model-info" class="chat-model-info"></p></details>
+        </div>
       <button id="btn-send" type="submit" aria-label="Kirim">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
+      </div>
     </form>
     <div class="panel-foot">AI bisa keliru. Semua jawaban berupa draft, cek dulu sebelum dikirim ke klien.</div>
   </aside>

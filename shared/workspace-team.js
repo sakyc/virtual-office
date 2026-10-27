@@ -38,7 +38,7 @@ export function initialTeamInput(body) {
 }
 
 // Public scene data deliberately excludes custom instructions and other customer content.
-export function sceneRoster({ divisions, agents }) {
+export function sceneRoster({ divisions, agents, divisionCapacity }) {
   if (!Array.isArray(divisions) || !Array.isArray(agents) || divisions.length > MAX_DIVISIONS || agents.length > MAX_DIVISIONS * MAX_AGENTS) throw new Error('Data kantor tidak valid.');
   const seen = new Set();
   const rooms = divisions.map((d) => {
@@ -61,5 +61,6 @@ export function sceneRoster({ divisions, agents }) {
     const team = members.filter((a) => a.division === room.id);
     if (team.length > 1 && !team.some((a) => a.leader)) team[0].leader = true;
   }
-  return { divisions: rooms, agents: members };
+  if (divisionCapacity !== undefined && (!Number.isInteger(divisionCapacity) || divisionCapacity < 0 || divisionCapacity > MAX_DIVISIONS)) throw new Error('Kapasitas kantor tidak valid.');
+  return { divisions: rooms, agents: members, ...(divisionCapacity === undefined ? {} : { divisionCapacity }) };
 }

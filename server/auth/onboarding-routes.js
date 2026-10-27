@@ -2,7 +2,6 @@ import { readCookie, resolveSession } from './sessions.js';
 import { authenticationEnabled } from './config.js';
 import { onboardingErrors } from '../../shared/onboarding-validation.js';
 import { initialTeamInput } from '../../shared/workspace-team.js';
-import { initializeTeam } from '../workspace-team.js';
 
 const TEAM_SIZES = new Set(['1-5', '6-20', '21-50', '50+']);
 
@@ -88,7 +87,9 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
       const [workspace] = await connection.execute('INSERT INTO workspaces (organization_id, slug, name, created_by_user_id) VALUES (?, \'main\', ?, ?)', [organizationId, input.workspaceName, principal.userId]);
       const workspaceId = workspace.insertId;
       await connection.execute('INSERT INTO workspace_memberships (workspace_id, user_id, role, created_by_user_id) VALUES (?, ?, \'admin\', ?)', [workspaceId, principal.userId, principal.userId]);
-      await initializeTeam(connection, { organizationId, workspaceId }, principal.userId, req.body.team);
+      // Registration never grants a paid package. Provision an empty workspace so
+      // the owner can reach billing; do not seed a paid division before activation.
+      const teamDeferred = initialTeamInput(req.body?.team).mode !== 'empty';
 
       let clientId = null;
       if (input.clientName) {
@@ -100,7 +101,7 @@ export function installOnboardingRoutes(app, { getPool, authEnabled = authentica
       }
       await connection.execute('UPDATE sessions SET active_workspace_id = ? WHERE id = ? AND user_id = ?', [workspaceId, principal.sessionId, principal.userId]);
       await connection.commit();
-      res.status(201).json({ ...publicResult({ organizationId, organizationName: input.organizationName, workspaceId, workspaceName: input.workspaceName, clientId }), existing: false });
+      res.status(201).json({ ...publicResult({ organizationId, organizationName: input.organizationName, workspaceId, workspaceName: input.workspaceName, clientId }), existing: false, teamDeferred });
     } catch (error) {
       await connection?.rollback().catch(() => {});
       if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Data onboarding sudah ada atau slug organisasi digunakan.' });

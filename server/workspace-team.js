@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { agentInput, divisionInput, initialTeamInput, teamTemplates, teamError, MAX_AGENTS, MAX_DIVISIONS } from '../shared/workspace-team.js';
+import { assertPaidAccess } from './billing-enforcement.js';
+import { assertTenantAgentAccess } from './member-access.js';
 
 const scope = (tenant) => [tenant.organizationId, tenant.workspaceId];
 export async function lockTeam(connection, tenant) {
@@ -13,6 +15,22 @@ export async function loadTeam(connection, tenant) {
     JOIN workspace_divisions d ON d.id = a.division_id AND d.organization_id = a.organization_id AND d.workspace_id = a.workspace_id AND d.status = 'active'
     WHERE a.organization_id = ? AND a.workspace_id = ? AND a.status = 'active' ORDER BY a.created_at, a.id`, scope(tenant));
   return { divisions, agents };
+}
+// Display capacity comes only from the active server-side subscription.
+// Shared organization limits include divisions in sibling workspaces.
+export async function loadOfficeDivisionCapacity(connection, tenant) {
+  const [[row]] = await connection.execute(`SELECT s.max_divisions AS maxDivisions,
+    (SELECT COUNT(*) FROM workspace_divisions d JOIN workspaces w
+      ON w.id=d.workspace_id AND w.organization_id=d.organization_id
+      WHERE d.organization_id=s.organization_id AND d.workspace_id<>?
+        AND d.status='active' AND w.status='active') AS otherDivisions
+    FROM billing_subscriptions s WHERE s.organization_id=? AND s.status='active'
+      AND s.period_start<=UTC_TIMESTAMP() AND s.period_end>UTC_TIMESTAMP()`,
+  [tenant.workspaceId, tenant.organizationId]);
+  if (!row) return 0;
+  const max = Number(row.maxDivisions), other = Number(row.otherDivisions);
+  if (!Number.isSafeInteger(max) || max < 1 || !Number.isSafeInteger(other) || other < 0) throw teamError('Kapasitas paket belum dapat dimuat.', 503);
+  return Math.min(MAX_DIVISIONS, Math.max(0, max - other));
 }
 async function activeDivision(connection, tenant, id) {
   const [rows] = await connection.execute("SELECT id FROM workspace_divisions WHERE organization_id = ? AND workspace_id = ? AND id = ? AND status = 'active'", [...scope(tenant), id]);
@@ -30,6 +48,7 @@ export async function addAgent(connection, tenant, userId, divisionId, body, tem
 }
 export async function addDivision(connection, tenant, userId, body) {
   const input = divisionInput(body);
+  await assertPaidAccess(connection, tenant.organizationId, { addDivisions: 1 });
   const [slots] = await connection.execute("SELECT slot FROM workspace_divisions WHERE organization_id = ? AND workspace_id = ? AND status = 'active'", scope(tenant));
   const slot = Array.from({ length: MAX_DIVISIONS }, (_, i) => i).find((i) => !slots.some((row) => row.slot === i));
   if (slot === undefined) throw teamError('Kapasitas tampilan saat ini maksimal 8 divisi.', 409);
@@ -52,6 +71,7 @@ export async function resolveWorkspaceAgent(connection, tenant, id) {
     FROM workspace_agents a JOIN workspace_divisions d ON d.id = a.division_id AND d.organization_id = a.organization_id AND d.workspace_id = a.workspace_id
     WHERE a.organization_id = ? AND a.workspace_id = ? AND a.id = ? AND a.status = 'active' AND d.status = 'active'`, [...scope(tenant), id]);
   if (!rows[0]) throw teamError('Agen tidak tersedia di workspace aktif.', 404);
+  await assertTenantAgentAccess(connection, tenant, id);
   return rows[0];
 }
 export function workspaceAgentPrompt(agent) {
@@ -68,7 +88,12 @@ export function installTeamRoutes(app, { getPool, requireTenant, appOrigin, mode
     let connection;
     try {
       connection = await getPool().getConnection();
-      if (write) { await connection.beginTransaction(); await lockTeam(connection, req.tenantContext); }
+      if (write) {
+        await connection.beginTransaction();
+        // Archive remains available to reduce capacity even after expiration.
+        if (!req.path.endsWith('/archive')) await assertPaidAccess(connection, req.tenantContext.organizationId);
+        await lockTeam(connection, req.tenantContext);
+      }
       const result = await action(connection, req);
       if (write) await connection.commit();
       res.json(result);
@@ -78,6 +103,7 @@ export function installTeamRoutes(app, { getPool, requireTenant, appOrigin, mode
     } finally { connection?.release(); }
   };
   app.get('/api/team', requireTenant, handle(false, async (c, req) => ({ ...await loadTeam(c, req.tenantContext),
+    divisionCapacity: await loadOfficeDivisionCapacity(c, req.tenantContext),
     canManage: ['owner', 'admin'].includes(req.tenantContext.role), templates: teamTemplates,
     models: [{ id: 'team', name: models.team, label: 'Model anggota' }, { id: 'leader', name: models.leader, label: 'Model leader' }],
   })));

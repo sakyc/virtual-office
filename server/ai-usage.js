@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { estimateUsage, summarizeCosts } from './ai-pricing.js';
 
 const unavailable = () => Object.assign(new Error('Pencatatan pemakaian AI belum tersedia.'), { code: 'AI_USAGE_UNAVAILABLE' });
 const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
 
-export function createUsageStore(getPool) {
+export function createUsageStore(getPool, { billing = null } = {}) {
   return {
-    async start(scope, model) {
+    async start(scope, model, input, sequence) {
       const id = randomUUID();
       try {
         const pool = getPool();
@@ -13,9 +14,15 @@ export function createUsageStore(getPool) {
           (id, organization_id, workspace_id, user_id, operation, resource_id, agent_id, provider, model)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, scope.organizationId, scope.workspaceId, scope.userId, scope.operation, scope.resourceId ?? null, scope.agentId, 'anthropic', model]);
+        if (billing) await billing.prepare(id, scope, input, sequence);
         return id;
-      } catch { throw unavailable(); }
+      } catch (error) {
+        await getPool()?.execute("UPDATE ai_usage SET status='unknown',finished_at=UTC_TIMESTAMP() WHERE id=? AND status='started'",[id]).catch(() => {});
+        if (error.status) throw error;
+        throw unavailable();
+      }
     },
+    async dispatched(id) { if (billing) await billing.dispatched(id); },
     async finish(id, message) {
       const usage = message?.usage;
       const input = count(usage?.input_tokens), output = count(usage?.output_tokens);
@@ -27,6 +34,7 @@ export function createUsageStore(getPool) {
         [complete ? 'completed' : 'unknown', typeof message?.id === 'string' ? message.id.slice(0, 191) : null,
           input, output, usage ? count(usage.cache_read_input_tokens ?? 0) : null,
           usage ? count(usage.cache_creation_input_tokens ?? 0) : null, id]);
+        if (billing) await billing.finish(id, message);
       } catch { throw unavailable(); }
     },
   };
@@ -38,9 +46,11 @@ export function trackedClient(client, store, scope) {
   if (!store || !client) return client;
   if (!['organizationId', 'workspaceId', 'userId'].every((key) => Number.isSafeInteger(scope[key]) && scope[key] > 0)
       || !['chat', 'job', 'revision'].includes(scope.operation) || !scope.agentId) throw unavailable();
+  let sequence = 0;
   return { messages: {
     async create(input) {
-      const id = await store.start(scope, input.model);
+      const id = await store.start(scope, input.model, input, ++sequence);
+      await store.dispatched?.(id);
       let message;
       try { message = await client.messages.create(input, { maxRetries: 0 }); }
       catch (error) { await store.finish(id, null); throw error; }
@@ -48,7 +58,8 @@ export function trackedClient(client, store, scope) {
       return message;
     },
     async stream(input) {
-      const id = await store.start(scope, input.model);
+      const id = await store.start(scope, input.model, input, ++sequence);
+      await store.dispatched?.(id);
       let stream;
       try { stream = client.messages.stream(input, { maxRetries: 0 }); }
       catch (error) { await store.finish(id, null); throw error; }
@@ -72,7 +83,7 @@ export function trackedClient(client, store, scope) {
   } };
 }
 
-export async function loadUsage(connection, tenant, principal, range = '30d') {
+export async function loadUsage(connection, tenant, principal, range = '30d', pricing = null) {
   const periods = { today: 'UTC_DATE()', '7d': 'CURRENT_TIMESTAMP - INTERVAL 7 DAY', '14d': 'CURRENT_TIMESTAMP - INTERVAL 14 DAY', '30d': 'CURRENT_TIMESTAMP - INTERVAL 30 DAY' };
   if (!Object.hasOwn(periods, range)) throw Object.assign(new Error('Periode pemakaian tidak valid.'), { status: 400 });
   const team = ['owner', 'admin'].includes(tenant.role);
@@ -85,7 +96,8 @@ export async function loadUsage(connection, tenant, principal, range = '30d') {
     COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens, COALESCE(SUM(cache_creation_tokens), 0) AS cacheCreationTokens
     FROM ai_usage WHERE ${where}`, params);
   const [recent] = await connection.execute(`SELECT id, operation, agent_id AS agentId, model, status,
-    input_tokens AS inputTokens, output_tokens AS outputTokens, started_at AS startedAt
+    input_tokens AS inputTokens, output_tokens AS outputTokens, cache_read_tokens AS cacheReadTokens,
+    cache_creation_tokens AS cacheCreationTokens, started_at AS startedAt
     FROM ai_usage WHERE ${where} ORDER BY started_at DESC, id DESC LIMIT 50`, params);
   const [models] = await connection.execute(`SELECT model, COUNT(*) AS requests,
     COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens,
@@ -98,11 +110,26 @@ export async function loadUsage(connection, tenant, principal, range = '30d') {
       FROM ai_usage WHERE ${scopeWhere} AND started_at >= CURRENT_TIMESTAMP - INTERVAL ${interval}`, params);
     windows.push({ id, status: 'unconfigured', limit: null, used: null, resetsAt: null, observed: rows[0] });
   }
-  return { scope: team ? 'workspace' : 'self', range, periodDays: range === 'today' ? 1 : Number(range.slice(0, -1)), totals: totals[0], recent, models, costAvailable: false,
+  let costs = null;
+  if (pricing) {
+    const snapshot = await pricing.snapshot();
+    const [groups] = await connection.execute(`SELECT model, status, COUNT(*) AS requests,
+      SUM(input_tokens IS NULL OR output_tokens IS NULL OR cache_read_tokens IS NULL OR cache_creation_tokens IS NULL) AS incomplete,
+      SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens,
+      SUM(cache_read_tokens) AS cacheReadTokens, SUM(cache_creation_tokens) AS cacheCreationTokens
+      FROM ai_usage WHERE ${where} GROUP BY model, status`, params);
+    const { now, modelRates, ...metadata } = snapshot;
+    costs = { ...metadata, ...summarizeCosts(groups, snapshot.fx, now, modelRates) };
+    for (const row of recent) {
+      const { idrNumerator, ...quote } = estimateUsage(row, snapshot.fx, now, modelRates);
+      row.costEstimate = quote;
+    }
+  }
+  return { scope: team ? 'workspace' : 'self', range, periodDays: range === 'today' ? 1 : Number(range.slice(0, -1)), totals: totals[0], recent, models, costAvailable: costs?.available === true, costs,
     quota: { configured: false, enforced: false, unit: 'USD', windows } };
 }
 
-export function installUsageRoutes(app, { getPool, requireTenant }) {
+export function installUsageRoutes(app, { getPool, requireTenant, pricing = null }) {
   app.get('/api/dashboard/usage', requireTenant, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     let connection;
@@ -110,7 +137,7 @@ export function installUsageRoutes(app, { getPool, requireTenant }) {
       if (Object.keys(req.query).some((key) => key !== 'range') || (req.query.range !== undefined && !['today', '7d', '14d', '30d'].includes(req.query.range))) return res.status(400).json({ error: 'Filter pemakaian tidak valid.' });
       connection = await getPool()?.getConnection();
       if (!connection) throw unavailable();
-      res.json(await loadUsage(connection, req.tenantContext, req.authPrincipal, req.query.range || '30d'));
+      res.json(await loadUsage(connection, req.tenantContext, req.authPrincipal, req.query.range || '30d', pricing));
     } catch { res.status(503).json({ error: 'Pencatatan pemakaian belum tersedia. Periksa migrasi 004 dengan operator.' }); }
     finally { connection?.release(); }
   });

@@ -1,5 +1,6 @@
 // Converted from Onboarding-html.zip/Onboarding.dc.html; original SVG paths, layout and motion preserved.
 import React from 'react';
+import { BrandMark } from '../brand.jsx';
 import './onboarding.css';
 
 export function OnboardingSplash({ vals }) {
@@ -20,9 +21,8 @@ export function OnboardingSplash({ vals }) {
 <i style={{"border": "2px dashed var(--mute)", "animationDelay": ".45s"}}></i>
 </div>
 
-<div className={"sp-word"}><span className={"sp-mark"}><svg width={"18"} height={"18"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{"Virtual Office"}</div>
+<div className={"sp-word"}><span className={"sp-mark"}><BrandMark /></span>
+{"Karyora"}</div>
 
 <div className={"sp-msg"}>{"Menyiapkan kantor…"}</div>
 
@@ -35,9 +35,8 @@ export function OnboardingSplash({ vals }) {
 export function OnboardingProgressSidebar({ vals }) {
   return <><aside className={"side"} style={{"flex": "1 1 380px", "maxWidth": "520px", "background": "var(--surface)", "borderRight": "1px solid var(--line)", "padding": "40px 48px", "display": "flex", "flexDirection": "column", "gap": "48px"}}>
 <a href={"/"} style={{"display": "flex", "alignItems": "center", "gap": "10px", "fontWeight": "800", "fontSize": "18px", "letterSpacing": "-.01em"}}>
-<span style={{"width": "32px", "height": "32px", "borderRadius": "9px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><svg width={"18"} height={"18"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{" Virtual Office "}</a>
+<span style={{"width": "32px", "height": "32px", "borderRadius": "9px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><BrandMark /></span>
+{" Karyora "}</a>
 
 <div >
 <h1 style={{"margin": "0", "fontSize": "32px", "lineHeight": "1.15", "letterSpacing": "-.03em", "fontWeight": "800"}}>{"Siapkan kantor virtual Anda."}</h1>

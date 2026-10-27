@@ -1,5 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+test('model selection belongs to the composer and history is collapsed outside the header', async () => {
+  const html = await readFile(new URL('../office.html', import.meta.url), 'utf8');
+  const composer = html.match(/<form id="composer"[\s\S]*?<\/form>/)?.[0];
+  assert.match(composer, /id="chat-model"/);
+  assert.match(composer, /id="input"/);
+  assert.match(composer, /id="btn-send"/);
+  assert.doesNotMatch(html.match(/<div class="panel-head">[\s\S]*?<div id="mates"/)?.[0], /id="chat-model"|id="chat-list"/);
+  assert.match(html, /<details id="chat-history-drawer">/);
+  assert(html.indexOf('id="messages"') < html.indexOf('id="conversation-tools"'));
+});
 
 // Small DOM double for the real panel module; no browser/provider/database needed.
 class Element {
@@ -26,7 +38,7 @@ class Element {
 
 let activeFetch;
 async function fixture(t, fetchImpl) {
-  const globals = ['location', 'localStorage', 'document', 'addEventListener', 'matchMedia', 'fetch', 'requestAnimationFrame', 'cancelAnimationFrame'];
+  const globals = ['location', 'localStorage', 'document', 'addEventListener', 'matchMedia', 'fetch', 'requestAnimationFrame', 'cancelAnimationFrame', 'confirm'];
   const saved = new Map(globals.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   t.after(() => { for (const [key, descriptor] of saved) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
   const elements = new Map();
@@ -38,6 +50,7 @@ async function fixture(t, fetchImpl) {
   globalThis.matchMedia = () => ({ matches: false });
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   globalThis.cancelAnimationFrame = clearTimeout;
+  globalThis.confirm = () => false;
   activeFetch = fetchImpl;
   globalThis.fetch = (...args) => activeFetch(...args);
   const { createPanel } = await import('../src/panel.js');
@@ -49,15 +62,22 @@ async function fixture(t, fetchImpl) {
 }
 const context = (available = true, scope = 'a'.repeat(64)) => Response.json({ scope, available });
 
-test('persistent panel opens saved messages and exposes new/select/rename/archive controls', async (t) => {
+test('persistent panel confirms permanent deletion, supports cancellation and clears deleted chat', async (t) => {
   const records = [
     { id: 'c1', title: 'Diskusi satu', agentId: 'kirana', messages: [{ role: 'user', content: 'Pesan tersimpan' }, { role: 'assistant', content: 'Jawaban tersimpan' }] },
     { id: 'c2', title: 'Diskusi dua', agentId: 'kirana', messages: [{ role: 'user', content: 'Percakapan kedua' }, { role: 'assistant', content: 'Jawaban kedua' }] },
   ];
   const changes = [];
   const f = await fixture(t, async (url, options = {}) => {
+    if (options.method === 'DELETE') {
+      changes.push(JSON.parse(options.body));
+      records.splice(records.findIndex((row) => url.endsWith(`/${row.id}`)), 1);
+      return Response.json({ deleted: true });
+    }
     if (url.endsWith('/context')) return Response.json({ scope: 'a'.repeat(64), available: true, persistent: true,
-      models: [{ id: 'mock-team', label: 'Anggota', description: 'Biaya belum ditentukan' }, { id: 'mock-leader', label: 'Leader', description: 'Periksa pemakaian token' }] });
+      models: [{ id: 'mock-team', label: 'Anggota', costLabel: 'Hemat', selectable: true, description: 'Biaya belum ditentukan' },
+        { id: 'mock-leader', label: 'Leader', costLabel: 'Premium', selectable: true, description: 'Periksa pemakaian token' },
+        { id: 'mock-unpriced', label: '<b>Model baru</b>', costLabel: 'Belum aktif', selectable: false, description: 'Tarif belum aktif' }] });
     if (options.method === 'PATCH') {
       const body = JSON.parse(options.body); changes.push(body);
       if (body.title) records.find((row) => url.endsWith(`/${row.id}`)).title = body.title;
@@ -69,6 +89,10 @@ test('persistent panel opens saved messages and exposes new/select/rename/archiv
   });
   await f.panel.open('kirana');
   assert.equal(f.get('conversation-tools').hidden, false);
+  assert.equal(f.get('chat-model-controls').hidden, false);
+  assert.equal(f.get('chat-model').children[2].textContent, 'Leader — Premium');
+  assert.equal(f.get('chat-model').children.length, 3);
+  assert.doesNotMatch(f.get('chat-model').textContent, /Model baru|mock-unpriced|Belum aktif/);
   assert.match(f.get('messages').textContent, /Pesan tersimpan/);
   assert.equal(f.get('chat-list').value, 'c1');
   await f.get('chat-list').emit('change', { target: { value: 'c2' } });
@@ -76,17 +100,49 @@ test('persistent panel opens saved messages and exposes new/select/rename/archiv
   assert.doesNotMatch(f.get('messages').textContent, /Pesan tersimpan/);
   f.get('chat-title').value = 'Judul diperbarui'; await f.get('chat-title-form').emit('submit');
   assert.deepEqual(changes[0], { title: 'Judul diperbarui' });
-  await f.get('chat-archive').emit('click'); assert.deepEqual(changes[1], { archive: true });
+  await f.get('chat-delete').emit('click'); assert.equal(changes.length, 1, 'cancel does not send a delete request');
+  globalThis.confirm = (message) => { assert.match(message, /permanen/); return true; };
+  await f.get('chat-delete').emit('click'); assert.deepEqual(changes[1], { confirmDelete: true });
   assert.doesNotMatch(f.get('messages').textContent, /Percakapan kedua/);
+  assert.equal(f.chat.getConversationId('kirana'), null);
+  assert.equal(f.chat.getConversations('kirana').some((row) => row.id === 'c2'), false);
   await f.get('chat-new').emit('click'); assert.equal(f.get('chat-list').value, '');
   await f.get('chat-model').emit('change', { target: { value: 'mock-leader' } });
   assert.equal(f.get('chat-model').value, 'mock-leader');
-  assert.match(f.get('chat-model-info').textContent, /Tarif rupiah belum tersedia/);
+  assert.match(f.get('chat-model-info').textContent, /Saldo AI dipotong dalam rupiah/);
+  assert.doesNotMatch(f.get('chat-model-info').textContent, /belum ada pemotongan/);
   assert.equal(changes.length, 2, 'unsent new chat has no database record to update');
   await f.get('chat-list').emit('change', { target: { value: 'c1' } });
   await f.get('chat-model').emit('change', { target: { value: 'mock-team' } });
   assert.deepEqual(changes[2], { modelId: 'mock-team' });
   await f.panel.open('kirana'); assert.equal(f.get('chat-model').value, 'mock-team');
+});
+
+test('disabled saved model is hidden rather than reinserted, history stays readable and selecting a replacement is explicit', async t => {
+  let exposeActive = true;
+  const writes = [], record = { id: 'saved', title: 'Chat lama', agentId: 'kirana', modelId: 'disabled-model', messages: [{ role: 'user', content: 'Riwayat tetap ada' }] };
+  const f = await fixture(t, async (url, options = {}) => {
+    if (url.endsWith('/context')) return Response.json({ scope: 'a'.repeat(64), available: true, persistent: true,
+      defaultModels: { team: 'active-model', leader: 'active-model' }, models: [
+        { id: 'disabled-model', label: 'Nama model nonaktif', selectable: false },
+        ...(exposeActive ? [{ id: 'active-model', label: 'Model aktif', selectable: true }] : []),
+      ] });
+    if (options.method === 'PATCH') { const body = JSON.parse(options.body); writes.push(body); record.modelId = body.modelId; return Response.json({ updated: true }); }
+    if (url.includes('?agentId=')) return Response.json({ conversations: [record], nextOffset: null });
+    return Response.json(record);
+  });
+  await f.panel.open('kirana');
+  assert.match(f.get('messages').textContent, /Riwayat tetap ada/);
+  assert.doesNotMatch(f.get('chat-model').textContent, /disabled-model|Nama model nonaktif/);
+  assert.equal(f.get('chat-model').value, '__unavailable__');
+  assert.equal(f.chat.getConversationModel('kirana'), 'disabled-model');
+  assert.equal(writes.length, 0, 'hiding a model does not silently rewrite saved selection');
+  await f.get('chat-model').emit('change', { target: { value: 'active-model' } });
+  assert.deepEqual(writes, [{ modelId: 'active-model' }]); assert.equal(f.get('chat-model').value, 'active-model');
+  exposeActive = false; await f.panel.open('kirana');
+  assert.equal(f.get('chat-model').disabled, true);
+  assert.match(f.get('chat-model').textContent, /Belum ada model aktif/);
+  assert.doesNotMatch(f.get('chat-model').textContent, /disabled-model|active-model|Nama model nonaktif/);
 });
 
 test('first selection always renders agent identity even when AI is unavailable; switching never retains the prior header', async (t) => {
@@ -99,6 +155,7 @@ test('first selection always renders agent identity even when AI is unavailable;
   await opening;
   assert.match(f.get('messages').textContent, /belum dikonfigurasi/);
   assert.equal(f.get('btn-send').disabled, true);
+  assert.equal(f.get('chat-model-controls').hidden, true);
   await f.panel.open('kirana');
   assert.equal(f.get('who-name').textContent, 'Kirana Dewanti');
   assert.equal(f.get('avatar').textContent, 'KD');

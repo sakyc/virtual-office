@@ -28,6 +28,42 @@
     {
       "id": "007_chat_model_selection",
       "file": "007_chat_model_selection.sql"
+    },
+    {
+      "id": "008_billing_foundation",
+      "file": "008_billing_foundation.sql"
+    },
+    {
+      "id": "009_admin_catalog",
+      "file": "009_admin_catalog.sql"
+    },
+    {
+      "id": "010_platform_admin_audit",
+      "file": "010_platform_admin_audit.sql"
+    },
+    {
+      "id": "011_ai_billing_attempts",
+      "file": "011_ai_billing_attempts.sql"
+    },
+    {
+      "id": "012_billing_administration",
+      "file": "012_billing_administration.sql"
+    },
+    {
+      "id": "013_ai_model_catalog",
+      "file": "013_ai_model_catalog.sql"
+    },
+    {
+      "id": "014_task_templates",
+      "file": "014_task_templates.sql"
+    },
+    {
+      "id": "015_workspace_task_execution",
+      "file": "015_workspace_task_execution.sql"
+    },
+    {
+      "id": "016_tenant_members",
+      "file": "016_tenant_members.sql"
     }
   ]
 }

@@ -13,7 +13,8 @@ import { createChatModelCatalog } from '../server/chat-models.js';
 async function fixture(t, { available = true } = {}) {
   const state = { user: 1, organization: 2, workspace: 3, role: 'member', revoked: false, failure: false, databaseFail: false, expired: false, modelReady: true };
   const agentId = randomUUID(), conversations = new Map(), messages = [], calls = [], sqlCalls = [], usage = [];
-  const connection = { release() {}, async beginTransaction() {}, async commit() {}, async rollback() {}, async execute(sql, v = []) {
+  let snapshot;
+  const connection = { release() {}, async beginTransaction() { snapshot = { conversations: structuredClone([...conversations]), messages: structuredClone(messages) }; }, async commit() { snapshot = null; }, async rollback() { if (snapshot) { conversations.clear(); for (const [id, row] of snapshot.conversations) conversations.set(id, row); messages.splice(0, messages.length, ...snapshot.messages); snapshot = null; } }, async execute(sql, v = []) {
     sqlCalls.push({ sql, values: v });
     if (sql.includes('information_schema.columns')) return [state.modelReady ? [{ tableName: 'chat_conversations' }, { tableName: 'chat_messages' }] : []];
     if (sql.startsWith('SELECT s.')) return [[{ id: 1, user_id: state.user, active_workspace_id: state.workspace, revoked_at: state.revoked ? new Date() : null, user_status: 'active', idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
@@ -28,6 +29,13 @@ async function fixture(t, { available = true } = {}) {
     }
     if (sql.startsWith('SELECT') && sql.includes('FROM chat_messages')) return [messages.filter((m) => m.conversation_id === v[0] && m.status === 'complete' && (!v[1] || Number(m.id) < Number(v[1]))).slice(-Number(sql.match(/LIMIT (\d+)/)[1])).reverse().map(({ id, role, content, modelId }) => ({ id: String(id), role, content, modelId }))];
     if (sql.startsWith('INSERT INTO chat_messages')) { messages.push({ id: messages.length + 1, conversation_id: v[0], turn_id: v[1], role: sql.includes("'assistant'") ? 'assistant' : 'user', content: v[2], modelId: v[3] ?? null, status: sql.includes("'complete'") ? 'complete' : 'pending' }); return [{}]; }
+    if (sql.startsWith('DELETE FROM chat_messages')) { for (let i = messages.length - 1; i >= 0; i--) if (messages[i].conversation_id === v[0]) messages.splice(i, 1); return [{}]; }
+    if (sql.startsWith('DELETE FROM chat_conversations')) {
+      if (state.deleteFail) throw new Error('private-delete-error');
+      const row = conversations.get(v[3]);
+      assert.equal(row.organization_id, v[0]); assert.equal(row.workspace_id, v[1]); assert.equal(row.user_id, v[2]);
+      assert(!messages.some((m) => m.conversation_id === row.id), 'children deleted before parent'); conversations.delete(row.id); return [{}];
+    }
     if (sql.startsWith('UPDATE chat_messages')) { for (const m of messages) if (m.conversation_id === v[0] && m.turn_id === v[1] && m.status === 'pending') m.status = sql.includes("'failed'") ? 'failed' : 'complete'; return [{}]; }
     if (sql.startsWith('UPDATE chat_conversations')) {
       const row = conversations.get(v.at(-1));
@@ -56,6 +64,38 @@ async function fixture(t, { available = true } = {}) {
   const send = async (id, content = 'Halo', extra = {}) => request('chat', 'POST', { agentId, conversationId: id, content, scope: await scope(), ...extra });
   return { state, store, newStore: () => createChatHistoryStore(() => pool), request, create, send, calls, messages, conversations, agentId, sqlCalls, usage, ctx: { organizationId: 2, workspaceId: 3, userId: 1 } };
 }
+
+test('permanent deletion removes only owned chat and its messages, retains usage and is not repeatable', async (t) => {
+  const f = await fixture(t), id = await f.create(), other = await f.create();
+  await (await f.send(id)).text(); await (await f.send(other)).text();
+  const result = await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true });
+  assert.equal(result.status, 200); assert.deepEqual(await result.json(), { deleted: true });
+  assert(!f.conversations.has(id)); assert(f.conversations.has(other));
+  assert.equal(f.messages.length, 2); assert(f.messages.every((m) => m.conversation_id === other));
+  assert.equal(f.usage.length, 2, 'usage ledger is not erased with conversation content');
+  assert.equal((await f.request(`conversations/${id}`)).status, 404);
+  assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true })).status, 404);
+  await assert.rejects(f.store.begin(f.ctx, id, f.agentId, 'Deleted'), { status: 404 });
+});
+
+test('deletion rejects missing confirmation, forged identity, CSRF, invalid IDs and active turns', async (t) => {
+  const f = await fixture(t), id = await f.create();
+  assert.equal((await f.request(`conversations/${id}`, 'DELETE')).status, 403, 'empty request fails JSON content gate');
+  for (const body of [{}, { confirmDelete: false }, { confirmDelete: true, userId: 1 }, { confirmDelete: true, workspaceId: 3 }]) {
+    assert.equal((await f.request(`conversations/${id}`, 'DELETE', body)).status, 400);
+  }
+  for (const headers of [{ Origin: 'https://evil.invalid' }, { 'Content-Type': 'text/plain' }]) assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true }, headers)).status, 403);
+  assert.equal((await f.request(`conversations/${id}?workspaceId=3`, 'DELETE', { confirmDelete: true })).status, 400);
+  assert.equal((await f.request('conversations/invalid', 'DELETE', { confirmDelete: true })).status, 404);
+  const turn = await f.store.begin(f.ctx, id, f.agentId, 'Pending');
+  assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true })).status, 409);
+  assert(f.conversations.has(id)); assert.equal(f.messages.length, 1);
+  await f.store.fail(f.ctx, turn);
+  f.state.deleteFail = true;
+  const failure = await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true });
+  assert.equal(failure.status, 503); assert.doesNotMatch(await failure.text(), /private-delete-error/);
+  assert(f.conversations.has(id)); assert.equal(f.messages.length, 1, 'transaction rolls back child deletion when parent deletion fails');
+});
 
 test('006-only installation keeps existing chat working and hides model selection until 007 plus restart', async (t) => {
   const f = await fixture(t); f.state.modelReady = false;
@@ -177,12 +217,16 @@ test('private conversations deny another member, workspace, organization, viewer
     assert.equal((await f.request(`conversations/${id}`)).status, 404);
     assert.equal((await f.request(`conversations/${id}`, 'PATCH', { archive: true })).status, 404);
     assert.equal((await f.request(`conversations/${id}`, 'PATCH', { modelId: 'mock-leader' })).status, 404);
+    assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true })).status, 404);
     f.state[key] = original;
   }
-  for (const role of ['viewer', 'platform_admin']) { f.state.role = role; assert.equal((await f.request(`conversations/${id}`)).status, 403); }
+  for (const role of ['viewer', 'platform_admin']) { f.state.role = role; assert.equal((await f.request(`conversations/${id}`)).status, 403); assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true })).status, 403); }
   f.state.role = 'member'; f.state.revoked = true;
   assert.equal((await f.request(`conversations/${id}`)).status, 401);
   assert.equal((await f.request(`conversations/${id}`, 'GET', undefined, { Cookie: '' })).status, 401);
+  assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true })).status, 401);
+  assert.equal((await f.request(`conversations/${id}`, 'DELETE', { confirmDelete: true }, { Cookie: '' })).status, 401);
+  assert(f.conversations.has(id), 'all denied attempts preserve content');
   assert.equal(f.calls.length, 0);
 });
 

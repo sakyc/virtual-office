@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { hashPassword, normalizeEmail, validPassword, verifyPassword } from './passwords.js';
 import { issueSession, readCookie, resolveSession, revokeSession, sessionCookie } from './sessions.js';
+import { normalizeWhatsapp } from '../../shared/auth-validation.js';
 
 export function nativeOrigin(env) {
   const value = env.APP_ORIGIN || (env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
@@ -43,6 +44,8 @@ export function installNativeRoutes(app, { getPool, env }) {
     if (!allowAttempt(req.socket.remoteAddress, email)) { res.setHeader('Retry-After', '900'); return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' }); }
     const password = req.body?.password;
     const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+    const whatsappNumber = normalizeWhatsapp(req.body?.whatsappNumber);
+    if (action === 'register' && !whatsappNumber) return res.status(400).json({ error: 'Nomor WhatsApp wajib diisi dengan format yang valid.' });
     if (!email || typeof password !== 'string' || !password || Buffer.byteLength(password, 'utf8') > 256 || (action === 'register' && (!validPassword(password) || !displayName || displayName.length > 150))) return res.status(400).json({ error: 'Periksa format email dan persyaratan kata sandi.' });
     let connection;
     try {
@@ -52,7 +55,7 @@ export function installNativeRoutes(app, { getPool, env }) {
       if (action === 'register') {
         const encoded = await hashPassword(password);
         await connection.beginTransaction();
-        const [result] = await connection.execute('INSERT INTO users (provider_issuer, external_subject, email, display_name, last_login_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', ['urn:virtual-office:native', randomUUID(), email, displayName]);
+        const [result] = await connection.execute('INSERT INTO users (provider_issuer, external_subject, email, display_name, whatsapp_number, last_login_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', ['urn:virtual-office:native', randomUUID(), email, displayName, whatsappNumber]);
         userId = result.insertId;
         await connection.execute('INSERT INTO native_credentials (user_id, email_normalized, password_hash) VALUES (?, ?, ?)', [userId, email, encoded]);
       } else {

@@ -10,8 +10,13 @@ import './board.css';
 import { jobById } from '../shared/jobs.js';
 import { api, setAuthHandler } from './api.js';
 import { createJobsUI } from './jobs-ui.js';
+import { createTenantJobsUI } from './tenant-jobs-ui.js';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { WorkspaceTaskComposer } from './react/workspace-task-composer.jsx';
 import { createBoard } from './board.js';
 import { applyOfficeWorkloads } from './office-workloads.js';
+import { createOfficeUpgradeDialog } from './office-upgrade.js';
 
 const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(max-width: 760px)');
@@ -19,14 +24,15 @@ const mobile = matchMedia('(max-width: 760px)');
 const config = { demo: false, needsCode: false, offline: false };
 let roster = { divisions: TEMPLATE_DIVISIONS, agents: TEMPLATE_AGENTS }, teamError = '';
 if (tenantOffice) {
-  roster = { divisions: [], agents: [] };
+  roster = { divisions: [], agents: [], divisionCapacity: 0 };
   try {
     const response = await fetch('/api/team', { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) throw new Error();
-    roster = sceneRoster(await response.json());
+    const body = await response.json();
+    roster = sceneRoster({ ...body, divisionCapacity: body.divisionCapacity ?? 0 });
   } catch { teamError = 'Tim belum dapat dimuat. Tidak ada agen template yang diaktifkan sebagai pengganti. Periksa migration 005 dengan operator.'; }
 }
-const DIVISIONS = officeRoomLayout(roster.divisions);
+const DIVISIONS = officeRoomLayout(roster.divisions, roster.divisionCapacity ?? null);
 const agentById = (id) => roster.agents.find((a) => a.id === id);
 const divisionById = (id) => roster.divisions.find((d) => d.id === id);
 
@@ -34,6 +40,8 @@ const divisionById = (id) => roster.divisions.find((d) => d.id === id);
 const stage = createStage($('scene'), roster);
 const tags = createTags(stage, $('tags'));
 const { byId, rooms } = stage.office;
+const upgrade = createOfficeUpgradeDialog({ capacity: roster.divisionCapacity ?? 0 });
+addEventListener('pagehide', () => upgrade.dispose(), { once: true });
 
 // ---------- state tampilan ----------
 let selectedId = null;
@@ -44,7 +52,7 @@ const doneTimers = new Map();
 const chipsEl = $('chips');
 const chipDefs = [
   { id: 'overview', label: 'Seluruh kantor', color: '#1d2433' },
-  ...DIVISIONS.map((d) => ({ id: d.id, label: d.name, color: d.color })),
+  ...DIVISIONS.map((d, slot) => ({ id: d.id, label: d.roomState === 'locked' ? `🔒 Ruang ${slot + 1}` : d.name, color: d.color })),
 ];
 for (const c of chipDefs) {
   const b = document.createElement('button');
@@ -65,6 +73,7 @@ function markChip(id) {
 }
 
 function goTo(id) {
+  if (rooms.get(id)?.state === 'locked') { upgrade.open(); return; }
   if (selectedId) closeChat(false);
   if (id === 'overview') {
     stage.focus('overview');
@@ -104,12 +113,14 @@ addEventListener('pagehide', () => removeEventListener('message', receiveWorkloa
 if (tenantOffice) for (const id of byId.keys()) setStatus(id, 'unknown');
 
 // ---------- perintah (job) dan board ----------
-const jobsUI = createJobsUI({
+const jobsUI = (tenantOffice ? createTenantJobsUI : createJobsUI)({
   root: $('jobs'),
+  mountComposer: (node, props) => { const view = createRoot(node); view.render(React.createElement(WorkspaceTaskComposer, props)); return () => view.unmount(); },
   onStatus: tenantOffice ? () => {} : setStatus,
   onOpenItem: (target) => board.open(target),
   onDone: () => refreshBadges(),
 });
+if (tenantOffice) addEventListener('pagehide', () => jobsUI.dispose(), { once: true });
 const board = createBoard({
   onContinue: (jobId, itemId) => continueFrom(jobId, itemId),
   onChange: () => refreshBadges(),
@@ -121,6 +132,7 @@ setAuthHandler(() => {
 });
 
 async function refreshBadges() {
+  if (tenantOffice) return; // Tenant workload sync is supplied by the parent; never query legacy counts.
   try {
     const c = await api('/items/counts');
     tags.setBadges(c.byAgent);
@@ -141,7 +153,7 @@ function continueFrom(jobId, itemId) {
 }
 
 $('btn-board').addEventListener('click', () => {
-  if (tenantOffice && parent !== window) parent.postMessage({ type: 'virtual-office:navigate', path: '/app/board' }, location.origin);
+  if (tenantOffice && parent !== window) parent.postMessage({ type: 'virtual-office:navigate', path: '/dashboard/board' }, location.origin);
   else board.open({});
 });
 
@@ -201,7 +213,8 @@ function closeChat(refocus) {
 
 // ---------- input scene ----------
 stage.onClick((id) => {
-  if (id) selectAgent(id);
+  if (rooms.get(id)?.state === 'locked') upgrade.open();
+  else if (id) selectAgent(id);
   else if (selectedId && mobile.matches) closeChat(true);
 });
 stage.onHover((id) => tags.setHovered(id));
@@ -254,7 +267,9 @@ $('gate-form').addEventListener('submit', async (e) => {
   banner.hidden = !(config.offline || (config.demo && selectedId));
   if (tenantOffice && (teamError || !roster.agents.length)) {
     banner.hidden = false;
-    banner.textContent = teamError || 'Semua ruangan tetap tersedia di layout. Tambahkan divisi dan agen melalui Kelola divisi & agen. Paket langganan belum ditentukan.';
+    banner.textContent = teamError || (roster.divisionCapacity > 0
+      ? `Tersedia kapasitas ${roster.divisionCapacity} divisi untuk workspace ini. Tambahkan divisi dan agen melalui Kelola divisi & agen. Klik ruangan terkunci untuk melihat pilihan upgrade.`
+      : 'Belum ada kapasitas divisi tersedia. Klik ruangan terkunci untuk memeriksa paket atau hubungi pemilik organisasi.');
   }
   if (config.needsCode && !getCode()) showGate('');
 

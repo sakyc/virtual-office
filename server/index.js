@@ -17,8 +17,18 @@ import { processTenantRevision } from './tenant-review.js';
 import { installOfficeChatRoutes } from './office-chat.js';
 import { createUsageStore, installUsageRoutes } from './ai-usage.js';
 import { installTeamRoutes, resolveWorkspaceAgent } from './workspace-team.js';
+import { installTaskTemplateRoutes } from './task-templates.js';
 import { createChatHistoryStore } from './chat-history.js';
-import { createChatModelCatalog } from './chat-models.js';
+import { createLiveChatModelCatalog } from './live-chat-models.js';
+import { readModelCatalog } from './model-catalog.js';
+import { createUsagePricing } from './ai-pricing.js';
+import { installBillingRoutes } from './billing.js';
+import { installCatalogRoutes } from './billing-catalog.js';
+import { installPlatformAdminRoutes } from './platform-admin.js';
+import { createAiBilling } from './ai-billing.js';
+import { createPaidMutationGate } from './billing-enforcement.js';
+import { installBillingAdministrationRoutes } from './billing-administration.js';
+import { installTenantMemberRoutes } from './tenant-members.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -31,28 +41,42 @@ const RATE_PER_MINUTE = Number(process.env.RATE_PER_MINUTE || 15);
 const DAILY_MAX_REQUESTS = Number(process.env.DAILY_MAX_REQUESTS || 300);
 const MAX_HISTORY = 20;
 const MAX_CHARS = 4000;
-const chatModels = createChatModelCatalog({ leader: MODEL_LEADER, team: MODEL_TEAM }, process.env.CHAT_MODELS_JSON || '');
 
 const DEMO = !API_KEY;
 const client = DEMO ? null : new Anthropic({ apiKey: API_KEY });
+const chatModels = createLiveChatModelCatalog({ models: { leader: MODEL_LEADER, team: MODEL_TEAM },
+  json: process.env.CHAT_MODELS_JSON || '', client, maxTokens: MAX_TOKENS, databaseOnly: true, readTariffs: () => readModelCatalog(pool) });
 
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
 // Native login shares the existing server sessions. Migrations remain explicit.
 installAuthRoutes(app, { getPool: () => pool });
+installCatalogRoutes(app, { getPool: () => pool });
+installPlatformAdminRoutes(app, { getPool: () => pool });
+installBillingAdministrationRoutes(app, { getPool: () => pool, modelCatalog: chatModels, readModels: readModelCatalog });
 installOnboardingRoutes(app, { getPool: () => pool });
 const requireTenantApi = createTenantGate({ getPool: () => pool });
-const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true });
-const usageStore = createUsageStore(() => pool);
+const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true, memberAssignments: true });
+installTenantMemberRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173') });
+const usagePricing = createUsagePricing({ getModelRates: () => chatModels.estimateRates() });
+const usageStore = createUsageStore(() => pool, { billing: createAiBilling(() => pool, { pricing: usagePricing, resolveTariff: (model) => chatModels.resolveTariff(model) }) });
+const requirePaidAi = createPaidMutationGate({ getPool: () => pool, providerAvailable: Boolean(client) });
+app.post(['/api/dashboard/jobs', '/api/dashboard/items/:id/revise'], requireTenantDashboard, requirePaidAi);
+installBillingRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
+installTaskTemplateRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173') });
 installTeamRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   models: { leader: MODEL_LEADER, team: MODEL_TEAM } });
-installUsageRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
+installUsageRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard, pricing: usagePricing });
 installDashboardRoutes(app, {
   getPool: () => pool,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
+  modelCatalog: chatModels,
   requireTenant: requireTenantDashboard,
-  runTenantJob: (jobId, tenantContext, userId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId, usageStore }),
+  runTenantJob: (jobId, tenantContext, userId, sessionId) => processTenantJob({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, jobId, tenantContext, userId, sessionId, usageStore }),
   runTenantRevision: (reservation) => processTenantRevision({ pool, client, DEMO, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, reservation, usageStore }),
 });
 

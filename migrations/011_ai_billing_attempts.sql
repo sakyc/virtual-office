@@ -1,0 +1,22 @@
+CREATE TABLE ai_billing_attempts (
+  usage_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  request_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  hold_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  pricing_snapshot JSON NOT NULL,
+  provider_evidence JSON NULL,
+  provider_message_id VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  state ENUM('prepared','dispatched','unresolved','settled','released') NOT NULL DEFAULT 'prepared',
+  actual_idr BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at DATETIME NULL,
+  UNIQUE KEY uq_ai_billing_request (organization_id, request_key),
+  UNIQUE KEY uq_ai_billing_hold (hold_id),
+  UNIQUE KEY uq_ai_billing_provider_message (provider_message_id),
+  INDEX idx_ai_billing_pending (state,created_at,usage_id),
+  CONSTRAINT fk_ai_billing_usage FOREIGN KEY (usage_id) REFERENCES ai_usage(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ai_billing_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ai_billing_hold FOREIGN KEY (hold_id) REFERENCES billing_holds(id) ON DELETE RESTRICT,
+  CONSTRAINT ck_ai_billing_final CHECK ((state IN ('settled','released') AND actual_idr IS NOT NULL AND finished_at IS NOT NULL) OR (state IN ('prepared','dispatched','unresolved') AND actual_idr IS NULL AND finished_at IS NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

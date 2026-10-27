@@ -73,6 +73,17 @@ export function createChatHistoryStore(getPool) {
         return { updated: true };
       }, true);
     },
+    async remove(ctx, id) {
+      return withConnection(async (c) => {
+        const row = await conversation(c, ctx, id, true);
+        if (row.pending_turn && row.busy) throw teamError('Tunggu jawaban selesai sebelum menghapus percakapan.', 409);
+        // Ownership and agent access are checked under the same transaction/row lock.
+        // Explicit child deletion respects the existing ON DELETE RESTRICT foreign key.
+        await c.execute('DELETE FROM chat_messages WHERE conversation_id = ?', [id]);
+        await c.execute(`DELETE FROM chat_conversations WHERE ${owned}`, [...identity(ctx), id]);
+        return { deleted: true };
+      }, true);
+    },
     async begin(ctx, id, agentId, content, resolveModel) {
       return withConnection(async (c, modelReady) => {
         const row = await conversation(c, ctx, id, true);
@@ -115,23 +126,29 @@ export function installConversationRoutes(app, { store, requireTenant, permitted
   const handle = (write, fn) => async (req, res) => {
     if (write && (!appOrigin || req.get('origin') !== appOrigin || !req.is('application/json'))) return res.status(403).json({ error: 'Origin atau format chat tidak valid.' });
     try { res.json(await fn(req, ctx(req))); }
-    catch (error) { res.status([400, 404, 409].includes(error.status) ? error.status : 503).json({ error: [400, 404, 409].includes(error.status) ? error.message : 'Riwayat chat belum tersedia. Operator perlu memverifikasi migration riwayat chat.' }); }
+    catch (error) { res.status([400, 403, 404, 409].includes(error.status) ? error.status : 503).json({ error: [400, 403, 404, 409].includes(error.status) ? error.message : 'Riwayat chat belum tersedia. Operator perlu memverifikasi migration riwayat chat.' }); }
   };
   app.get('/api/office/conversations', requireTenant, permitted, handle(false, (req, context) => {
     if (Object.keys(req.query).some((key) => !['agentId', 'offset'].includes(key)) || !validChatId(req.query.agentId) || !/^\d{1,5}$/.test(String(req.query.offset ?? 0))) throw teamError('Permintaan riwayat tidak valid.');
     return store.list(context, req.query.agentId, Number(req.query.offset || 0));
   }));
-  app.post('/api/office/conversations', requireTenant, permitted, handle(true, (req, context) => {
+  app.post('/api/office/conversations', requireTenant, permitted, handle(true, async (req, context) => {
     if (!req.body || Object.keys(req.body).some((key) => !['agentId', 'modelId'].includes(key)) || !validChatId(req.body.agentId)) throw teamError('Agen tidak valid.');
+    if (req.body.modelId != null) await modelCatalog.refresh?.();
     return store.create(context, req.body.agentId, Object.hasOwn(req.body, 'modelId') ? modelCatalog.validate(req.body.modelId) : null);
   }));
   app.get('/api/office/conversations/:id', requireTenant, permitted, handle(false, (req, context) => {
     if (Object.keys(req.query).some((key) => key !== 'before') || (req.query.before !== undefined && !/^[1-9]\d{0,19}$/.test(req.query.before))) throw teamError('Halaman pesan tidak valid.');
     return store.read(context, req.params.id, req.query.before);
   }));
-  app.patch('/api/office/conversations/:id', requireTenant, permitted, handle(true, (req, context) => {
+  app.delete('/api/office/conversations/:id', requireTenant, permitted, handle(true, (req, context) => {
+    if (Object.keys(req.query).length || !req.body || Object.keys(req.body).length !== 1 || req.body.confirmDelete !== true) throw teamError('Konfirmasi penghapusan percakapan diperlukan.');
+    return store.remove(context, req.params.id);
+  }));
+  app.patch('/api/office/conversations/:id', requireTenant, permitted, handle(true, async (req, context) => {
     const body = req.body;
     if (!body || Object.keys(body).length !== 1 || !(body.archive === true || Object.hasOwn(body, 'modelId') || (typeof body.title === 'string' && body.title.trim() && body.title.trim().length <= 100))) throw teamError('Pengaturan percakapan tidak valid.');
+    if (body.modelId != null) await modelCatalog.refresh?.();
     const change = Object.hasOwn(body, 'modelId') ? { modelId: modelCatalog.validate(body.modelId) } : body.archive === true ? { archive: true } : { title: body.title.trim() };
     return store.update(context, req.params.id, change);
   }));

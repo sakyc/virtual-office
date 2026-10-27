@@ -26,6 +26,7 @@ const server = await createServer({ server: { host: '127.0.0.1', port: qaPort, s
       if (req.url === '/auth/logout') { state.revoked = true; return json({}); }
       if (state.unavailable) return json({ error: 'mysql://must-never-be-rendered' }, 503);
       if (req.url === '/api/dashboard/jobs' && req.method === 'GET') return json({ jobs: state.jobs });
+      if (req.url === '/api/dashboard/task-options') return json({ canCreate: ['owner','admin'].includes(state.role), agents: [{ id: '10000000-0000-4000-8000-000000000001', name: 'Agen Fixture', role: 'Penulis' }], templates: [], builtins: [], clients: [], models: [{ id: 'fixture-model', label: 'Fixture', costLabel: 'Hemat' }] });
       if (req.url === '/api/dashboard/jobs' && req.method === 'POST') {
         if (!['owner', 'admin'].includes(state.role)) return json({ error: 'Permission denied' }, 403);
         state.jobs = [{ id: 45, jobType: 'brief_analysis', agentId: 'bagas', status: 'done', createdAt: '2026-10-23T09:00:00Z', clientName: 'Client Fixture' }];
@@ -96,23 +97,24 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 
-  await open('/app/jobs'); await wait('document.body.textContent.includes("Belum ada perintah di tab ini.")');
+  await open('/dashboard/jobs'); await wait('document.body.textContent.includes("Belum ada perintah di tab ini.")');
   assert.equal(await evaluate('document.querySelectorAll(".sbar").length'), 1);
   assert.ok(!(await evaluate('document.body.textContent.includes("Q4 launch narrative")')));
   check('empty live jobs use original shell and no sample records');
   await click('Perintah baru'); await wait('!!document.querySelector(".work-dialog select")');
-  await fill('.work-dialog select', 'brief_analysis');
-  await wait('document.querySelector(".work-dialog select").value === "brief_analysis"');
+  await fill('.work-dialog select', '10000000-0000-4000-8000-000000000001');
+  await fill('.work-dialog input', 'Tugas pengujian fixture');
+  await fill('.work-dialog label:last-of-type select', 'fixture-model');
   await fill('.work-dialog textarea', 'Brief pengujian fixture');
-  await evaluate(`(()=>{const e=[...document.querySelectorAll('.work-dialog button')].find(e=>e.textContent==='Kirim perintah');e.click();e.click();return true})()`);
+  await evaluate(`(()=>{const e=[...document.querySelectorAll('.work-dialog button')].find(e=>e.textContent==='Kirim tugas');e.click();e.click();return true})()`);
   await wait('document.body.textContent.includes("Perintah #45 diterima") && !!document.querySelector(".work-job")');
   const submissions = calls.filter((call) => call.path === '/api/dashboard/jobs' && call.method === 'POST');
-  assert.equal(submissions.length, 1); assert.equal(submissions[0].body.params.brief, 'Brief pengujian fixture');
+  assert.equal(submissions.length, 1); assert.equal(submissions[0].body.instructions, 'Brief pengujian fixture'); assert.equal(submissions[0].body.mode, 'workspace');
   assert.equal(submissions[0].body.workspaceId, undefined); assert.equal(submissions[0].body.userId, undefined);
   check('job composer submits once through tenant API and shows resulting job');
 
   await click('Lihat board'); await wait('document.body.textContent.includes("Umpan balik fixture")');
-  assert.equal(await evaluate('location.pathname'), '/app/board');
+  assert.equal(await evaluate('location.pathname'), '/dashboard/board');
   assert.equal(await evaluate('document.querySelectorAll(".work-detail img").length'), 0);
   assert.ok(await evaluate('document.body.textContent.includes("<img src=x onerror=alert(1)>")'));
   assert.ok(await evaluate('document.body.textContent.includes("const fixture = true;")'));
@@ -154,9 +156,9 @@ try {
   state.revisionFailure = false;
   check('revision failure leaves content/version intact and shows a recoverable error');
 
-  state.role = 'viewer'; await open('/app/jobs'); await wait('!!document.querySelector(".work-job")');
+  state.role = 'viewer'; await open('/dashboard/jobs'); await wait('!!document.querySelector(".work-job")');
   assert.equal(await evaluate(`[...document.querySelectorAll('button')].some(e=>e.textContent==='Perintah baru')`), false);
-  await open('/app/board'); await evaluate(`document.querySelectorAll('[role="tab"]')[3].click();true`);
+  await open('/dashboard/board'); await evaluate(`document.querySelectorAll('[role="tab"]')[3].click();true`);
   await wait('!!document.querySelector(".work-detail .work-content")');
   assert.equal(await evaluate(`[...document.querySelectorAll('button')].find(e=>e.textContent==='Setujui').disabled`), true);
   assert.equal(await evaluate(`[...document.querySelectorAll('button')].find(e=>e.textContent==='Minta revisi').disabled`), true);
@@ -172,19 +174,19 @@ try {
   check('same dashboard supports dark mode and mobile viewport');
 
   state.role = 'owner'; state.items[0].status = 'draft'; state.approvalDenied = true;
-  await open('/app/board'); await wait('!!document.querySelector(".work-detail .work-content")');
+  await open('/dashboard/board'); await wait('!!document.querySelector(".work-detail .work-content")');
   await click('Setujui'); await wait('document.body.textContent.includes("Anda tidak memiliki akses")');
   assert.equal(await evaluate('document.querySelectorAll(".work-detail").length'), 0);
   check('server permission denial removes actionable board content');
   state.approvalDenied = false;
-  await open('/app/jobs'); await wait('!!document.querySelector(".work-job")');
+  await open('/dashboard/jobs'); await wait('!!document.querySelector(".work-job")');
   state.revoked = true;
   await wait('document.body.textContent.includes("Sesi berakhir")');
   assert.equal(await evaluate('document.querySelectorAll(".work-job").length'), 0);
   check('revocation is detected on refresh; stale jobs are cleared and login is offered');
 
   state.revoked = false; state.unavailable = true;
-  await open('/app/jobs'); await wait('document.body.textContent.includes("Layanan workspace belum tersedia")');
+  await open('/dashboard/jobs'); await wait('document.body.textContent.includes("Layanan workspace belum tersedia")');
   assert.ok(!(await evaluate('document.body.textContent.includes("mysql://")')));
   assert.equal(await evaluate('document.querySelectorAll(".work-job").length'), 0);
   state.unavailable = false;
@@ -197,12 +199,12 @@ try {
   assert.equal(calls.filter((call) => call.path === '/api/dashboard/jobs').length, before);
   check('jobs polling stops after route unmount');
   state.authDisabled = true;
-  await open('/app/board'); await wait('document.body.textContent.includes("Login belum aktif di server lokal")');
+  await open('/dashboard/board'); await wait('document.body.textContent.includes("Login belum aktif di server lokal")');
   assert.ok(await evaluate('document.body.textContent.includes("AUTH0_ENABLED=1")'));
   assert.equal(await evaluate('document.querySelectorAll(".work-detail").length'), 0);
   check('disabled Auth0 explains the setup prerequisite instead of creating a fake session');
   state.authDisabled = false;
-  await open('/app/jobs'); await wait('!!document.querySelector(".work-job")');
+  await open('/dashboard/jobs'); await wait('!!document.querySelector(".work-job")');
   await evaluate(`document.querySelector('[aria-label="Keluar"]').click();true`);
   await wait('location.pathname === "/"');
   assert.ok(calls.some((call) => call.path === '/auth/logout' && call.method === 'POST'));

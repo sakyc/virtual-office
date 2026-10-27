@@ -40,9 +40,18 @@ export function validPassword(password) {
 export function validateAuthFields(form, { register = false } = {}) {
   const errors = {};
   if (register && (typeof form.displayName !== 'string' || !form.displayName.trim() || form.displayName.trim().length > 150)) errors.displayName = 'Isi nama lengkap, maksimal 150 karakter.';
+  if (register && !normalizeWhatsapp(form.whatsappNumber)) errors.whatsappNumber = 'Isi nomor WhatsApp yang valid, contoh 081234567890 atau +6281234567890.';
   if (!normalizeEmail(form.email)) errors.email = form.email?.trim() ? 'Format email tidak valid. Contoh: nama@domain.com.' : 'Email wajib diisi.';
   if (typeof form.password !== 'string' || !form.password) errors.password = 'Kata sandi wajib diisi.';
   else if (register && !validPassword(form.password)) errors.password = 'Kata sandi belum memenuhi semua persyaratan di bawah.';
   else if (new TextEncoder().encode(form.password).length > 256) errors.password = 'Kata sandi maksimal 256 byte.';
   return errors;
+}
+
+export function normalizeWhatsapp(value) {
+  if (typeof value !== 'string' || !/^[+\d\s().-]+$/.test(value.trim())) return null;
+  let number = value.trim().replace(/[\s().-]/g, '');
+  if (number.startsWith('0')) number = '+62' + number.slice(1);
+  else if (!number.startsWith('+') && number.startsWith('62')) number = '+' + number;
+  return /^\+[1-9]\d{7,14}$/.test(number) ? number : null;
 }

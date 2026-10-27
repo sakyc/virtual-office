@@ -30,6 +30,7 @@ export const persistentChat = () => tenantOffice && chatContext.persistent;
 export const getConversations = (id) => conversations[id] || [];
 export const getConversationId = (id) => selected[id] || null;
 export const getChatModels = () => chatContext.models;
+export const getDefaultChatModel = (agent) => chatContext.defaultModels[agent?.modelTier === 'leader' || agent?.leader ? 'leader' : 'team'];
 export const canSelectChatModel = () => chatContext.modelSelection;
 export const getConversationModel = (id) => conversationModels[id] ?? null;
 export const hasOlderMessages = (id) => Boolean(olderMessages[id]);
@@ -88,6 +89,15 @@ export async function selectConversationModel(agentId, modelId, signal) {
   if (selected[agentId]) await changeConversation(agentId, { modelId }, signal);
   unchanged(scope, signal);
   conversationModels[agentId] = modelId;
+}
+export async function deleteConversation(agentId, signal) {
+  const scope = getChatScope(), id = selected[agentId];
+  if (!id) return;
+  await historyRequest(`/${encodeURIComponent(id)}`, { method: 'DELETE', body: { confirmDelete: true }, signal });
+  unchanged(scope, signal);
+  if (selected[agentId] !== id) return;
+  conversations[agentId] = getConversations(agentId).filter((item) => item.id !== id);
+  selected[agentId] = null; histories[agentId] = []; conversationModels[agentId] = null; olderMessages[agentId] = null;
 }
 if (tenantOffice) addEventListener('pagehide', () => chatContext.clear(), { once: true });
 

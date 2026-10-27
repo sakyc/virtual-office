@@ -1,0 +1,20 @@
+CREATE TABLE workspace_task_templates (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  workspace_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(150) NOT NULL,
+  description VARCHAR(500) NOT NULL,
+  definition JSON NOT NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  status ENUM('active','archived') NOT NULL DEFAULT 'active',
+  created_by_user_id BIGINT UNSIGNED NOT NULL,
+  updated_by_user_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
+  INDEX idx_task_templates_scope_status (organization_id, workspace_id, status),
+  CONSTRAINT fk_task_template_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_task_template_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_task_template_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_task_template_updater FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

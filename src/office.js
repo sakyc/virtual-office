@@ -224,12 +224,20 @@ export function buildOffice(scene, roster = { divisions: DIVISIONS, agents: AGEN
 
   const byId = new Map(chars.map((c) => [c.agent.id, c]));
   const pickables = chars.map((c) => c.hit);
+  const roomPickables = [];
+  for (const room of rooms.values()) {
+    if (room.state !== 'locked') continue;
+    room.group.traverse((object) => {
+      if (object.isMesh) { object.userData.roomId = room.id; roomPickables.push(object); }
+    });
+  }
 
   return {
     chars,
     byId,
     rooms,
     pickables,
+    roomPickables,
     bounds,
     update(dt, t) {
       for (const c of chars) c.update(dt, t);

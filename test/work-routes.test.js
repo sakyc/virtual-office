@@ -77,13 +77,13 @@ test('viewer cannot approve or submit and forged role does not elevate privilege
   assert.equal((await f.request('/api/dashboard/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'owner', jobType: 'brief_analysis', params: { brief: 'Fixture' } }) })).status, 403);
   assert.ok(!f.queries.some(({ sql }) => /^(INSERT INTO jobs|UPDATE items)/.test(sql)));
 });
-test('approve and job creation keep server-derived ownership despite forged body', async (t) => {
+test('approve keeps server ownership and legacy static jobs cannot bypass workspace agents', async (t) => {
   const f = await fixture(t);
   assert.equal((await f.request('/api/dashboard/items/4/approve', { method: 'POST' })).status, 204);
   const response = await f.request('/api/dashboard/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ organizationId: 999, workspaceId: 999, userId: 999, jobType: 'brief_analysis', params: { brief: 'Fixture' } }) });
-  assert.equal(response.status, 202); assert.equal((await response.json()).jobId, 45);
+  assert.equal(response.status, 400); assert.equal((await response.json()).code, 'WORKSPACE_AGENT_REQUIRED');
   assert.deepEqual(f.queries.find(({ sql }) => sql.startsWith('UPDATE items')).values, [9, 4, 3, 8]);
-  assert.deepEqual(f.queries.find(({ sql }) => sql.startsWith('INSERT INTO jobs')).values.slice(-3), [3, 8, 9]);
+  assert.ok(!f.queries.some(({ sql }) => sql.startsWith('INSERT INTO jobs')));
 });
 test('unexpected item detail error is sanitized', async (t) => {
   const f = await fixture(t, { databaseError: true });

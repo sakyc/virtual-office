@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createWorkApi, workPermissions } from '../src/react/work-api.js';
 
+test('client creation sends only name and brief using the scoped session endpoint', async () => {
+  const api = createWorkApi(async (url, options) => {
+    assert.equal(url, '/api/dashboard/clients'); assert.equal(options.credentials, 'same-origin');
+    assert.deepEqual(JSON.parse(options.body), { name: 'Client', brief: 'Brief' });
+    return Response.json({ id: 4, name: 'Client' }, { status: 201 });
+  });
+  await api.createClient({ name: 'Client', brief: 'Brief', workspaceId: 999, userId: 999 });
+});
+
 test('approval uses the explicit tenant approval endpoint and no shared-access fallback', async () => {
   const calls = [];
   const api = createWorkApi(async (...args) => { calls.push(args); return new Response(null, { status: 204 }); });
@@ -10,7 +19,8 @@ test('approval uses the explicit tenant approval endpoint and no shared-access f
   assert.equal(calls[0][0], '/api/dashboard/items/7/approve');
   assert.equal(calls[0][1].method, 'POST');
   assert.equal(calls[0][1].credentials, 'same-origin');
-  assert.equal(calls[0][1].body, undefined);
+  assert.deepEqual(JSON.parse(calls[0][1].body), {});
+  assert.equal(calls[0][1].headers['Content-Type'], 'application/json');
 });
 
 test('job submission whitelists job inputs without sending identity or tenant claims', async () => {
@@ -61,7 +71,7 @@ test('malformed successful response is an error, not a successful empty list', a
 test('UI permissions mirror existing server roles and grant nothing to platform admin', () => {
   assert.deepEqual(workPermissions('owner'), { create: true, approve: true, remove: true });
   assert.deepEqual(workPermissions('admin'), { create: true, approve: true, remove: true });
-  assert.deepEqual(workPermissions('member'), { create: false, approve: true, remove: false });
+  assert.deepEqual(workPermissions('member'), { create: true, approve: true, remove: false });
   for (const role of ['viewer', 'platform_admin', undefined]) assert.deepEqual(workPermissions(role), { create: false, approve: false, remove: false });
 });
 

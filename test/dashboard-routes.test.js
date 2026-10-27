@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { taskFailure } from '../shared/task-failures.js';
 import { loadDashboardOverview, loadWorkspaceClients, loadWorkspaceItems, loadWorkspaceJobs, loadWorkspaceMembers, loadWorkspaceWorkerLoads } from '../server/dashboard-routes.js';
 
 test('dashboard overview scopes every query to the active workspace and excludes legacy rows', async () => {
@@ -23,7 +24,7 @@ test('workspace job list excludes unowned rows and internal failure detail', asy
   const calls = [];
   const connection = { execute: async (sql, values) => { calls.push({ sql, values }); return [[{ id: 7, job_type: 'campaign', agent_id: 'writer', status: 'failed', created_at: '2026-10-22', finished_at: null, error: 'internal detail', client_name: 'Acme' }]]; } };
   const jobs = await loadWorkspaceJobs(connection, 22);
-  assert.deepEqual(jobs, [{ id: 7, jobType: 'campaign', agentId: 'writer', status: 'failed', createdAt: '2026-10-22', finishedAt: null, clientName: 'Acme', failed: true }]);
+  assert.deepEqual(jobs, [{ id: 7, jobType: 'campaign', agentId: 'writer', status: 'failed', createdAt: '2026-10-22', finishedAt: null, clientName: 'Acme', failed: true, failure: taskFailure('UNKNOWN') }]);
   assert.match(calls[0].sql, /j\.workspace_id = \?/);
   assert.deepEqual(calls[0].values, [22, 22]);
   assert.doesNotMatch(JSON.stringify(jobs), /internal detail/);

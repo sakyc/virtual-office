@@ -23,7 +23,7 @@ export function createChatContext({ fetchImpl = fetch, reset }) {
         if (changed) reset();
         scope = data.scope;
         persistent = data.persistent === true;
-        modelOptions = Array.isArray(data.models) ? data.models : [];
+        modelOptions = Array.isArray(data.models) ? data.models.filter(model => model.selectable !== false) : [];
         modelSelection = data.modelSelection !== false;
         defaultModels = data.defaultModels || {};
         if (!data.available && !persistent) throw new Error('Layanan AI belum dikonfigurasi. Chat tidak mengirim jawaban demo.');

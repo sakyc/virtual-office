@@ -2,6 +2,11 @@ import { jobById } from '../shared/jobs.js';
 import { SPEC } from './jobSpecs.js';
 import { generate } from './runner.js';
 import { trackedClient } from './ai-usage.js';
+import { WORKSPACE_TASK, createWorkspaceTask, generateWorkspaceTask, workspaceTaskDefinition } from './workspace-tasks.js';
+import { resolveWorkspaceAgent } from './workspace-team.js';
+import { assertRunnerAccess } from './tenant-review.js';
+import { storedTaskFailure } from '../shared/task-failures.js';
+import { lockMemberPolicy } from './member-access.js';
 
 const TEAM_ROLES = new Set(['owner', 'admin']);
 const userError = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -23,8 +28,9 @@ function cleanParams(definition, raw = {}) {
   return result;
 }
 
-export async function createTenantJob(connection, { tenantContext, principal, body }) {
-  if (!TEAM_ROLES.has(tenantContext?.role)) throw userError('Workspace admin permission required.', 403);
+export async function createTenantJob(connection, { tenantContext, principal, body, modelCatalog }) {
+  if (!TEAM_ROLES.has(tenantContext?.role) && !(tenantContext?.memberPolicy && tenantContext.role === 'member' && body?.mode === 'workspace')) throw userError('Workspace admin permission required.', 403);
+  if (body?.mode === 'workspace') return createWorkspaceTask(connection, { tenantContext, principal, body, modelCatalog });
   const definition = jobById(body?.jobType);
   if (!definition) throw userError('Jenis perintah tidak dikenal.');
   const params = cleanParams(definition, body?.params);
@@ -49,9 +55,11 @@ export async function createTenantJob(connection, { tenantContext, principal, bo
 
 export async function saveTenantJobOutput({ connection, job, output, definition, tenantContext, userId }) {
   const params = typeof job.params === 'string' ? JSON.parse(job.params) : job.params;
-  const tag = SPEC[definition.id].tag?.(params)?.slice(0, 120) ?? null;
+  const tag = SPEC[definition.id]?.tag?.(params)?.slice(0, 120) ?? null;
   await connection.beginTransaction();
   try {
+    await lockMemberPolicy(connection, tenantContext);
+    if (tenantContext.memberPolicy) await resolveWorkspaceAgent(connection, tenantContext, job.agent_id);
     for (const item of output.items) {
       await connection.execute(
         `INSERT INTO items (job_id, parent_id, client_id, agent_id, type, title, tag, content, organization_id, workspace_id, created_by_user_id, updated_by_user_id)
@@ -64,22 +72,56 @@ export async function saveTenantJobOutput({ connection, job, output, definition,
   } catch (error) { await connection.rollback(); throw error; }
 }
 
-export async function processTenantJob({ pool, client, DEMO, models, jobId, tenantContext, userId, usageStore }) {
+export async function processTenantJob({ pool, client, DEMO, models, jobId, tenantContext, userId, sessionId, usageStore }) {
   try {
     const [jobs] = await pool.execute('SELECT * FROM jobs WHERE id = ? AND organization_id = ? AND workspace_id = ? LIMIT 1', [jobId, tenantContext.organizationId, tenantContext.workspaceId]);
     const job = jobs[0];
     if (!job || job.status !== 'generating') return;
+    if (job.job_type === WORKSPACE_TASK) return processWorkspaceJob({ pool, client, jobId, tenantContext, userId, sessionId, usageStore });
     const definition = jobById(job.job_type);
     if (!definition) throw new Error('Unknown tenant job definition.');
     const [clients] = job.client_id ? await pool.execute('SELECT name, brief FROM clients WHERE id = ? AND organization_id = ? AND workspace_id = ? LIMIT 1', [job.client_id, tenantContext.organizationId, tenantContext.workspaceId]) : [[]];
     const [parents] = job.parent_item_id ? await pool.execute('SELECT id, type, title, content FROM items WHERE id = ? AND organization_id = ? AND workspace_id = ? AND deleted_at IS NULL LIMIT 1', [job.parent_item_id, tenantContext.organizationId, tenantContext.workspaceId]) : [[]];
     const parent = parents[0] ? { ...parents[0], content: typeof parents[0].content === 'string' ? JSON.parse(parents[0].content) : parents[0].content } : null;
-    const apiClient = trackedClient(client, usageStore, { ...tenantContext, userId, operation: 'job', resourceId: job.id, agentId: definition.agent });
+    const apiClient = trackedClient(client, usageStore, { ...tenantContext, userId, sessionId, operation: 'job', resourceId: job.id, agentId: definition.agent });
     const output = await generate({ apiClient, DEMO, models, def: definition, params: typeof job.params === 'string' ? JSON.parse(job.params) : job.params, clientRow: clients[0] || null, parent });
     const connection = await pool.getConnection();
     try { await saveTenantJobOutput({ connection, job, output, definition, tenantContext, userId }); } finally { connection.release(); }
   } catch {
     // The client receives only job status, never provider or prompt details.
     await pool.execute("UPDATE jobs SET status = 'failed', error = 'Job tidak dapat diselesaikan.', finished_at = NOW() WHERE id = ? AND organization_id = ? AND workspace_id = ? AND status = 'generating'", [jobId, tenantContext.organizationId, tenantContext.workspaceId]).catch(() => {});
+  }
+}
+
+async function processWorkspaceJob({ pool, client, jobId, tenantContext, userId, sessionId, usageStore }) {
+  let c, locked = false;
+  let phase = 'access';
+  const lock = `vo:task:${tenantContext.workspaceId}:${jobId}`;
+  const reservation = { tenantContext, principal: { userId, sessionId } };
+  try {
+    c = await pool.getConnection();
+    const [[acquired]] = await c.execute('SELECT GET_LOCK(?, 0) AS acquired', [lock]);
+    if (Number(acquired.acquired) !== 1) return;
+    locked = true;
+    const [[job]] = await c.execute('SELECT * FROM jobs WHERE id = ? AND organization_id = ? AND workspace_id = ?', [jobId, tenantContext.organizationId, tenantContext.workspaceId]);
+    if (!job || job.status !== 'generating') return;
+    const definition = workspaceTaskDefinition(job);
+    await assertRunnerAccess(c, reservation, Boolean(tenantContext.memberPolicy));
+    await resolveWorkspaceAgent(c, tenantContext, job.agent_id);
+    const [clients] = job.client_id ? await c.execute('SELECT name, brief FROM clients WHERE id = ? AND organization_id = ? AND workspace_id = ?', [job.client_id, tenantContext.organizationId, tenantContext.workspaceId]) : [[]];
+    if (job.client_id && !clients[0]) throw userError('Klien tidak tersedia.', 404);
+    const apiClient = trackedClient(client, usageStore, { ...tenantContext, userId, sessionId, operation: 'job', resourceId: jobId, agentId: job.agent_id });
+    phase = 'generation';
+    const output = await generateWorkspaceTask({ apiClient, task: definition.task, clientRow: clients[0] });
+    phase = 'access';
+    await assertRunnerAccess(c, reservation, Boolean(tenantContext.memberPolicy));
+    await resolveWorkspaceAgent(c, tenantContext, job.agent_id);
+    phase = 'save';
+    await saveTenantJobOutput({ connection: c, job, output, definition, tenantContext, userId });
+  } catch (failure) {
+    if (locked) await c.execute("UPDATE jobs SET status = 'failed', error = ?, finished_at = NOW() WHERE id = ? AND organization_id = ? AND workspace_id = ? AND status = 'generating'", [storedTaskFailure(failure, phase), jobId, tenantContext.organizationId, tenantContext.workspaceId]).catch(() => {});
+  } finally {
+    if (locked) { try { await c.execute('SELECT RELEASE_LOCK(?) AS released', [lock]); } catch { c.destroy(); c = null; } }
+    c?.release();
   }
 }

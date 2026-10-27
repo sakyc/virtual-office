@@ -1,5 +1,7 @@
 // Converted from Dashboard (interaktif)-html.zip/Dashboard.dc.html; original SVG paths, layout and motion preserved.
 import React from 'react';
+import { BrandMark } from '../brand.jsx';
+import { preferredDark, saveTheme } from '../theme-preference.js';
 import './dashboard.css';
 
 export function DashboardSplash({ vals }) {
@@ -20,9 +22,8 @@ export function DashboardSplash({ vals }) {
 <i style={{"border": "2px dashed var(--mute)", "animationDelay": ".45s"}}></i>
 </div>
 
-<div className={"sp-word"}><span className={"sp-mark"}><svg width={"18"} height={"18"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{"Virtual Office"}</div>
+<div className={"sp-word"}><span className={"sp-mark"}><BrandMark /></span>
+{"Karyora"}</div>
 
 <div className={"sp-msg"}>{"Menyiapkan dashboard…"}</div>
 
@@ -33,11 +34,10 @@ export function DashboardSplash({ vals }) {
 }
 
 export function DashboardSidebar({ vals }) {
-  return <><aside className={"sbar"} style={{"flex": "1 1 248px", "maxWidth": "272px", "background": "var(--surface)", "borderRight": "1px solid var(--line)", "padding": "20px 14px", "display": "flex", "flexDirection": "column", "gap": "18px"}} aria-label={"Navigasi dashboard"}>
+  return <><aside className={vals.live ? "sbar sbar-live" : "sbar"} style={{"flex": "1 1 248px", "maxWidth": "272px", "background": "var(--surface)", "borderRight": "1px solid var(--line)", "padding": "20px 14px", "display": "flex", "flexDirection": "column", "gap": "18px"}} aria-label={"Navigasi dashboard"}>
 <a href={"/"} style={{"display": "flex", "alignItems": "center", "gap": "10px", "padding": "0 8px", "fontWeight": "800", "fontSize": "17px", "letterSpacing": "-.01em"}}>
-<span style={{"width": "30px", "height": "30px", "borderRadius": "9px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><svg width={"17"} height={"17"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{" Virtual Office "}</a>
+<span style={{"width": "30px", "height": "30px", "borderRadius": "9px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><BrandMark /></span>
+{" Karyora "}</a>
 
 <button type={"button"} aria-label={"Ganti workspace"} style={{"display": "flex", "alignItems": "center", "gap": "10px", "padding": "10px 12px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--ink)", "textAlign": "left"}}>
 <span style={{"width": "32px", "height": "32px", "borderRadius": "9px", "background": "var(--accentSoft)", "color": "var(--accentText)", "fontWeight": "800", "fontSize": "13px", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>{"WC"}</span>
@@ -48,10 +48,10 @@ export function DashboardSidebar({ vals }) {
 <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"var(--mute)"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M7 9l5-5 5 5M7 15l5 5 5-5"}></path></svg>
 </button>
 
-<nav style={{"display": "flex", "flexDirection": "column", "gap": "20px", "flex": "1"}}>
+<nav className="dashboard-navigation" style={{"display": "flex", "flexDirection": "column", "gap": "20px", "flex": "1"}}>
 {vals.navGroups.map((g, index1) => <React.Fragment key={index1}>
-<div style={{"display": "flex", "flexDirection": "column", "gap": "2px"}}>
-<div style={{"padding": "0 12px 6px", "fontSize": "11px", "fontWeight": "800", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "var(--mute)"}}>{g.title}</div>
+<div className="dashboard-nav-group" role="group" aria-label={g.title} style={{"display": "flex", "flexDirection": "column", "gap": "2px"}}>
+<div className="dashboard-nav-heading" style={{"padding": "0 12px 6px", "fontSize": "11px", "fontWeight": "800", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "var(--mute)"}}>{g.title}</div>
 
 {g.items.map((n, index2) => <React.Fragment key={index2}>
 <button className={"navb"} type={"button"} onClick={n.go} aria-current={n.current} style={{"display": "flex", "alignItems": "center", "gap": "12px", "width": "100%", "padding": "10px 12px", "border": "0", "borderRadius": "10px", "background": n.bg, "color": n.ink, "fontSize": "14px", "fontWeight": n.weight, "textAlign": "left", "boxShadow": n.shadow}}>
@@ -68,14 +68,15 @@ export function DashboardSidebar({ vals }) {
 </React.Fragment>)}
 </nav>
 
-<div style={{"padding": "14px", "borderRadius": "14px", "border": "1px solid var(--line)", "background": "var(--surface2)"}}>
-<div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between"}}><span style={{"fontSize": "13px", "fontWeight": "800"}}>{vals.live ? "Langganan belum tersedia" : "Paket Dasar"}</span>
+{!vals.live && <div style={{"padding": "14px", "borderRadius": "14px", "border": "1px solid var(--line)", "background": "var(--surface2)"}}>
+<div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between"}}><span style={{"fontSize": "13px", "fontWeight": "800"}}>{vals.live ? "Langganan & Saldo" : "Paket Dasar"}</span>
 <span style={{"fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{vals.live ? "—" : "62%"}</span></div>
 
 <div style={{"marginTop": "10px", "height": "8px", "borderRadius": "999px", "background": "var(--line)", "overflow": "hidden"}}><div className={"fill"} style={{"width": vals.live ? "0%" : "62%", "height": "100%", "background": "var(--grad)"}}></div></div>
 
-<p style={{"margin": "10px 0 0", "fontSize": "12px", "lineHeight": "1.5", "color": "var(--mute)"}}>{vals.live ? "Paket dan kuota akun belum ditetapkan." : "Kuota periode ini terpakai 62%."}</p>
-</div>
+<p style={{"margin": "10px 0 0", "fontSize": "12px", "lineHeight": "1.5", "color": "var(--mute)"}}>{vals.live ? "Lihat paket dan saldo organisasi Anda." : "Kuota periode ini terpakai 62%."}</p>
+{vals.live && <button type="button" onClick={vals.goBilling} style={{ marginTop: 10, fontSize: 12, fontWeight: 800, color: 'var(--accentText)' }}>Lihat langganan →</button>}
+</div>}
 
 <div style={{"display": "flex", "alignItems": "center", "gap": "10px", "padding": "4px 8px"}}>
 <span style={{"width": "36px", "height": "36px", "borderRadius": "50%", "background": "var(--accentSoft)", "color": "var(--accentText)", "fontWeight": "800", "fontSize": "13px", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>{vals.live ? vals.userInitials : "NP"}</span>
@@ -96,7 +97,7 @@ export function DashboardTopbar({ vals }) {
 <div style={{"fontSize": "18px", "fontWeight": "800", "letterSpacing": "-.015em"}}>{vals.pageTitle}</div>
 </div>
 
-<label className={"hide-sm"} style={{"flex": "1 1 240px", "maxWidth": "380px", "marginLeft": "16px", "display": "flex", "alignItems": "center", "gap": "10px", "padding": "0 14px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--mute)"}}>
+<label className={"hide-sm dashboard-search"} style={{"flex": "1 1 240px", "maxWidth": "380px", "marginLeft": "16px", "display": "flex", "alignItems": "center", "gap": "10px", "padding": "0 14px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--mute)"}}>
 <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"}></path></svg>
 
 <input type={"search"} placeholder={"Cari agent, perintah, atau item…"} aria-label={"Cari"} style={{"flex": "1", "border": "0", "background": "transparent", "outline": "none", "fontSize": "14px", "color": "var(--ink)", "minWidth": "0"}} />
@@ -105,7 +106,7 @@ export function DashboardTopbar({ vals }) {
 <div style={{"marginLeft": "auto", "display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "10px"}}>
 <button className={"btns hide-sm"} type={"button"} onClick={vals.replaySplash} aria-label={"Putar ulang splash screen"} title={"Putar ulang splash"} style={{"width": "42px", "height": "42px", "borderRadius": "12px", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--soft)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}><svg width={"17"} height={"17"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M3 12a9 9 0 1 0 3-6.7M3 4v5h5"}></path></svg></button>
 
-<span className={"hide-sm"} style={{"padding": "5px 11px", "borderRadius": "999px", "background": "var(--warnSoft)", "color": "var(--warn)", "fontSize": "12px", "fontWeight": "700"}}>{vals.live ? "Workspace aktif" : "Data contoh"}</span>
+{vals.live ? vals.balanceIndicator : <span className={"hide-sm"} style={{"padding": "5px 11px", "borderRadius": "999px", "background": "var(--warnSoft)", "color": "var(--warn)", "fontSize": "12px", "fontWeight": "700"}}>Data contoh</span>}
 
 {!vals.live && <div role={"group"} aria-label={"Lihat sebagai"} style={{"display": "flex", "padding": "3px", "borderRadius": "11px", "background": "var(--surface2)", "border": "1px solid var(--line)"}}>
 <button type={"button"} onClick={vals.asOwner} aria-pressed={vals.isOwner} style={{"padding": "7px 12px", "border": "0", "borderRadius": "8px", "fontSize": "13px", "fontWeight": "700", "background": vals.ownerBg, "color": vals.ownerInk}}>{"Owner"}</button>
@@ -593,8 +594,6 @@ export function DashboardUsage({ vals }) {
 <div style={{"display": "flex", "justifyContent": "space-between", "fontSize": "14px"}}><span style={{"fontWeight": "700"}}>{"Dikelola platform"}</span>
 <span style={{"fontWeight": "800"}}>{"100%"}</span></div>
 
-<div style={{"display": "flex", "justifyContent": "space-between", "fontSize": "14px"}}><span style={{"fontWeight": "700", "color": "var(--mute)"}}>{"API key sendiri (BYOK)"}</span>
-<span style={{"fontWeight": "800", "color": "var(--mute)"}}>{"0%"}</span></div>
 </div>
 
 <p style={{"margin": "14px 0 0", "fontSize": "12px", "lineHeight": "1.55", "color": "var(--mute)"}}>{"Biaya platform, biaya provider, dan biaya tambahan akan ditampilkan terpisah."}</p>
@@ -681,45 +680,11 @@ export function DashboardMembers({ vals }) {
 }
 
 export function DashboardApiKeys({ vals }) {
-  return <>{vals.v.keys ? <>
-<div ><h1 style={{"margin": "0", "fontSize": "28px", "letterSpacing": "-.025em", "fontWeight": "800"}}>{"API Key & Provider"}</h1>
-<p style={{"margin": "6px 0 0", "fontSize": "15px", "color": "var(--soft)"}}>{"Pilih sumber model AI untuk workspace ini."}</p></div>
-
-<div style={{"display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(320px,1fr))", "gap": "16px"}}>
-<section style={{"padding": "24px", "border": "2px solid var(--accent)", "borderRadius": "16px", "background": "var(--surface)"}}>
-<div style={{"display": "flex", "alignItems": "center", "gap": "10px"}}><span style={{"width": "12px", "height": "12px", "borderRadius": "50%", "background": "var(--accentText)"}}></span>
-<h2 style={{"margin": "0", "fontSize": "17px", "fontWeight": "800"}}>{"Dikelola platform"}</h2>
-<span style={{"marginLeft": "auto", "padding": "4px 10px", "borderRadius": "999px", "background": "var(--okSoft)", "color": "var(--ok)", "fontSize": "12px", "fontWeight": "700"}}>{"Aktif"}</span></div>
-
-<p style={{"margin": "12px 0 0", "fontSize": "14px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Langsung pakai tanpa konfigurasi. Penggunaan dihitung terhadap kuota paket Anda."}</p>
-</section>
-
-<section style={{"padding": "24px", "border": "1px solid var(--line)", "borderRadius": "16px", "background": "var(--surface)"}}>
-<div style={{"display": "flex", "alignItems": "center", "gap": "10px"}}><span style={{"width": "12px", "height": "12px", "borderRadius": "50%", "border": "2px solid var(--mute)"}}></span>
-<h2 style={{"margin": "0", "fontSize": "17px", "fontWeight": "800"}}>{"API key sendiri (BYOK)"}</h2>
-<span style={{"marginLeft": "auto", "padding": "4px 10px", "borderRadius": "999px", "background": "var(--surface2)", "border": "1px solid var(--line)", "fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"Segera hadir"}</span></div>
-
-<p style={{"margin": "12px 0 0", "fontSize": "14px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Gunakan kredensial provider milik Anda. Biaya provider ditagihkan ke akun Anda."}</p>
-</section>
-</div>
-
-<section style={{"padding": "24px", "border": "1px solid var(--line)", "borderRadius": "16px", "background": "var(--surface)", "boxShadow": "var(--shadow)"}}>
-<h2 style={{"margin": "0", "fontSize": "16px", "fontWeight": "800"}}>{"Tambah API key"}</h2>
-
-<div style={{"marginTop": "16px", "display": "flex", "flexWrap": "wrap", "gap": "14px", "alignItems": "flex-end"}}>
-<label style={{"flex": "1 1 200px", "fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"Provider"}
-<div style={{"marginTop": "6px", "padding": "12px 14px", "borderRadius": "10px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "14px", "fontWeight": "600", "display": "flex", "justifyContent": "space-between"}}>{"Anthropic"}
-<svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"var(--mute)"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}><path d={"M6 9l6 6 6-6"}></path></svg></div></label>
-
-<label style={{"flex": "2 1 280px", "fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"API key"}
-<input type={"password"} placeholder={"sk-ant-…"} disabled style={{"marginTop": "6px", "width": "100%", "padding": "12px 14px", "borderRadius": "10px", "border": "1px solid var(--line)", "background": "var(--bg)", "color": "var(--ink)", "fontSize": "14px"}} /></label>
-
-<button type={"button"} disabled style={{"padding": "12px 20px", "border": "0", "borderRadius": "10px", "background": "var(--surface2)", "color": "var(--mute)", "fontSize": "14px", "fontWeight": "700", "cursor": "not-allowed"}}>{"Simpan"}</button>
-</div>
-
-<p style={{"margin": "14px 0 0", "fontSize": "12px", "lineHeight": "1.6", "color": "var(--mute)"}}>{"Key disimpan terenkripsi dan tidak pernah ditampilkan utuh setelah disimpan."}</p>
-</section>
-</> : null}</>;
+  return vals.v.keys ? <section style={{ padding: 24, border: '1px solid var(--line)', borderRadius: 16, background: 'var(--surface)' }}>
+    <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Model AI dikelola platform</h2>
+    <p style={{ color: 'var(--soft)', lineHeight: 1.7 }}>Semua akses model AI disediakan oleh Karyora. Anda tidak perlu memasukkan API key atau membuat akun provider sendiri.</p>
+    <p style={{ color: 'var(--soft)', lineHeight: 1.7 }}>Pilih model yang tersedia dari area input chat. Lihat pencatatan penggunaan di menu Penggunaan AI, serta paket dan saldo rupiah di Langganan &amp; Saldo.</p>
+  </section> : null;
 }
 
 export function DashboardOrganizations({ vals }) {
@@ -869,15 +834,24 @@ export function DashboardLayout({ vals }) { return <div className={vals.rootClas
 </div>
 </div>; }
 
+// Document-scoped: SPA navigation must not replay the initial splash.
+// A full browser refresh reloads the module, so initial loading still has it.
+let dashboardSplashSeen = false;
+
 export class DashboardDesign extends React.Component {
   constructor(props) {
     super(props);
     let sys = false;
-    try { sys = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { sys = false; }
-    const splash = !(props && props.splash === false);
-    this.state = { dark: !!(props && props.dark) || sys, role: 'owner', view: 'overview', div: 'all', tab: 'draft', sel: 0, overage: false, sp: splash ? 'on' : 'off', splash };
+    try { let storage; try { storage = window.localStorage; } catch {} sys = preferredDark({ storage, media: window.matchMedia?.bind(window) }); } catch { sys = false; }
+    const splash = !(props && props.splash === false) && !(props?.splashOnce && dashboardSplashSeen);
+    this.state = { dark: typeof props?.dark === 'boolean' ? props.dark : sys, role: 'owner', view: 'overview', div: 'all', tab: 'draft', sel: 0, overage: false, sp: splash ? 'on' : 'off', splash };
   }
-  componentDidMount() { if (this.state.splash) this.runSplash(); }
+  componentDidMount() {
+    if (this.state.splash) {
+      if (this.props.splashOnce) dashboardSplashSeen = true;
+      this.runSplash();
+    }
+  }
   componentWillUnmount() { clearTimeout(this._t1); clearTimeout(this._t2); }
   runSplash() {
     clearTimeout(this._t1); clearTimeout(this._t2);
@@ -907,7 +881,7 @@ export class DashboardDesign extends React.Component {
     };
     const TITLE = {
       overview: 'Overview', office: 'Kantor 3D', agents: 'Agent', jobs: 'Perintah & Board', workflows: 'Workflow',
-      usage: 'Penggunaan & Billing', members: 'Anggota', keys: 'API Key & Provider', settings: 'Pengaturan',
+      usage: 'Penggunaan & Billing', members: 'Anggota', keys: 'Model AI', settings: 'Pengaturan',
       tenants: 'Organisasi', plans: 'Paket & Entitlement', templates: 'Template & Prompt', models: 'Model Registry',
     };
     const SOON = {
@@ -933,7 +907,7 @@ export class DashboardDesign extends React.Component {
 
     const navGroups = [
       { title: 'Utama', items: [mk('overview', 'Overview'), mk('office', 'Kantor 3D'), mk('agents', 'Agent'), mk('jobs', 'Perintah', { badge: '7' }), mk('workflows', 'Workflow', { soon: true })] },
-      { title: 'Kelola', items: [mk('usage', 'Penggunaan & Billing'), mk('members', 'Anggota'), mk('keys', 'API Key'), mk('settings', 'Pengaturan')] },
+      { title: 'Kelola', items: [mk('usage', 'Penggunaan & Billing'), mk('members', 'Anggota'), mk('keys', 'Model AI'), mk('settings', 'Pengaturan')] },
     ];
     if (isAdmin) {
       navGroups.push({ title: 'Admin platform', items: [mk('tenants', 'Organisasi'), mk('plans', 'Paket & Entitlement'), mk('templates', 'Template & Prompt', { soon: true }), mk('models', 'Model Registry', { soon: true })] });
@@ -1063,7 +1037,7 @@ export class DashboardDesign extends React.Component {
     const Y = 'Ya', N = 'Tidak', T = 'sesuai entitlement';
     const entitlements = [
       ['Template agent', Y, Y, Y], ['Template workflow', Y, Y, Y], ['Kustomisasi agent', N, T, T], ['Workflow builder', N, T, T],
-      ['Kuota token per periode', '[menyusul]', '[menyusul]', '[menyusul]'], ['Biaya tambahan (overage)', N, Y, Y], ['API key sendiri (BYOK)', N, Y, Y],
+      ['Kuota token per periode', '[menyusul]', '[menyusul]', '[menyusul]'], ['Biaya tambahan (overage)', N, Y, Y], ['API dikelola platform', Y, Y, Y],
       ['Batas anggota', '[menyusul]', '[menyusul]', '[menyusul]'],
     ].map((r) => {
       const ink = (v) => (v === N ? 'var(--mute)' : (v.charAt(0) === '[' ? 'var(--warn)' : 'var(--ink)'));
@@ -1077,7 +1051,7 @@ export class DashboardDesign extends React.Component {
       splashOn: s.sp !== 'off', splashClass: s.sp === 'out' ? 'splash out' : 'splash',
       replaySplash: () => this.runSplash(),
       themeIcon: s.dark ? 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4' : 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
-      toggleTheme: () => set({ dark: !s.dark }),
+      toggleTheme: () => { const dark = !s.dark; set({ dark }); try { saveTheme(dark, window.localStorage); } catch {} },
       navGroups,
       pageTitle: TITLE[view],
       roleLabel,

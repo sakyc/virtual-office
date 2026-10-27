@@ -16,7 +16,7 @@ test('all nine room shells stay visible, including the former lounge as an empty
 });
 
 test('example capacities control empty versus locked rooms without defining real packages', () => {
-  for (const capacity of [0, 1, 4, 8]) {
+  for (const capacity of [0, 1, 3, 4, 8]) {
     const rooms = officeRoomLayout([], capacity);
     assert.equal(rooms.filter((room) => room.roomState === 'empty').length, capacity);
     assert.equal(rooms.filter((room) => room.roomState === 'locked').length, 9 - capacity);
@@ -28,6 +28,7 @@ test('existing rooms retain their names, location and content; capacity never de
   const division = { id: 'owned', name: 'Konten', color: '#4f7cff', row: 2, col: 1 };
   const rooms = officeRoomLayout([division], 1);
   assert.deepEqual(rooms[7], { ...division, roomState: 'occupied' });
+  assert.equal(rooms.filter(room => room.roomState !== 'locked').length, 1);
   assert.deepEqual(division, { id: 'owned', name: 'Konten', color: '#4f7cff', row: 2, col: 1 });
   assert.throws(() => officeRoomLayout([division, division]));
   assert.throws(() => officeRoomLayout([{ ...division, col: 2 }]));
@@ -45,6 +46,8 @@ test('empty and locked geometry has walls but no employee pickables, including a
     assert.equal(scene.children.filter((object) => object.isGroup).length, 9);
     assert.equal(office.chars.length, 0);
     assert.equal(office.pickables.length, 0);
+    assert.ok(office.roomPickables.every(mesh => mesh.userData.roomId.startsWith('office-room:')));
+    assert.equal(new Set(office.roomPickables.map(mesh => mesh.userData.roomId)).size, capacity === null ? 0 : 9 - capacity);
     assert.equal(office.byId.size, 0);
     assert.equal([...office.rooms.values()].filter((room) => room.state === 'locked').length, capacity === null ? 0 : 9 - capacity);
     assert.ok([...office.rooms.values()].every((room) => room.group.children[0].children.length >= 10));

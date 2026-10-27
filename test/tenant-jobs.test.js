@@ -48,7 +48,7 @@ test('job runner tracks every provider attempt with server-derived scope even wh
   } };
   const usageStore = { async start(scope) { entries.push(scope); return `usage-${entries.length}`; }, async finish() {} };
   const client = { messages: { create: async () => ({ content: [], stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 7 } }) } };
-  await processTenantJob({ pool, client, DEMO: false, models: { leader: 'fixture', team: 'fixture' }, jobId: 44, tenantContext: context, userId: 9, usageStore });
+  await processTenantJob({ pool, client, DEMO: false, models: { leader: 'fixture', team: 'fixture' }, jobId: 44, tenantContext: context, userId: 9, sessionId: 2, usageStore });
   assert.equal(entries.length, 2);
-  for (const entry of entries) assert.deepEqual(entry, { ...context, userId: 9, operation: 'job', resourceId: 44, agentId: 'bagas' });
+  for (const entry of entries) assert.deepEqual(entry, { ...context, userId: 9, sessionId: 2, operation: 'job', resourceId: 44, agentId: 'bagas' });
 });

@@ -1,6 +1,10 @@
 // Converted from Landing Page-html.zip/Main.dc.html; original SVG paths, layout and motion preserved.
 import React from 'react';
+import { BrandMark } from '../brand.jsx';
+import { preferredDark, saveTheme } from '../theme-preference.js';
 import './landing.css';
+import { BillingPolicyNote } from '../pricing-cards.jsx';
+import { PublicPricing } from '../public-pricing.jsx';
 
 export function LandingSplash({ vals }) {
   return <>{vals.splashOn ? <>
@@ -20,9 +24,8 @@ export function LandingSplash({ vals }) {
 <i style={{"border": "2px dashed var(--mute)", "animationDelay": ".45s"}}></i>
 </div>
 
-<div className={"sp-word"}><span className={"sp-mark"}><svg width={"18"} height={"18"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{"Virtual Office"}</div>
+<div className={"sp-word"}><span className={"sp-mark"}><BrandMark /></span>
+{"Karyora"}</div>
 
 <div className={"sp-msg"}>{"Menyiapkan kantor…"}</div>
 
@@ -37,10 +40,9 @@ export function LandingNavigation({ vals }) {
 <div style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "16px 24px", "display": "flex", "alignItems": "center", "gap": "32px"}}>
 <a href={"#top"} style={{"display": "flex", "alignItems": "center", "gap": "10px", "fontWeight": "800", "fontSize": "18px", "letterSpacing": "-.01em", "color": "var(--ink)"}}>
 <span style={{"width": "32px", "height": "32px", "borderRadius": "9px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}>
-<svg width={"18"} height={"18"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg>
+<BrandMark />
 </span>
-{" Virtual Office "}</a>
+{" Karyora "}</a>
 
 <nav className={"navlinks"} aria-label={"Navigasi utama"} style={{"display": "flex", "gap": "28px", "fontSize": "14px", "fontWeight": "600", "color": "var(--soft)", "marginLeft": "8px"}}>
 <a href={"#fitur"}>{"Fitur"}</a>
@@ -85,7 +87,7 @@ export function LandingHero({ vals }) {
 <h1 className={"fu d1"} style={{"margin": "22px auto 0", "maxWidth": "860px", "fontSize": "clamp(36px,5.6vw,72px)", "lineHeight": "1.04", "letterSpacing": "-.04em", "fontWeight": "800"}}>{"Satu kantor virtual untuk seluruh "}
 <span className={"gtext"}>{"tim AI Anda."}</span></h1>
 
-<p className={"fu d2"} style={{"margin": "22px auto 0", "maxWidth": "640px", "fontSize": "clamp(16px,1.6vw,19px)", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Virtual Office mengumpulkan agent, perintah, dan hasil kerja di satu ruang kerja 3D. Beri perintah, pantau prosesnya, lalu tinjau dan setujui hasilnya."}</p>
+<p className={"fu d2"} style={{"margin": "22px auto 0", "maxWidth": "640px", "fontSize": "clamp(16px,1.6vw,19px)", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Karyora mengumpulkan agent, perintah, dan hasil kerja di satu ruang kerja 3D. Beri perintah, pantau prosesnya, lalu tinjau dan setujui hasilnya."}</p>
 
 <div className={"fu d3"} style={{"marginTop": "34px", "display": "flex", "gap": "12px", "justifyContent": "center", "flexWrap": "wrap"}}>
 <a className={"btnp"} href={"/register"} style={{"display": "inline-flex", "alignItems": "center", "gap": "8px", "padding": "15px 26px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "background": "var(--accent)", "color": "var(--onAccent)"}}>{" Mulai sekarang "}
@@ -403,7 +405,7 @@ export function LandingDivisions({ vals }) {
 <p style={{"margin": "16px 0 0", "fontSize": "17px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Setiap divisi punya ruang dan agent sendiri. Klik karakter untuk ngobrol atau beri perintah."}</p>
 </div>
 
-<a className={"btns"} href={"/app"} style={{"padding": "13px 22px", "borderRadius": "12px", "fontSize": "15px", "fontWeight": "700", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--ink)"}}>{"Coba di dashboard"}</a>
+<a className={"btns"} href={"/dashboard"} style={{"padding": "13px 22px", "borderRadius": "12px", "fontSize": "15px", "fontWeight": "700", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--ink)"}}>{"Coba di dashboard"}</a>
 </div>
 
 <div style={{"marginTop": "48px", "display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(250px,1fr))", "gap": "16px"}}>
@@ -425,52 +427,19 @@ export function LandingDivisions({ vals }) {
 </section></>;
 }
 
-export function LandingPricing({ vals }) {
-  return <><section id={"harga"} style={{"padding": "104px 24px", "background": "var(--bg2)", "borderTop": "1px solid var(--line)", "borderBottom": "1px solid var(--line)"}}>
-<div style={{"maxWidth": "1200px", "margin": "0 auto"}}>
-<div style={{"textAlign": "center", "maxWidth": "640px", "margin": "0 auto"}}>
-<div style={{"fontSize": "13px", "fontWeight": "800", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "var(--accentText)"}}>{"Harga"}</div>
-
-<h2 style={{"margin": "12px 0 0", "fontSize": "clamp(30px,3.6vw,44px)", "lineHeight": "1.1", "letterSpacing": "-.03em", "fontWeight": "800"}}>{"Mulai dari template, berkembang sesuai kebutuhan."}</h2>
-
-<p style={{"margin": "16px 0 0", "fontSize": "17px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Paket dibedakan lewat kemampuan dan kuota penggunaan. Harga dan angka kuota final menyusul."}</p>
-</div>
-
-<div style={{"marginTop": "56px", "display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(300px,1fr))", "gap": "20px", "alignItems": "stretch"}}>
-{vals.plans.map((p, index6) => <React.Fragment key={index6}>
-<article style={{"padding": "32px", "borderRadius": "20px", "background": "var(--surface)", "border": p.border, "display": "flex", "flexDirection": "column", "position": "relative"}}>
-{p.popular ? <><span style={{"position": "absolute", "top": "-13px", "left": "32px", "padding": "5px 12px", "borderRadius": "999px", "background": "var(--accent)", "color": "var(--onAccent)", "fontSize": "12px", "fontWeight": "800"}}>{"Paling banyak dipilih"}</span></> : null}
-
-<h3 style={{"margin": "0", "fontSize": "20px", "fontWeight": "800"}}>{p.name}</h3>
-
-<p style={{"margin": "8px 0 0", "fontSize": "14px", "lineHeight": "1.55", "color": "var(--soft)", "minHeight": "44px"}}>{p.tagline}</p>
-
-<div style={{"marginTop": "22px", "display": "flex", "alignItems": "baseline", "gap": "6px"}}>
-<span style={{"fontSize": "34px", "fontWeight": "800", "letterSpacing": "-.03em"}}>{p.price}</span>
-
-<span style={{"fontSize": "14px", "fontWeight": "600", "color": "var(--mute)"}}>{p.per}</span>
-</div>
-
-<a className={p.btnClass} href={"/register"} style={{"marginTop": "22px", "padding": "13px 18px", "borderRadius": "12px", "fontSize": "15px", "fontWeight": "700", "textAlign": "center", "background": p.btnBg, "color": p.btnInk, "border": "1px solid " + (p.btnLine)}}>{p.cta}</a>
-
-<ul style={{"listStyle": "none", "margin": "26px 0 0", "padding": "26px 0 0", "borderTop": "1px solid var(--line)", "display": "flex", "flexDirection": "column", "gap": "14px"}}>
-{p.rows.map((r, index7) => <React.Fragment key={index7}>
-<li style={{"display": "flex", "gap": "12px", "alignItems": "flex-start", "fontSize": "14px", "lineHeight": "1.5", "color": r.ink}}>
-<svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.4"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} style={{"flex": "none", "marginTop": "1px", "color": r.mark}}><path d={r.icon}></path></svg>
-
-<span ><span style={{"fontWeight": "700"}}>{r.label}</span>
-<span style={{"color": "var(--mute)"}}>{" " + (r.note)}</span></span>
-</li>
-</React.Fragment>)}
-</ul>
-</article>
-</React.Fragment>)}
-</div>
-
-<p style={{"margin": "28px 0 0", "textAlign": "center", "fontSize": "13px", "color": "var(--mute)"}}>{"Nama paket, harga, dan kuota di atas masih placeholder sampai keputusan bisnis ditetapkan."}</p>
-</div>
-</section></>;
+export function LandingPricing() {
+  return <section id="harga" style={{ padding: '104px 24px', background: 'var(--bg2)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', color: 'var(--accentText)' }}>HARGA</div>
+        <h2 style={{ margin: '12px 0 0', fontSize: 'clamp(30px,3.6vw,44px)', lineHeight: 1.1, letterSpacing: '-.03em', fontWeight: 800 }}>Kantor AI yang tumbuh bersama tim Anda.</h2>
+        <p style={{ marginTop: 16, fontSize: 17, lineHeight: 1.6, color: 'var(--soft)' }}>Pilih kapasitas divisi, anggota, dan saldo AI yang sesuai. Satu paket untuk satu organisasi.</p>
+      </div>
+      <PublicPricing/><BillingPolicyNote/>
+    </div>
+  </section>;
 }
+
 
 export function LandingSecurity({ vals }) {
   return <><section style={{"padding": "104px 24px", "background": "var(--bg)"}}>
@@ -480,7 +449,7 @@ export function LandingSecurity({ vals }) {
 
 <h2 style={{"margin": "12px 0 0", "fontSize": "clamp(30px,3.6vw,44px)", "lineHeight": "1.1", "letterSpacing": "-.03em", "fontWeight": "800"}}>{"Data tim Anda tetap milik tim Anda."}</h2>
 
-<p style={{"margin": "16px 0 0", "fontSize": "17px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Virtual Office dirancang multi-tenant. Setiap organisasi dan workspace dipisahkan, dan hak akses diperiksa di server, bukan hanya di tampilan."}</p>
+<p style={{"margin": "16px 0 0", "fontSize": "17px", "lineHeight": "1.6", "color": "var(--soft)"}}>{"Karyora dirancang multi-tenant. Setiap organisasi dan workspace dipisahkan, dan hak akses diperiksa di server, bukan hanya di tampilan."}</p>
 
 <ul style={{"listStyle": "none", "margin": "28px 0 0", "padding": "0", "display": "flex", "flexDirection": "column", "gap": "16px"}}>
 {vals.security.map((s, index8) => <React.Fragment key={index8}>
@@ -497,24 +466,15 @@ export function LandingSecurity({ vals }) {
 <div style={{"flex": "1 1 400px", "minWidth": "0"}}>
 <div style={{"border": "1px solid var(--line)", "borderRadius": "20px", "background": "var(--surface)", "boxShadow": "var(--shadow)", "padding": "24px"}}>
 <div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between"}}><div style={{"fontSize": "15px", "fontWeight": "800"}}>{"Sumber model AI"}</div>
-<span style={{"fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"Hybrid"}</span></div>
+<span style={{"fontSize": "12px", "fontWeight": "700", "color": "var(--mute)"}}>{"Disediakan Karyora"}</span></div>
 
 <div style={{"marginTop": "16px", "padding": "16px", "borderRadius": "14px", "border": "2px solid var(--accent)", "background": "var(--accentSoft)"}}>
 <div style={{"display": "flex", "alignItems": "center", "gap": "10px"}}><span style={{"width": "10px", "height": "10px", "borderRadius": "50%", "background": "var(--accentText)"}}></span>
 <span style={{"fontSize": "15px", "fontWeight": "800"}}>{"Dikelola platform"}</span></div>
 
-<p style={{"margin": "8px 0 0", "fontSize": "14px", "lineHeight": "1.55", "color": "var(--soft)"}}>{"Langsung pakai. Penggunaan dihitung terhadap kuota paket."}</p>
+<p style={{"margin": "8px 0 0", "fontSize": "14px", "lineHeight": "1.55", "color": "var(--soft)"}}>{"Tidak perlu API key sendiri. Akses model AI disediakan Karyora, dengan pencatatan penggunaan yang dapat dipantau dari dashboard."}</p>
 </div>
 
-<div style={{"marginTop": "12px", "padding": "16px", "borderRadius": "14px", "border": "1px solid var(--line)"}}>
-<div style={{"display": "flex", "alignItems": "center", "gap": "10px"}}><span style={{"width": "10px", "height": "10px", "borderRadius": "50%", "border": "2px solid var(--mute)"}}></span>
-<span style={{"fontSize": "15px", "fontWeight": "800"}}>{"API key sendiri (BYOK)"}</span>
-<span style={{"marginLeft": "auto", "padding": "3px 9px", "borderRadius": "999px", "background": "var(--bg2)", "border": "1px solid var(--line)", "fontSize": "11px", "fontWeight": "700", "color": "var(--mute)"}}>{"Segera hadir"}</span></div>
-
-<p style={{"margin": "8px 0 0", "fontSize": "14px", "lineHeight": "1.55", "color": "var(--soft)"}}>{"Biaya provider ditagihkan ke akun Anda. Key tidak pernah ditampilkan utuh."}</p>
-
-<div style={{"marginTop": "12px", "padding": "11px 14px", "borderRadius": "10px", "background": "var(--bg2)", "fontSize": "13px", "fontWeight": "600", "color": "var(--mute)", "letterSpacing": ".06em"}}>{"sk-ant-••••••••••••3f2a"}</div>
-</div>
 </div>
 </div>
 </div>
@@ -583,9 +543,8 @@ export function LandingFooter({ vals }) {
 <div style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "56px 24px 40px", "display": "flex", "flexWrap": "wrap", "gap": "40px", "justifyContent": "space-between"}}>
 <div style={{"maxWidth": "320px"}}>
 <div style={{"display": "flex", "alignItems": "center", "gap": "10px", "fontWeight": "800", "fontSize": "17px"}}>
-<span style={{"width": "30px", "height": "30px", "borderRadius": "8px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><svg width={"16"} height={"16"} viewBox={"0 0 32 32"}><rect x={"5"} y={"6"} width={"22"} height={"15"} rx={"3"} fill={"#fff"}></rect>
-<rect x={"11"} y={"24"} width={"10"} height={"3"} rx={"1.5"} fill={"#fff"}></rect></svg></span>
-{" Virtual Office "}</div>
+<span style={{"width": "30px", "height": "30px", "borderRadius": "8px", "background": "#4f7cff", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}} aria-hidden={"true"}><BrandMark /></span>
+{" Karyora "}</div>
 
 <p style={{"margin": "14px 0 0", "fontSize": "14px", "lineHeight": "1.65", "color": "var(--soft)"}}>{"Kantor virtual berbasis AI untuk tim dan agensi."}</p>
 </div>
@@ -606,7 +565,7 @@ export function LandingFooter({ vals }) {
 </div>
 </div>
 
-<div style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "20px 24px 32px", "borderTop": "1px solid var(--line)", "fontSize": "13px", "color": "var(--mute)"}}>{"© 2026 Virtual Office. Hak cipta dilindungi."}</div>
+<div style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "20px 24px 32px", "borderTop": "1px solid var(--line)", "fontSize": "13px", "color": "var(--mute)"}}>{"© 2026 Karyora. Hak cipta dilindungi."}</div>
 </footer></>;
 }
 
@@ -674,9 +633,12 @@ export class LandingDesign extends React.Component {
   constructor(props) {
     super(props);
     let sys = false;
-    try { sys = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { sys = false; }
+    try {
+      let storage; try { storage = window.localStorage; } catch {}
+      sys = preferredDark({ storage, media: window.matchMedia?.bind(window) });
+    } catch { sys = false; }
     const splash = !(props && props.splash === false);
-    this.state = { dark: !!(props && props.dark) || sys, faq: 0, sp: splash ? 'on' : 'off', splash };
+    this.state = { dark: typeof props?.dark === 'boolean' ? props.dark : sys, faq: 0, sp: splash ? 'on' : 'off', splash };
   }
   componentDidMount() {
     if (!this.state.splash) return;
@@ -700,8 +662,6 @@ export class LandingDesign extends React.Component {
     const sp = this.state.sp;
     const sunPath = 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4';
     const moonPath = 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z';
-    const tick = 'M20 6L9 17l-5-5';
-    const dash = 'M5 12h14';
 
     const stats = [
       { value: '8', label: 'divisi kerja' },
@@ -736,53 +696,20 @@ export class LandingDesign extends React.Component {
       { name: 'Finance', color: '#64748b', count: '1 agent', agents: 'Melati' },
     ];
 
-    const row = (label, note, kind) => ({
-      label, note,
-      icon: kind === 'yes' ? tick : (kind === 'soon' ? dash : dash),
-      mark: kind === 'yes' ? 'var(--ok)' : 'var(--mute)',
-      ink: kind === 'yes' ? 'var(--ink)' : 'var(--mute)',
-    });
-    const plans = [
-      {
-        name: 'Dasar', tagline: 'Untuk mencoba dan tim kecil yang butuh template siap pakai.', price: '[Rp —]', per: '/ bulan', popular: false,
-        border: '1px solid var(--line)', cta: 'Mulai dengan Dasar', btnClass: 'btns', btnBg: 'var(--surface)', btnInk: 'var(--ink)', btnLine: 'var(--line)',
-        rows: [
-          row('Template agent', '', 'yes'), row('Template workflow', '', 'yes'), row('Kantor 3D dan board', '', 'yes'),
-          row('Kuota', '[unit dan jumlah menyusul]', 'yes'), row('Kustomisasi agent', 'tidak tersedia', 'no'), row('API key sendiri', 'tidak tersedia', 'no'),
-        ],
-      },
-      {
-        name: 'Pro', tagline: 'Untuk tim yang ingin menyesuaikan agent dan alur kerjanya.', price: '[Rp —]', per: '/ bulan', popular: true,
-        border: '2px solid var(--accent)', cta: 'Mulai dengan Pro', btnClass: 'btnp', btnBg: 'var(--accent)', btnInk: 'var(--onAccent)', btnLine: 'var(--accent)',
-        rows: [
-          row('Semua fitur Dasar', '', 'yes'), row('Kustomisasi agent', 'sesuai entitlement', 'yes'), row('Workflow builder', 'segera hadir', 'yes'),
-          row('Kuota lebih besar', '[menyusul]', 'yes'), row('Biaya tambahan (overage)', 'dengan batas pengeluaran', 'yes'), row('API key sendiri (BYOK)', 'segera hadir', 'yes'),
-        ],
-      },
-      {
-        name: 'Enterprise', tagline: 'Untuk organisasi dengan kebutuhan khusus dan banyak anggota.', price: 'Hubungi kami', per: '', popular: false,
-        border: '1px solid var(--line)', cta: 'Bicara dengan kami', btnClass: 'btns', btnBg: 'var(--surface)', btnInk: 'var(--ink)', btnLine: 'var(--line)',
-        rows: [
-          row('Semua fitur Pro', '', 'yes'), row('Batas anggota dan workspace', '[menyusul]', 'yes'), row('Dukungan prioritas', '', 'yes'),
-          row('Kontrol administrasi lanjutan', '', 'yes'), row('Audit trail', '', 'yes'), row('Retensi data kustom', '', 'yes'),
-        ],
-      },
-    ];
-
     const security = [
       { title: 'Terisolasi per organisasi', body: 'Data, anggota, dan resource tiap organisasi dan workspace dipisahkan.' },
       { title: 'Peran yang jelas', body: 'Owner, member, dan viewer punya hak akses berbeda, diperiksa di server.' },
-      { title: 'Kunci dilindungi', body: 'API key tidak ditampilkan ulang secara utuh dan tidak dicatat di log.' },
+      { title: 'API dikelola platform', body: 'Kredensial provider berada di server. Pengguna tidak perlu memasukkan API key sendiri.' },
       { title: 'Penggunaan terlacak', body: 'Setiap pemakaian dicatat per workspace, jadi biaya mudah ditelusuri.' },
     ];
 
     const faqData = [
-      { q: 'Apa itu Virtual Office?', a: 'Platform kerja berbasis AI. Anda mengelola agent, memberi perintah, dan meninjau hasilnya dalam satu aplikasi, dengan kantor 3D sebagai antarmuka visualnya.' },
+      { q: 'Apa itu Karyora?', a: 'Platform kerja berbasis AI. Anda mengelola agent, memberi perintah, dan meninjau hasilnya dalam satu aplikasi, dengan kantor 3D sebagai antarmuka visualnya.' },
       { q: 'Apakah hasil AI langsung dikirim ke klien?', a: 'Tidak. Semua hasil berupa draft di board. Tim Anda yang meninjau, merevisi, dan menyetujuinya sebelum dipakai.' },
-      { q: 'Apakah data tim saya terpisah dari pelanggan lain?', a: 'Ya. Virtual Office dirancang multi-tenant: data dan hak akses setiap organisasi dipisahkan dan diperiksa di sisi server.' },
-      { q: 'Bisakah memakai API key sendiri?', a: 'Dukungan API key sendiri (BYOK) sedang disiapkan. Biaya provider akan ditagihkan ke akun pemilik key.' },
-      { q: 'Bagaimana kuota dan biaya tambahan dihitung?', a: 'Unit kuota, tarif, dan aturan biaya tambahan diumumkan bersama paket final. Anda akan bisa memantau pemakaian dan menetapkan batas pengeluaran.' },
-      { q: 'Apakah ada aplikasi desktop?', a: 'Saat ini Virtual Office berjalan di web. Aplikasi desktop dipertimbangkan setelah versi web stabil.' },
+      { q: 'Apakah data tim saya terpisah dari pelanggan lain?', a: 'Ya. Karyora dirancang multi-tenant: data dan hak akses setiap organisasi dipisahkan dan diperiksa di sisi server.' },
+      { q: 'Apakah perlu API key sendiri?', a: 'Tidak. Semua akses model AI disediakan oleh Karyora. Anda cukup memilih model yang tersedia dan memantau penggunaan serta saldo rupiah melalui dashboard.' },
+      { q: 'Bagaimana saldo AI digunakan?', a: 'Setiap paket menyertakan saldo AI rupiah untuk periode bulanan. Saldo paket digunakan lebih dahulu; saldo top up tidak kedaluwarsa. Tidak ada limit 5 jam atau mingguan. Pembayaran, top up, dan pemotongan saldo otomatis belum aktif.' },
+      { q: 'Apakah ada aplikasi desktop?', a: 'Saat ini Karyora berjalan di web. Aplikasi desktop dipertimbangkan setelah versi web stabil.' },
     ];
     const faqs = faqData.map((f, i) => ({
       ...f,
@@ -794,10 +721,14 @@ export class LandingDesign extends React.Component {
     return {
       rootClass: 'vo' + (dark ? ' dark' : '') + (this.state.splash ? '' : ' nosp'),
       themeIcon: dark ? sunPath : moonPath,
-      toggleTheme: () => this.setState({ dark: !this.state.dark }),
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        this.setState({ dark });
+        try { saveTheme(dark, window.localStorage); } catch {}
+      },
       splashOn: sp !== 'off', splashClass: sp === 'out' ? 'splash out' : 'splash',
       marquee,
-      stats, features, steps, divisions, plans, security, faqs,
+      stats, features, steps, divisions, security, faqs,
     };
   }
 

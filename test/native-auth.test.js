@@ -41,7 +41,7 @@ async function fixture(t, { failed = false, duplicate = false, suspended = false
     method: 'POST', headers: { Origin: 'http://localhost:5173', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body),
   }) };
 }
-const registration = { displayName: 'Local Person', email: ' Person@Example.Test ', password: 'Lentera!9Kantor' };
+const registration = { displayName: 'Local Person', email: ' Person@Example.Test ', password: 'Lentera!9Kantor', whatsappNumber: '081234567890' };
 
 test('password checklist reports each rule independently, including forward/reverse sequences', () => {
   assert.ok(passwordRequirements(registration.password).every((rule) => rule.passed));

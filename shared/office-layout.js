@@ -16,12 +16,14 @@ export function officeRoomLayout(divisions, divisionCapacity = null) {
         slot < 0 || slot >= MAX_DIVISIONS || occupied.has(slot)) throw new Error('Posisi ruangan tidak valid.');
     occupied.set(slot, division);
   }
+  let vacancies = divisionCapacity === null ? OFFICE_ROOM_COUNT : Math.max(0, divisionCapacity - occupied.size);
   return Array.from({ length: OFFICE_ROOM_COUNT }, (_, slot) => {
     const division = occupied.get(slot);
     // Existing divisions are never hidden/evicted by a presentation capacity change.
     // Downgrade and entitlement enforcement require a separate server policy.
     if (division) return { ...division, roomState: 'occupied' };
-    const locked = divisionCapacity !== null && slot >= divisionCapacity;
+    const locked = vacancies <= 0;
+    if (!locked) vacancies--;
     return { id: `office-room:${slot}`, name: locked ? 'Terkunci' : 'Ruangan kosong',
       color: locked ? '#94a3b8' : '#b6c4d7', row: Math.floor(slot / 3), col: slot % 3,
       roomState: locked ? 'locked' : 'empty' };

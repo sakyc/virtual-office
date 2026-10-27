@@ -5,7 +5,7 @@ import { destinationForProfile, loadAuthProfile, logoutSession, redirectForProte
 test('post-login destination uses server profile with no user-controlled redirects', () => {
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [] }), '/onboarding');
   assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [{ id: 3 }] }), null);
-  assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [{ id: 3 }], activeWorkspace: { id: 3 } }), '/app');
+  assert.equal(destinationForProfile({ user: { id: 1 }, workspaces: [{ id: 3 }], activeWorkspace: { id: 3 } }), '/dashboard');
   assert.throws(() => destinationForProfile({ workspaces: [] }), /Profil sesi/);
   assert.throws(() => destinationForProfile({ user: { id: 1 } }), /Profil sesi/);
 });
@@ -14,14 +14,14 @@ test('protected pages require a session and onboarding only runs before first wo
   const fresh = { user: { id: 1 }, workspaces: [] };
   const choosing = { ...fresh, workspaces: [{ id: 3 }] };
   const ready = { ...choosing, activeWorkspace: { id: 3 } };
-  for (const path of ['/app', '/app/office', '/app/board', '/onboarding']) assert.equal(redirectForProtectedPath(null, path), '/login');
-  assert.equal(redirectForProtectedPath(fresh, '/app'), '/onboarding');
+  for (const path of ['/dashboard', '/dashboard/office', '/dashboard/board', '/onboarding']) assert.equal(redirectForProtectedPath(null, path), '/login');
+  assert.equal(redirectForProtectedPath(fresh, '/dashboard'), '/onboarding');
   assert.equal(redirectForProtectedPath(fresh, '/onboarding'), null);
   assert.equal(redirectForProtectedPath(choosing, '/onboarding'), '/login/complete');
-  assert.equal(redirectForProtectedPath(choosing, '/app'), '/login/complete');
-  assert.equal(redirectForProtectedPath(ready, '/onboarding'), '/app');
-  assert.equal(redirectForProtectedPath(ready, '/app'), null);
-  assert.equal(redirectForProtectedPath(ready, '/app/office'), null);
+  assert.equal(redirectForProtectedPath(choosing, '/dashboard'), '/login/complete');
+  assert.equal(redirectForProtectedPath(ready, '/onboarding'), '/dashboard');
+  assert.equal(redirectForProtectedPath(ready, '/dashboard'), null);
+  assert.equal(redirectForProtectedPath(ready, '/dashboard/office'), null);
 });
 
 test('logout uses existing same-origin POST endpoint and sanitizes service failures', async (t) => {

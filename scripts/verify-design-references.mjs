@@ -52,7 +52,7 @@ try {
     return info;
   };
   const report=[];
-  const pages = [['landing','/landing-reference/Main.dc.html','/'],['onboarding','/onboarding-reference/Onboarding.dc.html','/onboarding'],['dashboard','/dashboard-reference/Dashboard.dc.html','/app']];
+  const pages = [['landing','/landing-reference/Main.dc.html','/'],['onboarding','/onboarding-reference/Onboarding.dc.html','/onboarding'],['dashboard','/dashboard-reference/Dashboard.dc.html','/dashboard']];
   const scenarios = [
     ...pages.map((page)=>[...page,'desktop',1440]),
     ...pages.map((page)=>[...page,'dark',1440]),
@@ -86,7 +86,7 @@ try {
   await fill('mis. Tim Kreatif','Design QA Workspace'); await fill('Nama klien','Design QA Client'); await fill('Brand voice, produk, dan target audiens','Fixture brief'); await click('Lanjut');
   await click('Buka kantor'); await delay(300);
   const submission=calls.find(call=>call.path==='/api/onboarding'); assert.ok(submission,'Onboarding uses the existing API'); assert.equal(JSON.parse(submission.body).organizationName,'Design QA Organization'); assert.equal(JSON.parse(submission.body).teamSize,'1-5');
-  await open('/app'); await click('Buka kantor'); await delay(200); assert.equal(await evaluate('location.pathname'),'/app/office');
+  await open('/dashboard'); await click('Buka kantor'); await delay(200); assert.equal(await evaluate('location.pathname'),'/dashboard/office');
   assert.deepEqual(errors,[],'No browser runtime errors');
   writeFileSync(join(output,'report.json'),JSON.stringify({report,errors,calls},null,2));
   for (const comparison of report) {

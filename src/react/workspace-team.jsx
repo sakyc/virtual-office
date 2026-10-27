@@ -11,7 +11,7 @@ export function AgentFields({ value, onChange, models = [] }) {
     <label>Tugas dan instruksi<textarea required maxLength={4000} rows={4} placeholder="Jelaskan hasil yang diharapkan dan cara agen membantu." value={value.instructions} onChange={field('instructions')}/></label>
     <label>Model default<select value={value.modelTier} onChange={field('modelTier')}>
       {['team', 'leader'].map((id) => <option key={id} value={id}>{models.find((m) => m.id === id)?.name || (id === 'team' ? 'Model anggota dari konfigurasi server' : 'Model leader dari konfigurasi server')}</option>)}
-    </select></label><small>Model yang tersedia ditentukan server. Estimasi harga belum tersedia; panggilan AI menggunakan saldo provider.</small>
+    </select></label><small>Ini model default untuk tugas agen. Untuk percakapan, pilihan model lain tersedia di area input chat kantor. Penggunaan AI memerlukan langganan dan saldo rupiah organisasi; API key disediakan platform.</small>
   </>;
 }
 export function TeamSetupFields({ value, onChange }) {
@@ -21,7 +21,7 @@ export function TeamSetupFields({ value, onChange }) {
     </select></label>
     {value.mode === 'template' && <label>Template divisi<select value={value.templateId} onChange={(e) => onChange({ ...value, templateId: e.target.value })}>{teamTemplates.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.agents.length} agen</option>)}</select></label>}
     {value.mode === 'custom' && <><label>Nama divisi<input required maxLength={100} value={value.division} onChange={(e) => onChange({ ...value, division: e.target.value })}/></label><AgentFields value={value.agent} onChange={(agent) => onChange({ ...value, agent })}/></>}
-    <small>Template disalin ke workspace Anda. Pilihan ini tidak membeli atau mengaktifkan langganan.</small>
+    <small>Pendaftaran membuat kantor kosong. Setelah paket aktif, pilih kembali template atau buat divisi di Kelola Tim. Pilihan ini tidak membeli langganan.</small>
   </fieldset>;
 }
 export function teamSetupPayload(value) {
@@ -47,12 +47,12 @@ export function WorkspaceTeam({ onNavigate }) {
     try {
       const res = await fetch(`/api/team/${path}`, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error([400, 403, 404, 409].includes(res.status) ? result.error : 'Tim belum dapat disimpan. Periksa migration 005 dengan operator.');
+      if (!res.ok) throw new Error([400, 402, 403, 404, 409].includes(res.status) ? result.error : 'Tim belum dapat disimpan. Periksa migration 005 dengan operator.');
       setEditor(null); setArchive(null); setDivision({ name: '', templateId: '' }); refresh((v) => v + 1);
     } catch (failure) { setError(failure instanceof TypeError ? 'Layanan tidak dapat dihubungi.' : failure.message); }
     finally { inFlight.current = false; setBusy(false); }
   }
-  return <section className="wt-page"><header><div><h1>Divisi & agen</h1><p>Susun tim AI workspace Anda dari template atau buat karyawan sendiri.</p></div><button onClick={() => onNavigate('/app/office')}>Lihat kantor 3D</button></header>
+  return <section className="wt-page"><header><div><h1>Divisi & agen</h1><p>Susun tim AI workspace Anda dari template atau buat karyawan sendiri.</p></div><button onClick={() => onNavigate('/dashboard/office')}>Lihat kantor 3D</button></header>
     {error && <p role="alert">{error} <button disabled={busy} onClick={() => { setError(''); refresh((v) => v + 1); }}>Muat ulang</button></p>}
     {!data && !error && <p role="status">Memuat tim…</p>}
     {data && <>
@@ -60,7 +60,7 @@ export function WorkspaceTeam({ onNavigate }) {
       {data.canManage && <form className="wt-card wt-form" onSubmit={(e) => { e.preventDefault(); void mutate('divisions', 'POST', { name: division.name || undefined, ...(division.templateId ? { templateId: division.templateId } : {}) }); }}>
         <h2>Tambah divisi</h2><label>Mulai dari<select value={division.templateId} onChange={(e) => setDivision({ ...division, templateId: e.target.value })}><option value="">Divisi custom kosong</option>{data.templates.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.agents.length} agen</option>)}</select></label>
         <label>Nama divisi<input required={!division.templateId} maxLength={100} value={division.name} placeholder={data.templates.find((d) => d.id === division.templateId)?.name || 'Mis. Konten Properti'} onChange={(e) => setDivision({ ...division, name: e.target.value })}/></label>
-        <button disabled={busy}>{busy ? 'Menyimpan…' : 'Buat divisi'}</button><small>Layout kantor: 8 ruangan divisi, maksimal 4 agen per divisi. Jatah divisi paket belum ditentukan; belum ada ruangan yang dikunci karena langganan.</small>
+        <button disabled={busy}>{busy ? 'Menyimpan…' : 'Buat divisi'}</button><small>Layout kantor: 8 ruangan divisi, maksimal 4 agen per divisi. Server membatasi jumlah divisi sesuai paket, dihitung di seluruh workspace organisasi.</small>
       </form>}
       {data.divisions.map((d) => <article className="wt-card" key={d.id}><header><h2>{d.name}</h2>{data.canManage && <div><button disabled={busy} onClick={() => setEditor({ divisionId: d.id, ...emptyAgent() })}>+ Agen</button><button disabled={busy} onClick={() => setArchive({ kind: 'divisions', id: d.id, name: d.name })}>Arsipkan divisi</button></div>}</header>
         <div className="wt-grid">{data.agents.filter((a) => a.divisionId === d.id).map((a) => <section className="wt-agent" key={a.id}><h3>{a.name}</h3><p>{a.role}</p><small>{data.models.find((m) => m.id === a.modelTier)?.name}</small>{data.canManage && <div><button disabled={busy} onClick={() => setEditor(a)}>Edit</button><button disabled={busy} onClick={() => setArchive({ kind: 'agents', id: a.id, name: a.name })}>Arsipkan</button></div>}</section>)}</div>

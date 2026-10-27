@@ -58,7 +58,7 @@ try {
   const created = await request('/api/onboarding', body); assert.equal(created.status, 201);
   const result = await created.json();
   const ready = await (await request('/auth/me')).json();
-  assert.equal(destinationForProfile(ready), '/app');
+  assert.equal(destinationForProfile(ready), '/dashboard');
   assert.equal(ready.activeWorkspace.name, body.workspaceName);
   assert.equal(ready.activeWorkspace.role, 'owner');
   stage = 'dashboard';
@@ -92,7 +92,7 @@ try {
   assert.equal(returning.workspaces.length, 1);
   assert.equal((await request('/auth/active-workspace', { workspaceId: result.workspace.id })).status, 200);
   const persisted = await (await request('/auth/me')).json();
-  assert.equal(destinationForProfile(persisted), '/app');
+  assert.equal(destinationForProfile(persisted), '/dashboard');
   assert.equal(persisted.user.displayName, 'Local verified profile');
   assert.equal(persisted.activeWorkspace.name, `Updated ${label}`);
   assert.equal((await request('/auth/logout', {})).status, 204);

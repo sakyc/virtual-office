@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './reference/reset.css';
 import { LandingDesign } from './reference/landing.jsx';
 import { OnboardingDesign } from './reference/onboarding.jsx';
-import { DashboardDesign } from './reference/dashboard.jsx';
+import { DashboardDesign, DashboardApiKeys } from './reference/dashboard.jsx';
 import { TenantWork } from './tenant-work.jsx';
 import { ProfileMenu } from './profile-menu.jsx';
 import { destinationForProfile, loadAuthProfile, logoutSession } from './auth-flow.js';
@@ -12,7 +12,13 @@ import { DashboardUnavailable, LiveDashboardOverview } from './dashboard-overvie
 import { AccountSettings } from './account-settings.jsx';
 import { UsageAnalytics as UsagePage } from './usage-analytics.jsx';
 import { WorkspaceTeam, TeamSetupFields, emptyAgent, teamSetupPayload } from './workspace-team.jsx';
+import { WorkspaceDirectory } from './workspace-pages.jsx';
+import { dashboardNavigation } from './dashboard-navigation.js';
+import { TenantMembers } from './tenant-members.jsx';
 import { initialTeamInput } from '../../shared/workspace-team.js';
+import { BillingPage } from './billing-page.jsx';
+import { TaskTemplates } from './task-templates.jsx';
+import { BillingBalanceHighlight, BillingBalanceIndicator, useBillingBalance } from './billing-balance.jsx';
 
 export function LandingPage() {
   return <LandingDesign />;
@@ -53,8 +59,8 @@ export function OnboardingPage({ onNavigate }) {
         if (response.status === 401) { onNavigate('/login', { replace: true }); return; }
         if (!response.ok) throw new Error(response.status === 409 ? 'Nama organisasi sudah digunakan. Kembali dan gunakan nama lain.' : 'Onboarding belum dapat diselesaikan. Coba lagi.');
         const profile = await loadAuthProfile();
-        if (!profile || destinationForProfile(profile) !== '/app' || profile.activeWorkspace.id !== body.workspace?.id) throw new Error('Workspace belum aktif. Coba lagi untuk memeriksa hasil penyiapan.');
-        onNavigate('/app', { replace: true });
+        if (!profile || destinationForProfile(profile) !== '/dashboard' || profile.activeWorkspace.id !== body.workspace?.id) throw new Error('Workspace belum aktif. Coba lagi untuk memeriksa hasil penyiapan.');
+        onNavigate(body.teamDeferred ? '/dashboard/billing' : '/dashboard', { replace: true });
       } catch (failure) {
         setError(failure instanceof TypeError ? 'Tidak dapat menghubungi layanan. Coba lagi.' : failure.message);
       } finally {
@@ -65,14 +71,21 @@ export function OnboardingPage({ onNavigate }) {
   return <OnboardingDesign decorate={decorate} />;
 }
 
-export function DashboardPage({ onNavigate, section = 'overview' }) {
+export function DashboardPage({ onNavigate, section = 'overview', verifiedProfile = null, sessionPending = false }) {
   const [logoutState, setLogoutState] = useState({ busy: false, error: '' });
-  const [profile, setProfile] = useState(null);
-  const [sessionState, setSessionState] = useState({ loading: true, error: null });
+  const [profile, setProfile] = useState(verifiedProfile);
+  const balanceState = useBillingBalance(profile, section);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [sessionState, setSessionState] = useState({ loading: !verifiedProfile, error: null });
   const [overview, setOverview] = useState(null);
   const [overviewState, setOverviewState] = useState({ loading: true, error: '' });
   const [overviewRetry, setOverviewRetry] = useState(0);
   useEffect(() => {
+    if (verifiedProfile) {
+      setProfile(verifiedProfile);
+      setSessionState({ loading: false, error: null });
+      return undefined;
+    }
     const controller = new AbortController();
     fetch('/auth/me', { credentials: 'same-origin', signal: controller.signal })
       .then(async (response) => {
@@ -90,16 +103,26 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
       .then((body) => { if (!controller.signal.aborted) { setProfile(body); setSessionState({ loading: false, error: null }); } })
       .catch((error) => { if (!controller.signal.aborted) { setProfile(null); setSessionState({ loading: false, error: { message: error.status ? error.message : 'Tidak dapat memuat sesi. Coba lagi.', status: error.status } }); } });
     return () => controller.abort();
-  }, []);
+  }, [verifiedProfile]);
   useEffect(() => {
-    if (section !== 'overview' || !profile?.activeWorkspace?.id) return undefined;
+    setPlatformAdmin(false);
+    if (!profile?.user?.id) return undefined;
+    const controller = new AbortController();
+    fetch('/api/platform/me', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((result) => { if (!controller.signal.aborted) setPlatformAdmin(result?.platformAdmin === true); })
+      .catch(() => { if (!controller.signal.aborted) setPlatformAdmin(false); });
+    return () => controller.abort();
+  }, [profile?.user?.id]);
+  useEffect(() => {
+    if (sessionPending || section !== 'overview' || !profile?.activeWorkspace?.id) return undefined;
     const controller = new AbortController();
     setOverview(null); setOverviewState({ loading: true, error: '' });
     loadDashboardOverview(controller.signal)
       .then((body) => { if (!controller.signal.aborted) { setOverview(body); setOverviewState({ loading: false, error: '' }); } })
       .catch((error) => { if (!controller.signal.aborted) setOverviewState({ loading: false, error: error.message }); });
     return () => controller.abort();
-  }, [profile?.activeWorkspace?.id, section, overviewRetry]);
+  }, [profile?.activeWorkspace?.id, section, overviewRetry, sessionPending]);
   const logout = useCallback(async (event) => {
     event?.preventDefault();
     if (logoutState.busy) return;
@@ -109,34 +132,44 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
   }, [onNavigate, logoutState.busy]);
   const decorate = (values, design) => {
     // Prototype role controls affect preview state only; real permissions always come from the session.
-    const paths = { overview: '/app', office: '/app/office', jobs: '/app/board', agents: '/app/team', settings: '/app/settings' };
-    const navGroups = values.navGroups.map((group) => ({ ...group, items: group.items.map((item) => {
-      const active = item.id === (section === 'settings' ? 'settings' : section === 'team' ? 'agents' : 'jobs') && section !== 'overview';
-      return { ...item, ...(active ? { current: 'page', bg: 'var(--accentSoft)', ink: 'var(--accentText)', weight: 800, shadow: 'inset 3px 0 0 var(--accent)' } : {}),
-        ...(section !== 'overview' && item.id === 'overview' ? { current: undefined, bg: 'transparent', ink: 'var(--soft)', weight: 600, shadow: 'none' } : {}),
-        badge: item.id === 'jobs' ? undefined : item.badge,
-        go: paths[item.id] ? () => { if (['overview', 'agents'].includes(item.id)) design.setState({ view: item.id }); onNavigate(paths[item.id]); }
-          : section !== 'overview' ? () => { design.setState({ view: item.id }); onNavigate('/app'); } : item.go,
-      };
-    }) }));
+    const navGroups = dashboardNavigation({ baseGroups: values.navGroups, section,
+      view: values.v.usage ? 'usage' : values.v.keys ? 'keys' : values.v.agents ? 'agents' : 'overview',
+      platformAdmin, onNavigate, setView: view => design.setState({ view }) });
     const result = { ...values, live: true, navGroups: navGroups.filter((group) => group.title !== 'Admin platform'),
       workspaceName: 'Memuat workspace…', organizationName: '', userName: 'Memuat akun…', roleLabel: 'Memeriksa sesi',
-      userInitials: '', goOffice: () => onNavigate('/app/office'), logout };
+      userInitials: '', goOffice: () => onNavigate('/dashboard/office'), goBilling: () => onNavigate('/dashboard/billing'), logout,
+      balanceIndicator: <BillingBalanceIndicator state={balanceState} onNavigate={onNavigate}/> };
     if (section === 'overview') result.content = values.v.overview
-      ? <LiveDashboardOverview profile={profile} overview={overview} loading={overviewState.loading && !sessionState.error} error={sessionState.error?.message || overviewState.error} onRetry={() => sessionState.error ? onNavigate('/login') : setOverviewRetry((value) => value + 1)} onNavigate={onNavigate} />
-      : values.v.usage ? <UsagePage key={`${profile?.user?.id}:${profile?.activeWorkspace?.id}`} /> : values.v.agents ? <WorkspaceTeam key={`${profile?.user?.id}:${profile?.activeWorkspace?.id}`} onNavigate={onNavigate}/> : <DashboardUnavailable title={values.pageTitle} />;
+      ? <LiveDashboardOverview profile={profile} overview={overview} balanceSummary={<BillingBalanceHighlight state={balanceState} onNavigate={onNavigate}/>} loading={overviewState.loading && !sessionState.error} error={sessionState.error?.message || overviewState.error} onRetry={() => sessionState.error ? onNavigate('/login') : setOverviewRetry((value) => value + 1)} onNavigate={onNavigate} />
+      : values.v.usage ? <UsagePage key={`${profile?.user?.id}:${profile?.activeWorkspace?.id}`} /> : values.v.keys ? <DashboardApiKeys vals={values}/> : values.v.agents ? <WorkspaceTeam key={`${profile?.user?.id}:${profile?.activeWorkspace?.id}`} onNavigate={onNavigate}/> : <DashboardUnavailable title={values.pageTitle} />;
     if (section === 'settings') {
       result.pageTitle = 'Pengaturan';
       result.content = profile ? <AccountSettings key={profile.activeWorkspace?.id} profile={profile} onSaved={setProfile}/> : <p role="status">Memuat pengaturan…</p>;
     }
-    result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSaved={setProfile} onSettings={() => onNavigate('/app/settings')} />;
-    result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
-    result.goAgents = () => onNavigate('/app/team');
+    result.profileMenu = <ProfileMenu profile={profile} loading={sessionState.loading} busy={logoutState.busy} error={logoutState.error} onLogout={logout} onSaved={setProfile} onSettings={() => onNavigate('/dashboard/settings')} />;
+    result.goJobs = () => onNavigate(values.v.agents ? '/dashboard/jobs' : '/dashboard/board');
+    result.goAgents = () => onNavigate('/dashboard/team');
     if (section === 'team') {
       result.pageTitle = 'Divisi & agen';
       result.content = profile ? <WorkspaceTeam key={`${profile.user.id}:${profile.activeWorkspace?.id}`} onNavigate={onNavigate}/> : <p role="status">Memuat workspace…</p>;
     }
-    if (!['overview', 'settings', 'team'].includes(section)) {
+    if (section === 'billing') {
+      result.pageTitle = 'Langganan & Saldo';
+      result.content = profile ? <BillingPage key={`${profile.user.id}:${profile.activeWorkspace?.id}`} balanceState={balanceState}/> : <p role="status">Memuat sesi…</p>;
+    }
+    if (section === 'templates') {
+      result.pageTitle = 'Template Tugas';
+      result.content = profile ? <TaskTemplates key={`${profile.user.id}:${profile.activeWorkspace?.id}`}/> : <p role="status">Memuat sesi…</p>;
+    }
+    if (section === 'clients' || section === 'members') {
+      result.pageTitle = section === 'clients' ? 'Klien' : 'Anggota';
+      result.content = profile ? section === 'members' ? <TenantMembers key={`${profile.user.id}:${profile.activeWorkspace?.id}`} profile={profile}/> : <WorkspaceDirectory key={`${section}:${profile.activeWorkspace?.id}`} kind={section} profile={profile}/> : <p role="status">Memuat workspace…</p>;
+    }
+    if (section === 'usage' || section === 'models') {
+      result.pageTitle = section === 'usage' ? 'Penggunaan AI' : 'Model AI';
+      result.content = section === 'usage' ? <UsagePage key={profile?.activeWorkspace?.id}/> : <DashboardApiKeys vals={{ ...values, v: { keys: true } }}/>;
+    }
+    if (!['overview', 'settings', 'team', 'billing', 'templates', 'clients', 'members', 'usage', 'models'].includes(section)) {
       result.pageTitle = section === 'board' ? 'Perintah & Board' : 'Perintah';
       result.content = <TenantWork key={`${section}:${profile?.activeWorkspace?.id || 'none'}`} section={section} profile={profile} sessionState={sessionState} onNavigate={onNavigate} />;
       result.live = true;
@@ -146,6 +179,7 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
       result.roleLabel = profile?.activeWorkspace?.role || 'Sesi diperlukan';
       result.navGroups = navGroups.filter((group) => group.title !== 'Admin platform');
     }
+    if (sessionPending) result.content = <div className="dashboard-route-loading" role="status" aria-live="polite"><span className="dashboard-route-progress" aria-hidden="true"/><p>Memuat halaman…</p><div className="dashboard-route-skeleton" aria-hidden="true"><i/><i/><i/></div></div>;
     if (!profile) return result;
     const workspace = profile.activeWorkspace;
     result.live = true;
@@ -159,9 +193,9 @@ export function DashboardPage({ onNavigate, section = 'overview' }) {
     // Customer sessions do not gain platform admin capabilities via the design preview switch.
     result.navGroups = navGroups.filter((group) => group.title !== 'Admin platform');
     result.isAdmin = false; result.isOwner = workspace?.role === 'owner';
-    result.goJobs = () => onNavigate(values.v.agents ? '/app/jobs' : '/app/board');
-    result.goAgents = () => onNavigate('/app/team');
+    result.goJobs = () => onNavigate(values.v.agents ? '/dashboard/jobs' : '/dashboard/board');
+    result.goAgents = () => onNavigate('/dashboard/team');
     return result;
   };
-  return <DashboardDesign decorate={decorate} />;
+  return <DashboardDesign decorate={decorate} splashOnce />;
 }

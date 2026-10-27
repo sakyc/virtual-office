@@ -15,7 +15,7 @@ import { buildOffice } from '../src/office.js';
 
 const input = { name: 'Rina', role: 'Penulis properti', instructions: 'Tulis draft listing, jangan mengarang harga.', modelTier: 'team' };
 async function fixture(t, { resolverAvailable = true } = {}) {
-  const state = { role: 'admin', organization: 3, workspace: 8, revoked: false, fail: false };
+  const state = { role: 'admin', organization: 3, workspace: 8, revoked: false, fail: false, paid: true, maxDivisions: 8, maxMembers: 6, members: 1, otherDivisions: 0 };
   let divisions = [], agents = [], snapshot;
   const calls = [], provider = [];
   const connection = {
@@ -25,6 +25,13 @@ async function fixture(t, { resolverAvailable = true } = {}) {
     async rollback() { calls.push({ transaction: 'rollback' }); if (snapshot) ({ divisions, agents } = snapshot); snapshot = null; },
     async execute(sql, values = []) {
       calls.push({ sql, values });
+      if (sql.startsWith('SELECT id FROM organizations WHERE')) {
+        if (state.fail) throw new Error('mysql://secret@private');
+        return [[{ id: state.organization }]];
+      }
+      if (sql.includes('FROM billing_subscriptions WHERE')) return [state.paid ? [{ maxDivisions: state.maxDivisions, maxMembers: state.maxMembers, whatsapp: 1 }] : []];
+      if (sql.startsWith('SELECT s.max_divisions')) return [state.paid ? [{ maxDivisions: state.maxDivisions, otherDivisions: state.otherDivisions }] : []];
+      if (sql.startsWith('SELECT\n    (SELECT COUNT(*) FROM workspace_divisions')) return [[{ divisions: state.otherDivisions + divisions.filter(d => d.organization === values[0] && d.status === 'active').length, members: state.members }]];
       if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
       if (sql.startsWith('UPDATE sessions')) return [{}];
       if (sql.includes('LEFT JOIN organization_memberships')) return [[{ organizationId: state.organization, role: state.role, organizationRole: null }]];
@@ -76,6 +83,19 @@ test('team validation rejects identity/permission injection and arbitrary model 
   assert.throws(() => initialTeamInput({ mode: 'empty', agents: ['roy'] }), { status: 400 });
   assert.throws(() => initialTeamInput({ mode: 'custom', division: '', agent: input }), { status: 400 });
   assert.equal(teamTemplates.length, DIVISIONS.length); assert.equal(teamTemplates.flatMap((d) => d.agents).length, AGENTS.length);
+});
+
+test('team API returns subscription capacity without accepting client capacity overrides', async (t) => {
+  const f = await fixture(t);
+  f.state.maxDivisions = 3;
+  f.state.otherDivisions = 2;
+  let response = await f.request('?divisionCapacity=8');
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).divisionCapacity, 1);
+  f.state.paid = false;
+  response = await f.request();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).divisionCapacity, 0);
 });
 
 test('new workspace starts empty; custom and template creation use server scope and serialized transactions', async (t) => {
@@ -135,7 +155,7 @@ test('scene capacity stops excess agents/divisions; failures roll back and sanit
   const f = await fixture(t), id = await f.create({ templateId: 'proposal' });
   assert.equal((await f.request(`/divisions/${id}/agents`, 'POST', input)).status, 409);
   for (let i = 1; i < 8; i++) await f.create({ name: `Divisi ${i}` });
-  assert.equal((await f.request('/divisions', 'POST', { name: 'Overflow' })).status, 409);
+  assert.equal((await f.request('/divisions', 'POST', { name: 'Overflow' })).status, 402);
   f.state.fail = true;
   const res = await f.request('/divisions', 'POST', { name: 'Fail' }); assert.equal(res.status, 503);
   assert.doesNotMatch(await res.text(), /secret|mysql|private/);
@@ -149,6 +169,20 @@ test('initial team choices support empty/template/custom without automatically p
   assert.equal(f.rows().divisions.length, 1); assert.equal(f.rows().agents.length, 1);
   await initializeTeam(f.connection, tenant, 9, { mode: 'template', templateId: 'social' });
   assert.equal(f.rows().divisions.length, 2); assert.equal(f.rows().agents.length, 5);
+});
+
+test('organization-wide plan limits include other workspaces; expired plans deny additions but allow archive', async (t) => {
+  const f = await fixture(t), id = await f.create();
+  f.state.maxDivisions = 1;
+  assert.equal((await f.request('/divisions', 'POST', { name: 'Over plan' })).status, 402);
+  f.state.maxDivisions = 3; f.state.otherDivisions = 2;
+  assert.equal((await f.request('/divisions', 'POST', { name: 'Other workspace already uses capacity' })).status, 402);
+  f.state.otherDivisions = 0; f.state.members = 7;
+  assert.equal((await f.request(`/divisions/${id}/agents`, 'POST', input)).status, 402);
+  f.state.members = 1; f.state.paid = false;
+  assert.equal((await f.request(`/divisions/${id}/agents`, 'POST', input)).status, 402);
+  assert.equal((await f.request(`/divisions/${id}/archive`, 'POST', {})).status, 200);
+  assert.equal(f.rows().agents.length, 0);
 });
 
 test('custom chat uses server-resolved agent, instructions and model; foreign/archived/static agents never reach provider', async (t) => {

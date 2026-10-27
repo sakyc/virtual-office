@@ -155,6 +155,6 @@ test('revision ledger is bound to the reservation and survives output persistenc
   const result = await processTenantRevision({ pool: f.pool, client, DEMO: false, models: {}, reservation, usageStore,
     reviseImpl: async ({ apiClient }) => { await apiClient.messages.create({ model: 'fixture' }); return output; } });
   assert.equal(result.status, 'failed'); assert.equal(f.row.version, 1);
-  assert.deepEqual(entries[0], { ...tenantContext, userId: 9, operation: 'revision', resourceId: 4, agentId: 'bagas' });
+  assert.deepEqual(entries[0], { ...tenantContext, userId: 9, sessionId: 2, requestId: '4:v1', operation: 'revision', resourceId: 4, agentId: 'bagas' });
   assert.deepEqual(entries[1], { id: 'revision-call', usage: { input_tokens: 5, output_tokens: 7 } });
 });

@@ -102,7 +102,7 @@ test('real office route persists usage context before streaming and blocks AI wh
   const f = await fixture(t, { usageStore: { async start(scope, model) { entries.push({ scope, model }); return 'usage-1'; }, async finish(id) { entries.push({ id }); } } });
   const response = await f.request(await f.body()); await response.text();
   assert.equal(f.calls.length, 1); assert.equal(entries.length, 2);
-  assert.deepEqual(entries[0].scope, { organizationId: f.state.organization, workspaceId: f.state.workspace, role: 'member', userId: f.state.user, operation: 'chat', agentId: 'roy' });
+  assert.deepEqual(entries[0].scope, { organizationId: f.state.organization, workspaceId: f.state.workspace, role: 'member', userId: f.state.user, sessionId: 4, operation: 'chat', agentId: 'roy' });
   assert.equal(entries[1].id, 'usage-1');
   const blocked = await fixture(t, { usageStore: { async start() { throw new Error('ledger unavailable'); } } });
   const failed = await blocked.request(await blocked.body());

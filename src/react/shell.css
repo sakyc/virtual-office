@@ -8,6 +8,14 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
+.dashboard-route-loading { min-height: 300px; position: relative; padding-top: 20px; color: var(--soft); }
+.dashboard-route-loading p { font-size: 13px; margin: 0 0 24px; }
+.dashboard-route-progress { display: block; height: 3px; width: 100%; border-radius: 4px; background: linear-gradient(90deg,var(--line),var(--accent),var(--line)); background-size: 200% 100%; animation: dashboard-route-progress 1.3s linear infinite; margin-bottom: 24px; }
+.dashboard-route-skeleton { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.dashboard-route-skeleton i { height: 120px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg2); }
+@keyframes dashboard-route-progress { to { background-position: -200% 0; } }
+@media(max-width:640px) { .dashboard-route-skeleton { grid-template-columns: 1fr; } .dashboard-route-skeleton i { height: 70px; } }
+@media(prefers-reduced-motion:reduce) { .dashboard-route-progress { animation: none; } }
 button { cursor: pointer; }
 
 /* The Three.js office remains a standalone canvas mounted by the React route. */

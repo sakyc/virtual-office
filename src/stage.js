@@ -135,8 +135,8 @@ export function createStage(canvas, roster) {
     const r = canvas.getBoundingClientRect();
     ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hits = ray.intersectObjects(office.pickables, false);
-    return hits.length ? hits[0].object.userData.agentId : null;
+    const hits = ray.intersectObjects([...office.pickables, ...office.roomPickables], false);
+    return hits.length ? hits[0].object.userData.agentId || hits[0].object.userData.roomId : null;
   }
 
   canvas.addEventListener('pointerdown', (e) => {

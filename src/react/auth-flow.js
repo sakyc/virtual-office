@@ -1,7 +1,7 @@
 // Destinations are fixed local routes; URL parameters never establish identity or membership.
 export function destinationForProfile(profile) {
   if (!profile?.user || !Array.isArray(profile.workspaces)) throw new Error('Profil sesi tidak valid.');
-  if (profile.activeWorkspace?.id) return '/app';
+  if (profile.activeWorkspace?.id) return '/dashboard';
   return profile.workspaces.length ? null : '/onboarding';
 }
 
@@ -9,7 +9,7 @@ export function redirectForProtectedPath(profile, path) {
   if (!profile) return '/login';
   const destination = destinationForProfile(profile);
   if (destination === null) return '/login/complete';
-  if (path === '/onboarding') return destination === '/app' ? '/app' : null;
+  if (path === '/onboarding') return destination === '/dashboard' ? '/dashboard' : null;
   return destination === '/onboarding' ? '/onboarding' : null;
 }
 

@@ -1,6 +1,8 @@
 import { jobById } from '../shared/jobs.js';
 import { revise } from './runner.js';
 import { trackedClient } from './ai-usage.js';
+import { WORKSPACE_TASK, generateWorkspaceTask, workspaceTaskDefinition } from './workspace-tasks.js';
+import { assertTenantItemReview, lockMemberPolicy } from './member-access.js';
 
 const reviewRoles = new Set(['owner', 'admin', 'member']);
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -38,7 +40,9 @@ export async function rejectTenantItem(connection, input) {
   const reason = validate(input, 500);
   await connection.beginTransaction();
   try {
+    await lockMemberPolicy(connection, input.tenantContext);
     const item = await lockItem(connection, input); checkVersion(item, input.body.version);
+    await assertTenantItemReview(connection, input.tenantContext, input.itemId);
     if (item.status === 'rejected') throw error('Item sudah ditolak. Muat ulang Board.', 409);
     await connection.execute(
       `UPDATE items SET status = 'rejected', reject_reason = ?, approved_at = NULL, last_error = NULL, updated_by_user_id = ?
@@ -54,7 +58,9 @@ export async function reserveTenantRevision(connection, input) {
   if (!Number.isSafeInteger(input.principal.sessionId)) throw error('Valid server session required.', 401);
   await connection.beginTransaction();
   try {
+    await lockMemberPolicy(connection, input.tenantContext);
     const item = await lockItem(connection, input); checkVersion(item, input.body.version);
+    await assertTenantItemReview(connection, input.tenantContext, input.itemId);
     await connection.execute(
       `UPDATE items SET status = 'revising', last_error = NULL, updated_by_user_id = ?
         WHERE id = ? AND organization_id = ? AND workspace_id = ? AND version = ? AND deleted_at IS NULL`,
@@ -66,7 +72,7 @@ export async function reserveTenantRevision(connection, input) {
   } catch (failure) { await connection.rollback(); throw failure; }
 }
 
-async function assertRunnerAccess(connection, { tenantContext: tenant, principal }) {
+export async function assertRunnerAccess(connection, { tenantContext: tenant, principal }, allowMember = true) {
   const [rows] = await connection.execute(
     `SELECT s.id FROM sessions s
        JOIN users u ON u.id = s.user_id AND u.status = 'active'
@@ -76,7 +82,7 @@ async function assertRunnerAccess(connection, { tenantContext: tenant, principal
        LEFT JOIN workspace_memberships wm ON wm.workspace_id = w.id AND wm.user_id = u.id AND wm.revoked_at IS NULL
       WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL
         AND s.idle_expires_at > CURRENT_TIMESTAMP AND s.absolute_expires_at > CURRENT_TIMESTAMP
-        AND w.id = ? AND o.id = ? AND (om.role = 'owner' OR wm.role IN ('admin','member')) LIMIT 1`,
+        AND w.id = ? AND o.id = ? AND (om.role = 'owner' OR wm.role IN (${allowMember ? "'admin','member'" : "'admin'"})) LIMIT 1`,
     [principal.sessionId, principal.userId, tenant.workspaceId, tenant.organizationId],
   );
   if (!rows[0]) throw error('Item revision access expired.', 403);
@@ -105,10 +111,12 @@ export async function processTenantRevision({ pool, client, DEMO, models, reserv
     if (Number(locks[0]?.acquired) !== 1) return { status: 'already-running' };
     try {
       await assertRunnerAccess(connection, reservation);
+      await assertTenantItemReview(connection, reservation.tenantContext, reservation.itemId);
       await connection.beginTransaction(); transaction = true;
+      await lockMemberPolicy(connection, tenant);
       const item = await lockItem(connection, reservation);
       if (!ownsReservation(item)) { await connection.rollback(); transaction = false; return { status: 'superseded' }; }
-      const definition = jobById(item.job_type);
+      const definition = item.job_type === WORKSPACE_TASK ? workspaceTaskDefinition(item) : jobById(item.job_type);
       if (!definition || definition.agent !== item.agent_id) throw error('Item job definition is unavailable.', 409);
       const clientId = item.job_client_id;
       let clientRow = null;
@@ -118,14 +126,18 @@ export async function processTenantRevision({ pool, client, DEMO, models, reserv
         clientRow = clients[0];
       }
       await connection.commit(); transaction = false;
-      const apiClient = trackedClient(client, usageStore, { ...tenant, userId: reservation.principal.userId, operation: 'revision', resourceId: item.id, agentId: definition.agent });
-      const output = await reviseImpl({ apiClient, DEMO, models, def: definition, params: parse(item.params), clientRow,
-        item: { ...item, content: parse(item.content) }, reason: reservation.reason });
+      const apiClient = trackedClient(client, usageStore, { ...tenant, userId: reservation.principal.userId, sessionId: reservation.principal.sessionId, operation: 'revision', resourceId: item.id, agentId: definition.agent, requestId: `${item.id}:v${reservation.version}` });
+      const output = definition.id === WORKSPACE_TASK
+        ? await generateWorkspaceTask({ apiClient, task: definition.task, clientRow, item: { ...item, content: parse(item.content) }, reason: reservation.reason })
+        : await reviseImpl({ apiClient, DEMO, models, def: definition, params: parse(item.params), clientRow,
+          item: { ...item, content: parse(item.content) }, reason: reservation.reason });
       const next = output.items?.[0];
       if (!next || typeof next.title !== 'string' || !Array.isArray(next.content?.fields) || !next.content.fields.length) throw new Error('Revision output invalid');
       await connection.beginTransaction(); transaction = true;
+      await lockMemberPolicy(connection, tenant);
       await assertRunnerAccess(connection, reservation);
       const current = await lockItem(connection, reservation);
+      await assertTenantItemReview(connection, reservation.tenantContext, reservation.itemId);
       if (!ownsReservation(current)) { await connection.rollback(); transaction = false; return { status: 'superseded' }; }
       await connection.execute(
         `INSERT INTO revisions (item_id, version, reason, title_before, content_before, organization_id, workspace_id, created_by_user_id)

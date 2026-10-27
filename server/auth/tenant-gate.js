@@ -1,7 +1,7 @@
 import { readCookie, resolveSession } from './sessions.js';
 import { authenticationEnabled } from './config.js';
 
-export function createTenantGate({ getPool, authEnabled = authenticationEnabled(), cookieName = 'vo_session', resourceQueriesScoped = false }) {
+export function createTenantGate({ getPool, authEnabled = authenticationEnabled(), cookieName = 'vo_session', resourceQueriesScoped = false, memberAssignments = false }) {
   return async (req, res, next) => {
     res.setHeader?.('Cache-Control', 'no-store');
     if (!authEnabled) return res.status(503).json({ error: 'Customer API requires configured authentication.' });
@@ -24,6 +24,7 @@ export function createTenantGate({ getPool, authEnabled = authenticationEnabled(
       if (!membership || (!['admin', 'member', 'viewer'].includes(membership.role) && membership.organizationRole !== 'owner')) return res.status(403).json({ error: 'Workspace membership required.' });
       req.authPrincipal = principal;
       req.tenantContext = { organizationId: membership.organizationId, workspaceId: principal.activeWorkspaceId, role: membership.organizationRole === 'owner' ? 'owner' : membership.role };
+      if (memberAssignments) Object.assign(req.tenantContext, { memberPolicy: true, userId: principal.userId });
       // Existing queries are global and cannot safely serve a tenant even after membership succeeds.
       if (!resourceQueriesScoped) return res.status(503).json({ error: 'Tenant-scoped resource API is not available yet.' });
       next();
