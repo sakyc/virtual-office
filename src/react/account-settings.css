@@ -4,3 +4,12 @@
 .reference-dashboard .account-settings input:disabled, .reference-dashboard .account-settings input:read-only { color: var(--mute); }
 .reference-dashboard .account-settings button { margin-top: 18px; }
 .reference-dashboard .account-settings button:disabled { opacity: .6; cursor: wait; }
+.password-settings .password-input-wrap { position: relative; }
+.password-settings .password-input-wrap input { padding-right: 52px; }
+.reference-dashboard .account-settings .password-eye, .password-settings .password-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); margin: 0; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--soft, #64748b); cursor: pointer; }
+.password-settings .password-eye:hover { color: var(--accent, #4f46e5); }
+.password-settings .password-eye:focus-visible { outline: 2px solid var(--accent, #4f46e5); outline-offset: -2px; }
+.reference-dashboard .account-settings .password-settings .password-field-error, .reference-dashboard .account-settings .password-settings [role="alert"] { color: var(--danger, #d33045); font-size: 13px; line-height: 1.5; }
+.password-settings input[aria-invalid="true"] { border-color: var(--danger, #d33045); }
+.password-settings .password-rules { padding: 14px 18px; list-style: none; border-radius: 12px; background: var(--bg); color: var(--soft); display: grid; gap: 8px; font-size: 13px; line-height: 1.5; }
+.password-settings .password-rules [data-passed="true"] { color: var(--success, #16864b); }

@@ -97,7 +97,6 @@ export function AuthPage({ register = false, complete = false, onNavigate }) {
       setForm({ email: '', password: '', displayName: '', whatsappNumber: '' });
       onNavigate('/login/complete');
     } catch (error) {
-      setForm((value) => ({ ...value, password: '' }));
       setState((value) => ({ ...value, error: error instanceof TypeError ? 'Tidak dapat menghubungi layanan. Coba lagi.' : error.message }));
     } finally { setBusy(false); }
   };

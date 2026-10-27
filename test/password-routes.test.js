@@ -66,7 +66,9 @@ test('missing/revoked/expired sessions cannot change credentials', async (t) => 
 test('wrong old password and external-only accounts roll back without changing sessions', async (t) => {
   for (const missing of [false, true]) {
     const f = await fixture(t, { missing });
-    assert.equal((await f.request({ currentPassword: 'incorrect', newPassword })).status, 400);
+    const response = await f.request({ currentPassword: 'incorrect', newPassword });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).code, missing ? 'LOCAL_PASSWORD_REQUIRED' : 'CURRENT_PASSWORD_INCORRECT');
     assert.ok(f.calls.some(({ type }) => type === 'rollback'));
     assert.ok(!f.calls.some(({ sql }) => sql?.startsWith('UPDATE native_credentials')));
   }
