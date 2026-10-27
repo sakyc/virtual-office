@@ -255,7 +255,7 @@ if (existsSync(dist)) {
 
 initDb();
 
-app.listen(PORT, () => {
+app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
   console.log(`Kantor AI API jalan di http://localhost:${PORT}`);
   console.log(DEMO ? 'Mode: DEMO (tanpa ANTHROPIC_API_KEY)' : `Mode: LIVE  leader=${MODEL_LEADER}  tim=${MODEL_TEAM}`);
   console.log(ACCESS_CODE ? 'Kode akses: aktif' : 'Kode akses: TIDAK aktif (isi ACCESS_CODE sebelum dipublikasi)');

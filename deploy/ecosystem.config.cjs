@@ -10,6 +10,6 @@ module.exports = {
     exec_mode: 'fork',
     autorestart: true,
     time: true,
-    env: { NODE_ENV: 'production', PORT: '3001' },
+    env: { NODE_ENV: 'production', HOST: '127.0.0.1', PORT: '3101' },
   }],
 };
