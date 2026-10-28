@@ -38,6 +38,7 @@ export function createMidtrans({ env = process.env, request = globalThis.fetch }
       return result.token;
     },
     status: id => call(`${api}/v2/${encodeURIComponent(id)}/status`),
+    cancel: id => call(`${api}/v2/${encodeURIComponent(id)}/cancel`, 'POST'),
     verify(body) {
       if (!enabled || !body || typeof body.order_id !== 'string' || !/^[a-f0-9]{128}$/i.test(body.signature_key || '') ||
         typeof body.status_code !== 'string' || typeof body.gross_amount !== 'string') return false;

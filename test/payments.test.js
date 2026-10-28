@@ -59,7 +59,9 @@ test('Midtrans disabled by default, separate fixed Sandbox/Production endpoints 
   assert.equal(createMidtrans({env:{...env,NODE_ENV:'production',MIDTRANS_SANDBOX_ORGANIZATION_ID:'7'}}).enabled,true);
   for(const production of [false,true]) {
     const calls=[];const p=createMidtrans({env:{...env,MIDTRANS_IS_PRODUCTION:production?'1':'0'},request:async(url,options)=>{calls.push({url,options});return Response.json({token:'snap'});}});
-    await p.checkout({id:'KRY-test',kind:'topup',amount:'10000'});await p.status('KRY-test');
+    await p.checkout({id:'KRY-test',kind:'topup',amount:'10000'});await p.status('KRY-test');await p.cancel('KRY-test');
+    assert.equal(calls[2].url,`https://api${production?'':'.sandbox'}.midtrans.com/v2/KRY-test/cancel`);
+    assert.equal(calls[2].options.method,'POST');
     assert(calls.every(c=>c.url.includes(production?'.midtrans.com':'.sandbox.midtrans.com')));
     assert.equal(calls[0].options.headers.Authorization,`Basic ${Buffer.from('test-server:').toString('base64')}`);
     assert(!JSON.stringify(p.publicConfig()).includes('test-server'));
@@ -139,6 +141,68 @@ test('topup requires active subscription and duplicate notifications cannot doub
   await Promise.all([f.service.reconcile(order.id),f.service.reconcile(order.id)]);
   assert.equal(f.state().grants.length,1);assert.equal(f.state().ledger.length,1);assert.equal(f.state().grants[0].amount,'50000');
 });
+
+test('owner cancellation verifies provider cancellation before permitting a replacement subscription',async()=>{
+  const f=fixture(),order=await f.service.create(1,10,purchase());let cancellations=0;
+  f.provider.cancel=async id=>{cancellations++;f.statuses.get(id).transaction_status='cancel';};
+  assert.equal((await f.service.cancel(1,order.id)).status,'cancelled');
+  assert.equal(cancellations,1);assert.equal(f.state().grants.length,0);
+  assert.equal((await f.service.cancel(1,order.id)).status,'cancelled');
+  assert.equal(cancellations,1); // repeat is safe
+  const replacement=await f.service.create(1,10,purchase());
+  assert.notEqual(replacement.id,order.id);
+});
+
+test('cancellation cannot reach provider for another tenant, mode, invalid id or disabled integration',async()=>{
+  const f=fixture(),order=await f.service.create(1,10,purchase());let cancellations=0;
+  f.provider.cancel=async()=>{cancellations++;};
+  await assert.rejects(f.service.cancel(2,order.id),{code:'PAYMENT_NOT_FOUND'});
+  await assert.rejects(f.service.cancel(1,'bad'),{code:'PAYMENT_NOT_FOUND'});
+  f.provider.allowedOrganizationId=2;
+  await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_SANDBOX_TENANT_REQUIRED'});
+  f.provider.allowedOrganizationId=null;f.provider.mode='production';
+  await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_ENVIRONMENT_MISMATCH'});
+  f.provider.enabled=false;
+  await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_NOT_CONFIGURED'});
+  assert.equal(cancellations,0);assert.equal(f.statusCalls(),0);
+});
+
+test('paid, captured fraud review, expired and invalid provider states never reach cancel API',async()=>{
+  for(const state of ['settlement','capture','expire','refund']) {
+    const f=fixture(),order=await f.service.create(1,10,purchase());let cancellations=0;
+    f.provider.cancel=async()=>{cancellations++;};
+    f.statuses.get(order.id).transaction_status=state;
+    await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_CANNOT_CANCEL'});
+    assert.equal(cancellations,0);
+  }
+  const f=fixture(),order=await f.service.create(1,10,purchase());let cancellations=0;
+  f.provider.cancel=async()=>{cancellations++;};
+  f.statuses.get(order.id).gross_amount='1.00';
+  await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_VERIFICATION_FAILED'});
+  assert.equal(cancellations,0);
+});
+
+test('cancel timeouts reconcile actual outcome and never free a still pending purchase',async()=>{
+  for(const outcome of ['pending','cancel','settlement']) {
+    const f=fixture(),order=await f.service.create(1,10,purchase());
+    f.provider.cancel=async id=>{f.statuses.get(id).transaction_status=outcome;throw Error('timeout');};
+    if(outcome==='pending') {
+      await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_CANCEL_UNCERTAIN'});
+      await assert.rejects(f.service.create(1,10,purchase()),{code:'PAYMENT_SUBSCRIPTION_PENDING'});
+    } else assert.equal((await f.service.cancel(1,order.id)).status,outcome==='cancel'?'cancelled':'paid');
+    assert.equal(f.state().grants.length,outcome==='settlement'?1:0);
+  }
+});
+
+test('cancel API success without confirmed status or unavailable final status cannot locally cancel',async()=>{
+  const f=fixture(),order=await f.service.create(1,10,purchase());
+  f.provider.cancel=async()=>({status_code:'200',transaction_status:'cancel'});
+  await assert.rejects(f.service.cancel(1,order.id),{code:'PAYMENT_CANCEL_PENDING'});
+  assert.equal(f.state().orders[0].status,'pending');
+  f.provider.cancel=async()=>{f.provider.status=async()=>{throw Error('offline');};};
+  await assert.rejects(f.service.cancel(1,order.id),/offline/);
+  assert.equal(f.state().orders[0].status,'pending');
+});
 test('database failure rolls back subscription, balance, ledger and payment status together',async()=>{
   const f=fixture(),order=await f.service.create(1,10,purchase());f.statuses.get(order.id).transaction_status='settlement';f.failLedger();
   await assert.rejects(f.service.reconcile(order.id),/ledger failure/);
@@ -176,6 +240,7 @@ test('HTTP routes enforce session, owner, Origin, scope and verified webhook wit
   const calls=[],app=express();app.use(express.json());
   const provider={enabled:true,mode:'sandbox',publicConfig:()=>({enabled:true,mode:'sandbox'}),verify:b=>b?.signature_key==='valid'};
   const service={list:async org=>{calls.push(['list',org]);return[];},create:async(org,user,b)=>{calls.push(['create',org,user,b]);return{id:'order'};},read:async(org,id)=>{calls.push(['read',org,id]);if(id==='other')throw Object.assign(Error(),{code:'PAYMENT_NOT_FOUND',status:404});return{id,environment:'sandbox'};},reconcile:async id=>{calls.push(['reconcile',id]);return{status:'paid'};}};
+  service.cancel=async(org,id)=>{calls.push(['cancel',org,id]);if(id==='other')throw Object.assign(Error(),{code:'PAYMENT_NOT_FOUND',status:404});return{status:'cancelled'};};
   const requireTenant=(req,res,next)=>{if(!req.get('x-test-session'))return res.sendStatus(401);req.tenantContext={organizationId:7,role:req.get('x-test-role')||'owner'};req.authPrincipal={userId:10};next();};
   installPaymentRoutes(app,{provider,service,requireTenant,appOrigin:'https://app.example.test'});
   const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>{server.closeAllConnections();server.close();});
@@ -185,7 +250,17 @@ test('HTTP routes enforce session, owner, Origin, scope and verified webhook wit
   assert.equal((await request('/checkout',purchase(),{'x-test-session':'yes',Origin:'https://evil.test'})).status,403);
   assert.equal(calls.length,0);
   const headers={'x-test-session':'yes',Origin:'https://app.example.test'};
+  assert.equal((await request('/order/cancel',{})).status,401);
+  assert.equal((await request('/order/cancel',{}, {...headers,'x-test-role':'member'})).status,403);
+  assert.equal((await request('/order/cancel',{}, {...headers,Origin:'https://evil.test'})).status,403);
+  assert.equal((await request('/order/cancel?organizationId=2',{},headers)).status,400);
+  assert.equal((await request('/order/cancel',{organizationId:2},headers)).status,400);
+  assert.equal((await request('/order/cancel',[],headers)).status,400);
+  assert.equal(calls.length,0);
   assert.equal((await request('/checkout',purchase(),headers)).status,201);assert.deepEqual(calls[0].slice(0,3),['create',7,10]);
+  assert.equal((await request('/order/cancel',{},headers)).status,200);
+  assert.deepEqual(calls.at(-1),['cancel',7,'order']);
+  assert.equal((await request('/other/cancel',{},headers)).status,404);
   assert.equal((await request('/other/check',{},headers)).status,404);
   assert.equal((await request('/midtrans/notification',{order_id:'order',signature_key:'bad'})).status,403);
   assert.equal((await request('/midtrans/notification',{order_id:'order',signature_key:'valid'})).status,200);
@@ -216,16 +291,40 @@ test('payment UI labels Sandbox clearly, exposes first checkout/topup separately
   const vite=await createServer({configFile:false,server:{middlewareMode:true,hmr:false},optimizeDeps:{noDiscovery:true,include:[]},appType:'custom'});
   try {
     const {PaymentCheckoutView}=await vite.ssrLoadModule('/src/react/payment-checkout.jsx');
+    const {PricingCards}=await vite.ssrLoadModule('/src/react/pricing-cards.jsx');
     const data={subscription:null,entitlements:{active:false},plans:[{code:'starter',name:'Starter',monthlyPriceIdr:'149000',version:1},{code:'custom',quoteRequired:true}]};
     const props={data,state:{config:{enabled:true,mode:'sandbox'},orders:[]},busy:false,amount:'50000',message:''};
     const first=renderToStaticMarkup(React.createElement(PaymentCheckoutView,props));
-    for(const label of ['Mode Sandbox','bukan pembayaran sungguhan','Beli Starter','149.000','Belum ada pembayaran.'])assert(first.includes(label),label);
+    for(const label of ['Mode Sandbox','bukan pembayaran sungguhan','kartu paket di bawah','Belum ada pembayaran.'])assert(first.includes(label),label);
+    assert(!first.includes('Beli Starter'));
     assert(!first.includes('Beli Custom'));assert(!first.includes('<form'));
     const subscribed=renderToStaticMarkup(React.createElement(PaymentCheckoutView,{...props,data:{...data,subscription:{id:'test'},entitlements:{active:true}}}));
     assert(subscribed.includes('Top up saldo AI'));assert(subscribed.includes('tidak memperpanjang'));assert(!subscribed.includes('Beli Starter'));
-    const pending=renderToStaticMarkup(React.createElement(PaymentCheckoutView,{...props,state:{...props.state,orders:[{id:'test',kind:'subscription',mode:'sandbox',amountIdr:'149000',status:'pending',snapToken:'test-token'}]}}));
-    assert(pending.includes('Lanjutkan bayar'));assert(pending.includes('Periksa status'));assert(pending.includes('disabled=""'));
+    const pendingProps={...props,cancel(){},state:{...props.state,orders:[{id:'test',kind:'subscription',mode:'sandbox',amountIdr:'149000',status:'pending',snapToken:'test-token'}]}};
+    const pending=renderToStaticMarkup(React.createElement(PaymentCheckoutView,pendingProps));
+    assert(pending.includes('Lanjutkan bayar'));assert(pending.includes('Periksa status'));
+    assert(pending.includes('>Batalkan pembayaran</button>'));
+    for(const status of ['paid','cancelled','expired','creating','needs_review']) {
+      const html=renderToStaticMarkup(React.createElement(PaymentCheckoutView,{...pendingProps,state:{...pendingProps.state,orders:[{...pendingProps.state.orders[0],status,snapToken:undefined}]}}));
+      assert(!html.includes('>Batalkan pembayaran</button>'),status);
+    }
+    const blockedCancel=renderToStaticMarkup(React.createElement(PaymentCheckoutView,{...pendingProps,busy:true}));
+    assert(blockedCancel.includes('disabled="">Batalkan pembayaran</button>'));
     const disabled=renderToStaticMarkup(React.createElement(PaymentCheckoutView,{...props,state:{...props.state,config:{enabled:false,mode:'sandbox'}}}));
     assert(disabled.includes('belum diaktifkan'));assert(!disabled.includes('Beli Starter'));
+    const cardProps={plans:data.plans,dashboard:true,paymentEnabled:true,onPurchase(){}};
+    const cards=renderToStaticMarkup(React.createElement(PricingCards,cardProps));
+    assert(cards.includes('Beli Starter'));assert(cards.includes('149.000'));
+    assert.equal((cards.match(/disabled=""/g)||[]).length,1); // Custom only
+    for(const extra of [{purchasePending:true},{busy:true},{hasSubscription:true},{currentPlan:'starter'},{paymentEnabled:false},{onPurchase:undefined}]) {
+      const blocked=renderToStaticMarkup(React.createElement(PricingCards,{...cardProps,...extra}));
+      assert.equal((blocked.match(/disabled=""/g)||[]).length,2,JSON.stringify(extra));
+    }
+    let selected;
+    const tree=PricingCards({...cardProps,onPurchase:plan=>{selected=plan;}});
+    const starter=tree.props.children[0];
+    const button=starter.props.children.find(child=>child?.type==='button');
+    button.props.onClick();
+    assert.equal(selected,data.plans[0]);
   }finally{await vite.close();}
 });

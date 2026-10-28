@@ -36,9 +36,10 @@ export function BillingContent({ data, onChanged }) {
       <article><span>Ditahan sementara (reservasi)</span><h3>{formatIdr(balances.reserved)}</h3><p>Belum menjadi biaya final. Sisa dana kembali setelah penggunaan berhasil dihitung; proses yang belum pasti tetap ditahan untuk diperiksa.</p></article>
     </div>
     <aside className="billing-reservation-help" aria-label="Penjelasan reservasi saldo"><h3>Reservasi bukan biaya tambahan</h3><p>Sebelum AI bekerja, sebagian saldo ditahan untuk menutup perkiraan input dan batas jawaban. Sesudah selesai, hanya biaya aktual yang dipotong, lalu sisanya langsung kembali.</p><p><strong>Contoh:</strong> ditahan Rp2.203 → biaya aktual Rp245 → Rp1.958 kembali tersedia. Total biaya hanya Rp245, bukan Rp2.448.</p><p>Baris reservasi adalah catatan aktivitas lama, bukan berarti dana itu masih ditahan. Lihat kartu “Ditahan sementara” untuk jumlah yang masih ditahan saat ini.</p></aside>
-    <PaymentCheckout data={data} onChanged={onChanged}/>
-    <h2>Pilih ruang untuk berkembang</h2>
-    <PricingCards plans={data.plans} dashboard currentPlan={active ? subscription.plan_code : undefined} paymentEnabled={data.paymentEnabled}/>
+    <PaymentCheckout data={data} onChanged={onChanged}>{purchaseProps=><>
+      <h2>Pilih ruang untuk berkembang</h2>
+      <PricingCards plans={data.plans} dashboard currentPlan={active ? subscription.plan_code : undefined} hasSubscription={Boolean(subscription)} {...purchaseProps}/>
+    </>}</PaymentCheckout>
     <BillingPolicyNote/>
     <section className="billing-history"><h2>Aktivitas saldo</h2><p>Maksimal 50 aktivitas terakhir. Reservasi bukan biaya final.</p>
       {data.ledger.length ? <div className="billing-table-wrap"><table><thead><tr><th>Tanggal</th><th>Aktivitas</th><th>Nominal</th></tr></thead><tbody>{data.ledger.map((entry) => <tr key={entry.id}><td>{new Date(entry.createdAt).toLocaleString('id-ID')}</td><td>{eventNames[entry.kind] || 'Aktivitas saldo'}<small className="billing-event-note">{eventNotes[entry.kind] || 'Lihat rincian saldo organisasi.'}</small></td><td>{entry.kind === 'settle' ? '− ' : ''}{formatIdr(entry.amountIdr)}{entry.kind === 'reserve' && <small className="billing-event-note">Sementara · bukan biaya</small>}</td></tr>)}</tbody></table></div> : <p>Belum ada aktivitas saldo.</p>}

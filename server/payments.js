@@ -146,7 +146,25 @@ export function createPaymentService({ getPool, provider, now = () => new Date()
       return publicOrder({...row,status:next,provider_status:state,fulfillment});
     });
   }
-  return {create,read,reconcile,async list(org) {
+  async function cancel(org,id) {
+    if (!provider.enabled) fail('PAYMENT_NOT_CONFIGURED',503);
+    scope(org);
+    const row=await read(org,id);
+    if(row.environment!==provider.mode) fail('PAYMENT_ENVIRONMENT_MISMATCH',409);
+    // Never cancel a captured payment (including fraud review) or refund money.
+    // Read authenticated provider status first, not the stale browser/local state.
+    const current=await reconcile(id);
+    if(current.status==='cancelled') return current;
+    if(current.status!=='pending' || current.providerStatus!=='pending') fail('PAYMENT_CANNOT_CANCEL',409);
+    let failed=false;
+    try {await provider.cancel(id);}catch {failed=true;}
+    // A timeout/rejection may race with settlement or successful cancellation.
+    // Only an independently verified GET Status can release the purchase slot.
+    const result=await reconcile(id);
+    if(result.status==='pending') fail(failed?'PAYMENT_CANCEL_UNCERTAIN':'PAYMENT_CANCEL_PENDING',409);
+    return result;
+  }
+  return {create,read,reconcile,cancel,async list(org) {
     const c=await getPool().getConnection();
     try {const [rows]=await c.execute(`${SELECT} WHERE organization_id=? ORDER BY created_at DESC,id DESC LIMIT 30`,[org]);return rows.map(publicOrder);}finally{c.release();}
   }};
@@ -167,6 +185,10 @@ export function installPaymentRoutes(app,{getPool,requireTenant,provider,appOrig
     const row=await service.read(req.tenantContext.organizationId,req.params.id);
     if(row.environment!==provider.mode) fail('PAYMENT_ENVIRONMENT_MISMATCH',409);
     res.json(await service.reconcile(row.id));
+  }));
+  app.post('/api/payments/:id/cancel',requireTenant,owner,origin,noQuery,safe(async(req,res)=>{
+    if (!req.body || Array.isArray(req.body) || Object.keys(req.body).length) fail('PAYMENT_FIELDS_INVALID');
+    res.json(await service.cancel(req.tenantContext.organizationId,req.params.id));
   }));
   // Midtrans sends this server-to-server: no login/Origin, but mandatory signature
   // AND independent authenticated status verification. No customer identity accepted.

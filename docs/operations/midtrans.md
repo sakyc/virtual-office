@@ -136,6 +136,19 @@ to restart other PM2 apps. This document is not evidence of a completed deploy.
 
 ## Verification before opening real payments
 
+Owners can request cancellation from payment history for pending orders. The
+server checks tenant ownership, environment and authenticated provider status;
+only a provider `pending` transaction may be sent to Core API `POST /v2/{id}/cancel`.
+The response is never trusted as final: GET Status must confirm the result before
+the subscription purchase slot is freed. Timeouts keep the order pending unless
+provider verification proves otherwise. Captured/paid/review orders are not
+refunded by this action. A settlement racing cancellation is reconciled normally.
+After confirmed cancellation, buy again to select another method; do not pay the
+old payment code. Uncharged Snap sessions may not yet have a Core transaction:
+reopen the same popup to choose a method; unavailable status must not trigger a
+local-only cancellation. Validate supported method cancellation in Sandbox before
+real payments. No new schema migration is required for this action.
+
 Run `npm run test:payments`, existing regressions and `npm run build` locally.
 These use mocked provider/DB responses and local HTTP; they are not real Sandbox
 or MySQL/MariaDB end-to-end tests. After explicit migration and Sandbox setup,

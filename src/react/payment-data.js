@@ -7,6 +7,9 @@ const messages = {
   PAYMENT_SANDBOX_TENANT_REQUIRED: 'Sandbox hanya tersedia untuk organisasi pengujian yang ditentukan.',
   PAYMENT_ENVIRONMENT_MISMATCH: 'Transaksi berasal dari mode berbeda. Hubungi admin.',
   PAYMENT_TOPUP_INVALID: 'Top up harus berupa rupiah bulat antara Rp10.000 dan Rp10.000.000.',
+  PAYMENT_CANNOT_CANCEL: 'Transaksi tidak dapat dibatalkan. Periksa status; pembayaran lunas bukan pembatalan atau refund otomatis.',
+  PAYMENT_CANCEL_UNCERTAIN: 'Pembatalan belum dapat dipastikan. Jangan bayar ulang; periksa status transaksi dahulu.',
+  PAYMENT_CANCEL_PENDING: 'Midtrans belum mengonfirmasi pembatalan. Periksa status sebelum membuat pembayaran baru.',
 };
 export async function paymentRequest(path = '', body, signal, request = fetch) {
   const response = await request(`/api/payments${path}`, { method: body === undefined ? 'GET' : 'POST', credentials:'same-origin', cache:'no-store', signal,

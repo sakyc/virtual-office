@@ -3,7 +3,7 @@ import { formatIdr } from './billing-data.js';
 import './billing.css';
 
 const descriptions = { starter: 'Awal yang ringan untuk kantor AI Anda.', pro: 'Ruang lebih luas untuk tim yang berkembang.', business: 'Kapasitas lebih besar untuk banyak divisi.', custom: 'Sesuaikan kapasitas dengan kebutuhan organisasi.' };
-export function PricingCards({ plans = [], dashboard = false, currentPlan, paymentEnabled = false }) {
+export function PricingCards({ plans = [], dashboard = false, currentPlan, paymentEnabled = false, hasSubscription = false, purchasePending = false, busy = false, onPurchase }) {
   return <div className="billing-plans">{plans.map((plan) => {
     const custom = Boolean(plan.quoteRequired);
     return <article key={plan.code} className={`billing-plan${plan.code === 'pro' ? ' billing-plan-featured' : ''}`}>
@@ -18,7 +18,7 @@ export function PricingCards({ plans = [], dashboard = false, currentPlan, payme
         <li>{custom ? 'Anggota manusia sesuai kesepakatan' : `${plan.maxMembers} anggota manusia`}</li>
         <li>{custom ? 'WhatsApp sesuai kesepakatan (belum aktif)' : plan.whatsapp ? 'Notifikasi & persetujuan WhatsApp (belum aktif)' : 'Tanpa fitur WhatsApp'}</li>
       </ul>
-      {dashboard ? <button type="button" disabled>{currentPlan === plan.code ? 'Paket saat ini' : custom ? 'Hubungi admin untuk penawaran' : paymentEnabled ? 'Pilih melalui bagian pembayaran di atas' : 'Pembayaran belum tersedia'}</button>
+      {dashboard ? <button type="button" disabled={!paymentEnabled || !onPurchase || busy || purchasePending || hasSubscription || Boolean(currentPlan) || custom} onClick={()=>onPurchase?.(plan)}>{currentPlan === plan.code ? 'Paket saat ini' : custom ? 'Hubungi admin untuk penawaran' : hasSubscription || currentPlan ? 'Perubahan paket melalui admin' : !paymentEnabled ? 'Pembayaran belum tersedia' : busy ? 'Memproses pembayaran…' : purchasePending ? 'Selesaikan pembayaran sebelumnya' : `Beli ${plan.name}`}</button>
         : <a href="/dashboard/billing">Lihat paket di dashboard <span aria-hidden="true">↗</span></a>}
     </article>;
   })}</div>;
