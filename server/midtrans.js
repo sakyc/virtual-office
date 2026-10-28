@@ -5,8 +5,11 @@ export function createMidtrans({ env = process.env, request = globalThis.fetch }
   const production = env.MIDTRANS_IS_PRODUCTION === '1';
   const mode = production ? 'production' : 'sandbox';
   const sandboxOrg = /^[1-9]\d*$/.test(env.MIDTRANS_SANDBOX_ORGANIZATION_ID || '') && Number.isSafeInteger(Number(env.MIDTRANS_SANDBOX_ORGANIZATION_ID)) ? Number(env.MIDTRANS_SANDBOX_ORGANIZATION_ID) : null;
+  // Explicit opt-in for an installation used ONLY by test accounts. The process
+  // may run NODE_ENV=production while the payment provider remains Sandbox.
+  const sandboxAll = !production && env.MIDTRANS_SANDBOX_ALLOW_ALL === '1';
   const enabled = env.MIDTRANS_ENABLED === '1' && Boolean(env.MIDTRANS_SERVER_KEY?.trim() && env.MIDTRANS_CLIENT_KEY?.trim()) &&
-    (production || env.NODE_ENV !== 'production' || Boolean(sandboxOrg));
+    (production || env.NODE_ENV !== 'production' || Boolean(sandboxOrg) || sandboxAll);
   const api = production ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
   const snap = production ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
   async function call(url, method = 'GET', body) {
@@ -23,7 +26,7 @@ export function createMidtrans({ env = process.env, request = globalThis.fetch }
     } catch { throw billingError('PAYMENT_PROVIDER_UNAVAILABLE', 503); }
   }
   return {
-    enabled, mode, allowedOrganizationId: !production ? sandboxOrg : null,
+    enabled, mode, allowedOrganizationId: !production && !sandboxAll ? sandboxOrg : null,
     publicConfig: () => ({ enabled, mode, ...(enabled ? { clientKey: env.MIDTRANS_CLIENT_KEY, scriptUrl: `${snap}/snap/snap.js` } : {}) }),
     async checkout(order) {
       const result = await call(`${snap}/snap/v1/transactions`, 'POST', {

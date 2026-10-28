@@ -73,6 +73,24 @@ test('signature verification rejects tampering and provider failures never expos
   assert(p.verify(body));assert(!p.verify({...body,gross_amount:'10001.00'}));assert(!p.verify({...body,signature_key:'bad'}));
   await assert.rejects(p.status('test'),e=>e.code==='PAYMENT_PROVIDER_UNAVAILABLE'&&!e.message.includes('secret'));
 });
+test('explicit all-test-account Sandbox opt-in opens all organizations without weakening defaults or Production mode',async()=>{
+  const config={...env,NODE_ENV:'production',MIDTRANS_SANDBOX_ALLOW_ALL:'1'};
+  const open=createMidtrans({env:config});
+  assert.equal(open.enabled,true);assert.equal(open.mode,'sandbox');assert.equal(open.allowedOrganizationId,null);
+  assert.equal(createMidtrans({env:{...config,MIDTRANS_SANDBOX_ORGANIZATION_ID:'7'}}).allowedOrganizationId,null);
+  for(const value of ['0','true','yes',''])assert.equal(createMidtrans({env:{...config,MIDTRANS_SANDBOX_ALLOW_ALL:value}}).enabled,false);
+  assert.equal(createMidtrans({env:{...config,MIDTRANS_SERVER_KEY:''}}).enabled,false);
+  assert.equal(createMidtrans({env:{...config,MIDTRANS_ENABLED:'0'}}).enabled,false);
+  const prod=createMidtrans({env:{...config,MIDTRANS_IS_PRODUCTION:'1'}});
+  assert.equal(prod.mode,'production');assert.equal(prod.allowedOrganizationId,null);
+  // Exercise the real payment service with local provider/DB stand-ins only.
+  const f=fixture();Object.assign(f.provider,{enabled:open.enabled,mode:open.mode,allowedOrganizationId:open.allowedOrganizationId});
+  const a=await f.service.create(1,10,purchase()),b=await f.service.create(2,20,purchase());
+  f.statuses.get(a.id).transaction_status='settlement';f.statuses.get(b.id).transaction_status='settlement';
+  await f.service.reconcile(a.id);await f.service.reconcile(b.id);
+  assert.equal(f.state().subscriptions.length,2);assert.equal(f.state().grants.length,2);
+  await assert.rejects(f.service.read(1,b.id),{code:'PAYMENT_NOT_FOUND'});
+});
 test('purchase accepts only server-defined plan/version or bounded integer topup, never identity/price overrides',()=>{
   assert.equal(validatePurchase(purchase()).planCode,'starter');
   for(const body of [{...purchase(),amountIdr:'1'},{...purchase(),organizationId:2},{...purchase(),planCode:'custom'},{...purchase(),expectedPlanVersion:'1'},...['1','9999','10000.5','10000001',10000].map(amountIdr=>({requestId:randomUUID(),kind:'topup',amountIdr}))])assert.throws(()=>validatePurchase(body));

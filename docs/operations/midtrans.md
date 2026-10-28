@@ -30,6 +30,7 @@ MIDTRANS_IS_PRODUCTION=0
 MIDTRANS_SERVER_KEY=
 MIDTRANS_CLIENT_KEY=
 MIDTRANS_SANDBOX_ORGANIZATION_ID=
+MIDTRANS_SANDBOX_ALLOW_ALL=0
 ```
 
 Fill keys from the SAME Midtrans Sandbox account. `MIDTRANS_IS_PRODUCTION=1`
@@ -38,13 +39,23 @@ selects the separate Production endpoints and must use Production keys instead.
 only Client Key is returned to the authenticated owner for Snap. Server Key never
 leaves the backend, except its Basic authentication to the fixed Midtrans host.
 
-On `NODE_ENV=production`, Sandbox will NOT enable without the numeric ID of one
-dedicated test organization in `MIDTRANS_SANDBOX_ORGANIZATION_ID`. Only that
-organization may check out or receive Sandbox funding. Use a fresh test owner/
-organization in the SAME database, not a paying customer's tenant. Sandbox
-grants still enter that tenant's normal wallet, so do not use its fake credit for
-paid AI calls. Do not switch this tenant to Production without operator review
-of test subscriptions/grants. No automated cleanup deletes test evidence.
+On `NODE_ENV=production`, Sandbox defaults to requiring the numeric ID of one
+dedicated test organization in `MIDTRANS_SANDBOX_ORGANIZATION_ID`. Alternatively,
+if the ENTIRE installation is still being developed and ALL accounts are test
+accounts (no real customers), set `MIDTRANS_SANDBOX_ALLOW_ALL=1`. This explicit
+opt-in opens Sandbox to all organizations and overrides an existing tenant ID;
+the tenant ID can be left blank. Owner-only checkout, authentication, payment
+verification, tenant isolation and duplicate-credit prevention remain enforced.
+Only the exact value `1` enables this opt-in. It does not select real Production
+payments and does not enable payments without keys or `MIDTRANS_ENABLED=1`.
+
+Sandbox grants enter normal application wallets and activate normal plans,
+without any real money being received. Fake credit can incur real provider costs
+if used for paid AI calls. Before onboarding real customers, set
+`MIDTRANS_SANDBOX_ALLOW_ALL=0`, reconcile test subscriptions/grants with an
+operator, and switch to approved Production credentials/endpoints. There is no
+automated destructive cleanup of test data. Existing orders retain their own
+environment, so Production cannot fulfill Sandbox orders.
 
 Notification URL for this integration (must be publicly reachable over HTTPS):
 

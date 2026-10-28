@@ -56,7 +56,7 @@ export function PaymentCheckoutView({data,state,busy,message,amount,setAmount,ch
   const enabled=state.config?.enabled, pending=state.orders.some(o=>o.kind==='subscription' && ['creating','pending','needs_review'].includes(o.status));
   return <section className="payment-checkout" aria-label="Pembayaran Midtrans">
     <h2>Pembayaran & top up</h2>
-    {state.config?.mode==='sandbox' && <aside className="billing-notice"><strong>Mode Sandbox · bukan pembayaran sungguhan</strong><p>Gunakan hanya akun/organisasi pengujian. Saldo uji bukan dana sungguhan dan harus direkonsiliasi sebelum beralih ke Production.</p></aside>}
+    {state.config?.mode==='sandbox' && <aside className="billing-notice"><strong>Mode Sandbox · bukan pembayaran sungguhan</strong><p>Lingkungan pengujian: pembayaran simulasi akan mengaktifkan paket atau menambah saldo aplikasi tanpa uang masuk. Saldo uji harus direkonsiliasi sebelum menerima pelanggan sungguhan.</p></aside>}
     {!enabled ? <p>Pembayaran belum diaktifkan. Admin perlu memasang key Midtrans.</p> : <>
       {!data.subscription ? <div><p>Pilih paket bulanan. Paket dan saldo berlaku untuk seluruh organisasi.</p><div className="payment-actions">{data.plans.filter(p=>!p.quoteRequired).map(p=><button type="button" disabled={busy||pending} key={p.code} onClick={()=>checkout({kind:'subscription',planCode:p.code,expectedPlanVersion:p.version})}>Beli {p.name} · {formatIdr(p.monthlyPriceIdr)}</button>)}</div></div>
         : <p>Perpanjangan, upgrade, Custom, dan add-on masih melalui admin. Belum tersedia autodebit.</p>}
