@@ -5,6 +5,7 @@ import { validateTaskTemplateSchema } from './task-template-contract.js';
 import { validateWorkspaceTaskSchema } from './workspace-task-contract.js';
 import { validateTenantMemberSchema } from './tenant-member-contract.js';
 import { validatePaymentSchema } from './payment-contract.js';
+import { validateDemoSchema } from './demo-contract.js';
 
 const CONTRACT = {
   clients: ['id', 'name', 'brief', 'created_at'],
@@ -34,7 +35,7 @@ const TENANT_OWNERSHIP = { clients: ['organization_id', 'workspace_id', 'created
 const TENANT_INDEXES = { users: ['PRIMARY', 'uq_users_provider_subject', 'idx_users_email', 'idx_users_status_id'], organizations: ['PRIMARY', 'uq_organizations_slug', 'idx_organizations_status_id'], organization_memberships: ['PRIMARY', 'idx_org_memberships_user', 'idx_org_memberships_role'], workspaces: ['PRIMARY', 'uq_workspaces_organization_slug', 'idx_workspaces_organization_status_id'], workspace_memberships: ['PRIMARY', 'idx_workspace_memberships_user', 'idx_workspace_memberships_role'], sessions: ['PRIMARY', 'uq_sessions_token_hash', 'idx_sessions_user_expiry', 'idx_sessions_workspace'], clients: ['idx_clients_workspace_name_id'], jobs: ['idx_jobs_workspace_created_id', 'idx_jobs_workspace_agent_id'], items: ['idx_items_workspace_board', 'idx_items_workspace_job', 'idx_items_workspace_parent'], revisions: ['idx_revisions_workspace_item_id'] };
 const TENANT_FOREIGN_KEYS = ['fk_organizations_creator', 'fk_org_memberships_organization', 'fk_org_memberships_user', 'fk_org_memberships_creator', 'fk_workspaces_organization', 'fk_workspaces_creator', 'fk_workspace_memberships_workspace', 'fk_workspace_memberships_user', 'fk_workspace_memberships_creator', 'fk_sessions_user', 'fk_sessions_workspace', 'fk_clients_organization', 'fk_clients_workspace', 'fk_clients_creator', 'fk_clients_updater', 'fk_jobs_organization', 'fk_jobs_workspace', 'fk_jobs_creator', 'fk_items_organization', 'fk_items_workspace', 'fk_items_creator', 'fk_items_updater', 'fk_revisions_organization', 'fk_revisions_workspace', 'fk_revisions_creator'];
 
-export async function validateCurrentSchema(connection, { requirePayments = false, requireTenantMembers = false, requireWorkspaceTasks = false, requireTaskTemplates = false, requireTenantFoundation = false, requireNativeCredentials = false, requireAiUsage = false, requireWorkspaceTeam = false, requireChatHistory = false, requireChatModelSelection = false, requireBilling = false, requireAdminCatalog = false, requirePlatformAdminAudit = false, requireAiBilling = false, requireBillingAdmin = false, requireModelCatalog = false } = {}) {
+export async function validateCurrentSchema(connection, { requireDemo = false, requirePayments = false, requireTenantMembers = false, requireWorkspaceTasks = false, requireTaskTemplates = false, requireTenantFoundation = false, requireNativeCredentials = false, requireAiUsage = false, requireWorkspaceTeam = false, requireChatHistory = false, requireChatModelSelection = false, requireBilling = false, requireAdminCatalog = false, requirePlatformAdminAudit = false, requireAiBilling = false, requireBillingAdmin = false, requireModelCatalog = false } = {}) {
   const [rows] = await connection.execute(
     "SELECT table_name AS tableName, column_name AS columnName FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('clients', 'jobs', 'items', 'revisions', 'users', 'organizations', 'organization_memberships', 'workspaces', 'workspace_memberships', 'sessions', 'native_credentials') ORDER BY table_name, ordinal_position",
   );
@@ -105,6 +106,7 @@ export async function validateCurrentSchema(connection, { requirePayments = fals
   if (requireWorkspaceTasks) missing.push(...await validateWorkspaceTaskSchema(connection));
   if (requireTenantMembers) missing.push(...await validateTenantMemberSchema(connection));
   if (requirePayments) missing.push(...await validatePaymentSchema(connection));
+  if (requireDemo) missing.push(...await validateDemoSchema(connection));
   if (requireChatHistory || requireChatModelSelection) missing.push(...await validateChatSchema(connection, { requireModelSelection: requireChatModelSelection }));
   if (requireBilling || requireAdminCatalog || requirePlatformAdminAudit || requireAiBilling || requireBillingAdmin || requireModelCatalog) missing.push(...await validateBillingSchema(connection, { adminCatalog: requireAdminCatalog || requirePlatformAdminAudit || requireAiBilling || requireBillingAdmin || requireModelCatalog, platformAdminAudit: requirePlatformAdminAudit || requireAiBilling || requireBillingAdmin || requireModelCatalog, aiBilling: requireAiBilling || requireBillingAdmin || requireModelCatalog, billingAdmin: requireBillingAdmin || requireModelCatalog, modelCatalog: requireModelCatalog }));
   return { valid: missing.length === 0, differences: missing };

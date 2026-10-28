@@ -25,6 +25,12 @@ else {
       result.differences.push(...await validatePaymentSchema(connection));
       result.valid = result.differences.length === 0;
     }
+    const [demoHistory] = await connection.execute("SELECT migration_id FROM schema_migrations WHERE migration_id = '018_whatsapp_demo' AND status = 'applied'");
+    if (demoHistory.length) {
+      const {validateDemoSchema} = await import('../server/migrations/demo-contract.js');
+      result.differences.push(...await validateDemoSchema(connection));
+      result.valid = result.differences.length === 0;
+    }
     console.log(JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } catch (error) { console.error(JSON.stringify({ error: safeDatabaseError(error) })); process.exitCode = 1; }

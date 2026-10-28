@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { billingError, money, subscriptionTerms, resolveBillingEntitlements } from './billing-policy.js';
 import { PLAN_SELECT, readCatalog, catalogTerms } from './billing-catalog.js';
+import {activeDemo,demoEntitlements} from './demo-policy.js';
 
 const json = (value) => typeof value === 'string' ? JSON.parse(value) : value;
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
@@ -81,7 +82,7 @@ export function createBillingService(getPool) {
       const requested = money(amountIdr);
       return transaction(org, key, 'reserve', { amountIdr }, async (c) => {
         const [[subscription]] = await c.execute("SELECT id FROM billing_subscriptions WHERE organization_id = ? AND status = 'active' AND period_start <= UTC_TIMESTAMP() AND period_end > UTC_TIMESTAMP()", [org]);
-        if (!subscription) throw billingError('ACTIVE_SUBSCRIPTION_REQUIRED', 402);
+        if (!subscription && !await activeDemo(c,org)) throw billingError('ACTIVE_SUBSCRIPTION_REQUIRED', 402);
         const [grants] = await c.execute(`SELECT id, CAST(available_idr AS CHAR) AS available FROM billing_credit_grants
           WHERE organization_id = ? AND available_idr > 0 AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
           ORDER BY expires_at IS NULL, expires_at, created_at, id FOR UPDATE`, [org]);
@@ -136,7 +137,9 @@ export async function readBilling(c, org) {
     CAST(COALESCE(SUM(CASE WHEN expires_at <= UTC_TIMESTAMP() THEN available_idr ELSE 0 END),0) AS CHAR) AS expiredIdr
     FROM billing_credit_grants WHERE organization_id = ? GROUP BY source`, [org]);
   const [ledger] = await c.execute('SELECT id, kind, CAST(amount_idr AS CHAR) AS amountIdr, created_at AS createdAt FROM billing_ledger WHERE organization_id = ? ORDER BY created_at DESC, id DESC LIMIT 50', [org]);
-  return { currency: 'IDR', plans, subscription: subscription || null, entitlements: resolveBillingEntitlements(subscription), grants, ledger,
+  const paidEntitlements=resolveBillingEntitlements(subscription);
+  const demo=paidEntitlements.active?null:await activeDemo(c,org);
+  return { currency: 'IDR', plans, subscription: subscription || null, demo, entitlements: demo?demoEntitlements(demo):paidEntitlements, grants, ledger,
     paymentEnabled: false, automaticAiDebitsEnabled: true, whatsappDeliveryEnabled: false, addOnsEnabled: false };
 }
 

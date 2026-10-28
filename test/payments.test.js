@@ -275,8 +275,8 @@ test('browser requests use same-origin and safe translated errors without trusti
 });
 test('017 is additive and registered; schema validation rejects missing columns, unique keys and foreign keys',async()=>{
   const manifest=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations/',import.meta.url)));
-  assert.equal(manifest.diagnostics.length,0);assert.equal(manifest.migrations.at(-1).id,'017_midtrans_payments');
-  assert.match(manifest.migrations.at(-1).source,/CREATE TABLE billing_payment_orders/);assert.doesNotMatch(manifest.migrations.at(-1).source,/DROP |ALTER /);
+  assert.equal(manifest.diagnostics.length,0);const paymentMigration=manifest.migrations.find(m=>m.id==='017_midtrans_payments');
+  assert.match(paymentMigration.source,/CREATE TABLE billing_payment_orders/);assert.doesNotMatch(paymentMigration.source,/DROP |ALTER /);
   const missing=await validatePaymentSchema({execute:async()=>[[]]});
   assert(missing.some(d=>d.index==='uq_payment_request'));assert(missing.some(d=>d.constraint==='fk_payment_organization'));assert(missing.some(d=>d.column==='fulfillment'));assert(missing.length>=Object.keys(PAYMENT_COLUMNS).length);
 });

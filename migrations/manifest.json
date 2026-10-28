@@ -68,6 +68,10 @@
     {
       "id": "017_midtrans_payments",
       "file": "017_midtrans_payments.sql"
+    },
+    {
+      "id": "018_whatsapp_demo",
+      "file": "018_whatsapp_demo.sql"
     }
   ]
 }

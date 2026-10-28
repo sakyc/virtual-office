@@ -32,6 +32,7 @@ import { installTenantMemberRoutes } from './tenant-members.js';
 import { createWorkLifecycle } from './work-lifecycle.js';
 import { createMidtrans } from './midtrans.js';
 import { installPaymentRoutes } from './payments.js';
+import { installDemoRoutes } from './demo.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -59,6 +60,7 @@ app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
 // Native login shares the existing server sessions. Migrations remain explicit.
 installAuthRoutes(app, { getPool: () => pool });
+installDemoRoutes(app, { getPool: () => pool });
 installCatalogRoutes(app, { getPool: () => pool });
 installPlatformAdminRoutes(app, { getPool: () => pool });
 installBillingAdministrationRoutes(app, { getPool: () => pool, modelCatalog: chatModels, readModels: readModelCatalog });

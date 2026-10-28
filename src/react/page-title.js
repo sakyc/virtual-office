@@ -1,6 +1,6 @@
 const titles = {
   '/': 'Karyora — Kantor AI untuk Tim Anda',
-  '/login': 'Masuk', '/register': 'Daftar', '/login/complete': 'Menyelesaikan login',
+  '/login': 'Masuk', '/register': 'Daftar', '/login/complete': 'Menyelesaikan login', '/demo': 'Aktivasi Demo',
   '/join': 'Undangan workspace', '/onboarding': 'Siapkan kantor',
   '/dashboard': 'Dashboard', '/dashboard/office': 'Kantor 3D',
   '/dashboard/workers': 'Tim AI', '/dashboard/team': 'Tim AI',

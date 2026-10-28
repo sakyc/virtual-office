@@ -10,6 +10,7 @@ import { canonicalCustomerPath } from './customer-routes.js';
 import { JoinWorkspace } from './tenant-members.jsx';
 import { pageTitle } from './page-title.js';
 import { dashboardLinkDestination } from './spa-navigation.js';
+import { DemoPage } from './demo-page.jsx';
 
 const pages = { '/dashboard': 'Dashboard', '/dashboard/workers': 'Workers', '/dashboard/jobs': 'Jobs', '/dashboard/settings': 'Settings' };
 const go = (path, { replace = false } = {}) => { history[replace ? 'replaceState' : 'pushState']({}, '', canonicalCustomerPath(path)); dispatchEvent(new PopStateEvent('popstate')); };
@@ -39,9 +40,10 @@ function App() {
   }, []);
   let page;
   if (path === '/') page = <LandingPage onNavigate={go} />;
+  else if (path === '/demo') page = <DemoPage onNavigate={go}/>;
   else if (path === '/join') page = <JoinWorkspace onNavigate={go}/>;
   else if (path === '/admin' || path === '/admin/billing' || path === '/admin/models' || path === '/admin/audit' || path === '/admin/users' || path === '/admin/organizations' || path === '/admin/subscriptions') page = <AdminBilling onNavigate={go} section={path === '/admin' ? 'overview' : path.split('/')[2]}/>;
-  else if (path === '/login' || path === '/register' || path === '/login/complete') page = <AuthPage key={path} register={path === '/register'} complete={path === '/login/complete'} onNavigate={go} />;
+  else if (path === '/login' || path === '/register' || path === '/login/complete') page = <AuthPage key={path} demo={new URLSearchParams(location.search).get('demo')==='1'} register={path === '/register'} complete={path === '/login/complete'} onNavigate={go} />;
   else if (path === '/onboarding') page = <OnboardingPage onNavigate={go} />;
   else if (path === '/dashboard/office') page = <OfficePage onNavigate={go} />;
   else if (path === '/dashboard') page = <DashboardPage onNavigate={go} />;

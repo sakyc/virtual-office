@@ -26,10 +26,11 @@ export function BillingPage({ balanceState } = {}) {
 export function BillingContent({ data, onChanged }) {
   const balances = billingBalances(data.grants);
   const subscription = data.subscription;
-  const active = data.entitlements.active;
+  const active = data.entitlements.active && Boolean(subscription);
   const plan = data.plans.find((p) => p.code === subscription?.plan_code);
   return <section className="billing-page" aria-label="Langganan dan saldo organisasi">
     <header><span className="billing-eyebrow">LANGGANAN & SALDO</span><h2>Kantor Anda, kapasitas pilihan Anda.</h2><p>Paket dan saldo dibagikan dalam organisasi, bukan per akun pengguna.</p></header>
+    {data.demo && <aside className="billing-notice"><strong>Demo Karyora · 6 divisi</strong><p>Saldo awal Rp3.000 · berakhir {new Date(data.demo.expiresAt).toLocaleString('id-ID')}. Demo bukan langganan berbayar dan tidak bisa top up. Untuk membeli paket dengan kapasitas lebih kecil, arsipkan divisi yang tidak dipilih di halaman Tim terlebih dahulu. Riwayat tetap tersimpan.</p></aside>}
     <div className="billing-summary">
       <article><span>Langganan</span><h3>{active ? plan?.name || subscription.plan_code : subscription ? 'Langganan tidak aktif' : 'Belum berlangganan'}</h3><p>{active ? `Periode berakhir ${new Date(subscription.period_end).toLocaleDateString('id-ID')}` : 'Belum ada paket aktif untuk organisasi ini.'}</p></article>
       <article className="billing-available"><span>Sisa Saldo AI · bisa dipakai</span><h3>{formatIdr(balances.available)}</h3><p>Paket {formatIdr(balances.package)} · Top up {formatIdr(balances.topup)}{balances.adjustment > 0n ? ` · Penyesuaian ${formatIdr(balances.adjustment)}` : ''}</p><p>Sudah dikurangi dana yang sedang ditahan. Tidak perlu dikurangi lagi.</p></article>

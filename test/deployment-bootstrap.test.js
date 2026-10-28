@@ -40,7 +40,7 @@ test('fresh deployment uses framework then checksum history and all schema requi
   const result = await bootstrapDeployment(connection(), 'tenant_deploy', migrations, {
     apply: async (c, m) => { assert.equal(m, migrations); order.push('apply'); return [{ name: 'fixture' }]; },
     history: async () => { order.push('history'); },
-    validate: async (c, options) => { order.push('schema'); assert.equal(Object.keys(options).length, 16); assert.equal(options.requirePayments,true); assert.ok(Object.values(options).every(Boolean)); return { valid: true, differences: [] }; },
+    validate: async (c, options) => { order.push('schema'); assert.equal(Object.keys(options).length, 17); assert.equal(options.requireDemo,true); assert.equal(options.requirePayments,true); assert.ok(Object.values(options).every(Boolean)); return { valid: true, differences: [] }; },
   });
   assert.deepEqual(order, ['apply', 'history', 'schema']);
   assert.deepEqual(result.applied, ['fixture']);

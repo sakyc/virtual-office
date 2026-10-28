@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { agentInput, divisionInput, initialTeamInput, teamTemplates, teamError, MAX_AGENTS, MAX_DIVISIONS } from '../shared/workspace-team.js';
 import { assertPaidAccess } from './billing-enforcement.js';
 import { assertTenantAgentAccess } from './member-access.js';
+import {activeDemo} from './demo-policy.js';
 
 const scope = (tenant) => [tenant.organizationId, tenant.workspaceId];
 export async function lockTeam(connection, tenant) {
@@ -27,7 +28,7 @@ export async function loadOfficeDivisionCapacity(connection, tenant) {
     FROM billing_subscriptions s WHERE s.organization_id=? AND s.status='active'
       AND s.period_start<=UTC_TIMESTAMP() AND s.period_end>UTC_TIMESTAMP()`,
   [tenant.workspaceId, tenant.organizationId]);
-  if (!row) return 0;
+  if (!row) {const demo=await activeDemo(connection,tenant.organizationId);return demo && demo.workspace_id===tenant.workspaceId?6:0;}
   const max = Number(row.maxDivisions), other = Number(row.otherDivisions);
   if (!Number.isSafeInteger(max) || max < 1 || !Number.isSafeInteger(other) || other < 0) throw teamError('Kapasitas paket belum dapat dimuat.', 503);
   return Math.min(MAX_DIVISIONS, Math.max(0, max - other));

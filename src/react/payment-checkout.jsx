@@ -71,7 +71,7 @@ export function PaymentCheckoutView({data,state,busy,message,amount,setAmount,ch
     {!enabled ? <p>Pembayaran belum diaktifkan. Admin perlu memasang key Midtrans.</p> : <>
       {!data.subscription ? <p>Pilih paket langsung pada kartu paket di bawah. Paket dan saldo berlaku untuk seluruh organisasi.</p>
         : <p>Perpanjangan, upgrade, Custom, dan add-on masih melalui admin. Belum tersedia autodebit.</p>}
-      {data.entitlements.active && <form className="payment-topup" onSubmit={e=>{e.preventDefault();checkout({kind:'topup',amountIdr:amount});}}><label>Nominal top up (Rp)<input type="number" min="10000" max="10000000" step="1" required value={amount} onChange={e=>setAmount(e.target.value)} disabled={busy}/></label><button disabled={busy} type="submit">Top up saldo AI</button><small>Rp10.000–Rp10.000.000. Top up tidak memperpanjang masa langganan.</small></form>}
+      {data.subscription && data.entitlements.active && <form className="payment-topup" onSubmit={e=>{e.preventDefault();checkout({kind:'topup',amountIdr:amount});}}><label>Nominal top up (Rp)<input type="number" min="10000" max="10000000" step="1" required value={amount} onChange={e=>setAmount(e.target.value)} disabled={busy}/></label><button disabled={busy} type="submit">Top up saldo AI</button><small>Rp10.000–Rp10.000.000. Top up tidak memperpanjang masa langganan.</small></form>}
     </>}
     <h3>Riwayat pembayaran</h3><p>30 transaksi terakhir. Menutup popup tidak membatalkan transaksi.</p>
     <p>Salah memilih metode? Buka “Lanjutkan bayar” untuk melihat pilihan yang tersedia. Jika metode sudah terkunci, batalkan pembayaran yang masih menunggu, lalu beli ulang setelah statusnya “Dibatalkan”. Jangan bayar kode lama. Pembayaran lunas tidak dapat dibatalkan di sini.</p>

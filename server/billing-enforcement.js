@@ -1,14 +1,16 @@
 import { billingError } from './billing-policy.js';
+import { activeDemo, demoEntitlements } from './demo-policy.js';
 
 // All capacity-changing writers lock the organization first, then its workspaces.
 // Limits apply to the WHOLE organization, not independently to every workspace.
 export async function lockBillingEntitlements(c, organizationId) {
   const [[org]] = await c.execute("SELECT id FROM organizations WHERE id = ? AND status = 'active' FOR UPDATE", [organizationId]);
   if (!org) throw billingError('Organisasi tidak aktif.', 403);
-  const [[plan]] = await c.execute(`SELECT max_divisions AS maxDivisions, max_members AS maxMembers, whatsapp_enabled AS whatsapp
+  let [[plan]] = await c.execute(`SELECT max_divisions AS maxDivisions, max_members AS maxMembers, whatsapp_enabled AS whatsapp
     FROM billing_subscriptions WHERE organization_id = ? AND status = 'active'
     AND period_start <= UTC_TIMESTAMP() AND period_end > UTC_TIMESTAMP() FOR UPDATE`, [organizationId]);
-  if (!plan) throw billingError('Langganan aktif diperlukan. Buka Langganan & Saldo.', 402);
+  if (!plan) { const demo=await activeDemo(c,organizationId); if(demo)plan=demoEntitlements(demo); }
+  if (!plan) throw billingError('Langganan atau demo aktif diperlukan. Buka Langganan & Saldo.', 402);
   const [[usage]] = await c.execute(`SELECT
     (SELECT COUNT(*) FROM workspace_divisions d JOIN workspaces w ON w.id=d.workspace_id AND w.organization_id=d.organization_id
       WHERE d.organization_id=? AND d.status='active' AND w.status='active') AS divisions,

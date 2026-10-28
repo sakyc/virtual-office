@@ -26,6 +26,7 @@ function fixture({resolveTariff=null}={}) {
   const db = { async execute(sql,v=[]) {
     if (sql.startsWith('SELECT id FROM organizations')) return [[{id:1}]];
     if (sql.includes('FROM billing_subscriptions WHERE')) return [s.paid ? [{maxDivisions:3,maxMembers:6,whatsapp:1}] : []];
+    if (sql.includes('FROM demo_access')) return [s.demo ? [{workspace_id:2}] : []];
     if (sql.startsWith('SELECT\n    (SELECT COUNT(*)')) return [[{divisions:s.divisions,members:s.members}]];
     if (sql.startsWith('SELECT u.id')) return [s.access ? [{id:3}] : []];
     if (sql.startsWith('INSERT INTO ai_billing_attempts')) {
@@ -72,9 +73,37 @@ function fixture({resolveTariff=null}={}) {
   };
   const billing=createAiBilling(()=>db,{pricing:{snapshot:async()=>({fx})},env,now:()=>now,service,resolveTariff});
   const store={start:async(sc,_model,i,n)=>{const id=`usage-${++seq}`;await billing.prepare(id,sc,i,n);return id;}, dispatched:billing.dispatched,finish:billing.finish};
-  const client=trackedClient({messages:{create:async()=>{providerCalls++;return {...message,id:`msg-${providerCalls}`};}}},store,scope);
+  const client=trackedClient({messages:{create:async request=>{providerCalls++;return {...message,model:request.model,id:`msg-${providerCalls}`};}}},store,scope);
   return {billing,client,store,env,fx,state:()=>s,providerCalls:()=>providerCalls};
 }
+
+test('demo AI uses existing holds and actual settlement; expiry and second human fail before provider',async(t)=>{
+  const previous=process.env.DEMO_ENABLED;process.env.DEMO_ENABLED='1';
+  t.after(()=>{if(previous===undefined)delete process.env.DEMO_ENABLED;else process.env.DEMO_ENABLED=previous;});
+  const f=fixture();f.state().paid=false;f.state().demo=input.model;
+  await f.client.messages.create(input);
+  assert.equal(f.providerCalls(),1);assert.equal(f.state().reserved,0n);assert(f.state().spent>0n);
+  for(const change of [s=>{s.demo=null;},s=>{s.members=2;}]) {
+    const g=fixture();g.state().paid=false;g.state().demo=input.model;change(g.state());
+    await assert.rejects(g.client.messages.create(input));assert.equal(g.providerCalls(),0);assert.equal(g.state().available,100n);
+  }
+});
+
+test('demo accepts multiple currently approved models at their own prices but denies disabled models and low balance',async(t)=>{
+  const previous=process.env.DEMO_ENABLED;process.env.DEMO_ENABLED='1';
+  t.after(()=>{if(previous===undefined)delete process.env.DEMO_ENABLED;else process.env.DEMO_ENABLED=previous;});
+  const premium='premium-catalog-model',active=new Set([input.model,premium]);
+  const f=fixture({resolveTariff:async model=>active.has(model)?{...tariff,...(model===premium?{inputUsdPerMillion:'5',outputUsdPerMillion:'25'}:{})}:null});
+  f.state().paid=false;f.state().demo=true;
+  await f.client.messages.create(input);const cheapCost=f.state().spent;
+  await f.client.messages.create({...input,model:premium});
+  assert.equal(f.providerCalls(),2);assert(f.state().spent-cheapCost>cheapCost);
+  assert.equal(JSON.parse(f.state().attempts[1].pricing_snapshot).model,premium);
+  active.delete(premium);
+  await assert.rejects(f.client.messages.create({...input,model:premium}));assert.equal(f.providerCalls(),2);
+  f.state().available=0n;
+  await assert.rejects(f.client.messages.create(input));assert.equal(f.providerCalls(),2);
+});
 
 test('exact rupiah cost rounds once, uses cache-read rate and never accepts unpriced cache writes or invalid counts',()=>{
   const snapshot={tariff,fx:{idrPerUsd:'16000'},maxOutputTokens:20};

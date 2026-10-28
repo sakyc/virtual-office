@@ -95,6 +95,7 @@ export function LandingHero({ vals }) {
 </a>
 
 <a className={"btns"} href={"#kantor"} style={{"display": "inline-flex", "alignItems": "center", "gap": "8px", "padding": "15px 26px", "borderRadius": "12px", "fontSize": "16px", "fontWeight": "700", "border": "1px solid var(--line)", "background": "var(--surface)", "color": "var(--ink)"}}>{"Lihat kantor 3D"}</a>
+<a className="btns" href="/demo" style={{display:'inline-flex',alignItems:'center',padding:'15px 26px',borderRadius:'12px',fontSize:'16px',fontWeight:'700',border:'1px solid var(--line)',background:'var(--surface)',color:'var(--ink)'}}>Coba demo</a>
 </div>
 
 <p className={"fu d3"} style={{"margin": "16px 0 0", "fontSize": "13px", "color": "var(--mute)"}}>{"Semua hasil AI berupa draft. Selalu ditinjau manusia sebelum dipakai."}</p>

@@ -46,7 +46,7 @@ const fullSchemaOptions = {
     requireBilling: true, requireAdminCatalog: true, requirePlatformAdminAudit: true,
     requireAiBilling: true, requireBillingAdmin: true, requireModelCatalog: true,
     requireTaskTemplates: true, requireWorkspaceTasks: true, requireTenantMembers: true,
-    requirePayments: true,
+    requirePayments: true, requireDemo: true,
 };
 
 // No DDL/DML. Used after bootstrap, including validation-only failures.
@@ -58,7 +58,7 @@ export async function validateDeployment(connection, database, migrations) {
   if (rows.length !== migrations.length || migrations.some(m => !rows.some(r => r.migration_id === m.id && r.status === 'applied'))) {
     throw new Error('DEPLOYMENT_HISTORY_INCOMPLETE');
   }
-  const validation = await validateCurrentSchema(connection, fullSchemaOptions);
+  const validation = await validateCurrentSchema(connection, {...fullSchemaOptions,requireDemo:migrations.some(m=>m.id==='018_whatsapp_demo')});
   return { database, migrations: rows.length, validation };
 }
 
@@ -67,8 +67,8 @@ async function main() {
   try {
     const options = deploymentOptions(process.argv.slice(2), process.env);
     const report = await inspectMigrationDirectory(resolve(root, 'migrations'));
-    if (hasErrors(report.diagnostics) || report.migrations.length !== 17
-      || report.migrations.at(-1)?.id !== '017_midtrans_payments') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
+    if (hasErrors(report.diagnostics) || report.migrations.length !== 18
+      || report.migrations.at(-1)?.id !== '018_whatsapp_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     connection = await mysql.createConnection(options);
     await acquireMigrationLock(connection); locked = true;
     if (process.argv.includes('--validate')) {
