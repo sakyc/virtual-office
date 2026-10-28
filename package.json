@@ -40,6 +40,7 @@
     "test:tenant-gate": "node --test test/tenant-gate.test.js",
     "test:usage": "node --test test/ai-usage.test.js test/usage-data.test.js test/ai-pricing.test.js",
     "test:billing": "node --test test/billing.test.js test/billing-ui.test.js test/admin-catalog.test.js test/ai-billing.test.js test/billing-administration.test.js test/default-model-tariffs.test.js",
+    "test:payments": "node --test test/payments.test.js",
     "test:billing:local": "node scripts/verify-ai-billing-local.mjs",
     "test:billing-admin:local": "node scripts/verify-billing-administration-local.mjs",
     "test:admin": "node --test test/admin-catalog.test.js test/platform-admin.test.js test/admin-dashboard-ui.test.js test/admin-models.test.js",

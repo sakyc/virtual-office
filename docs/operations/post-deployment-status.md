@@ -46,8 +46,10 @@ Apply the committed lockfile using `npm ci` on the VPS, not npm audit fix.
 - Durable task/revision execution. Controlled shutdown is now implemented in
   `graceful-shutdown.md`, but crash recovery and durable resume are still absent.
 - Backup restore rehearsal and operational recovery documentation.
-- Payment gateway selection, checkout and verified/idempotent webhooks. Manual
-  subscription activation and wallet administration are not automatic payments.
+- Midtrans Snap checkout and verified/idempotent webhooks are prepared in
+  `midtrans.md` for first subscription and top-up. Keys, explicit migration 017,
+  real Sandbox end-to-end checks and a controlled deploy are still required.
+  Renewals, upgrades, Custom quotes, add-ons and automatic refunds remain absent.
 - WhatsApp provider setup, phone verification, notifications and secure review
   actions. A plan's WhatsApp flag is not a working messaging service.
 - Password recovery/email verification and invitation delivery integration.

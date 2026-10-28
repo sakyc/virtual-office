@@ -14,7 +14,8 @@ const reference = (value) => { if (typeof value !== 'string' || !/^[A-Za-z0-9][A
 const organization = (id) => { if (!Number.isSafeInteger(id) || id < 1) throw billingError('BILLING_SCOPE_INVALID', 400); return id; };
 
 // Trusted server/operator service ONLY. Never pass browser funding or plan claims here.
-// No customer wallet mutation or checkout/webhook is installed until a payment provider is reviewed.
+// Customer wallet funding is only invoked by the verified payment service,
+// never directly from browser funding/identity claims.
 export function createBillingService(getPool) {
   async function transaction(org, key, kind, payload, action) {
     organization(org); reference(key);
@@ -139,13 +140,13 @@ export async function readBilling(c, org) {
     paymentEnabled: false, automaticAiDebitsEnabled: true, whatsappDeliveryEnabled: false, addOnsEnabled: false };
 }
 
-export function installBillingRoutes(app, { getPool, requireTenant }) {
+export function installBillingRoutes(app, { getPool, requireTenant, paymentAvailable = () => false }) {
   app.get('/api/billing', requireTenant, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     if (req.tenantContext.role !== 'owner') return res.status(403).json({ error: 'Hanya pemilik organisasi dapat melihat billing.' });
     if (Object.keys(req.query).length) return res.status(400).json({ error: 'Filter billing tidak valid.' });
     let c;
-    try { c = await getPool().getConnection(); res.json(await readBilling(c, req.tenantContext.organizationId)); }
+    try { c = await getPool().getConnection(); res.json({ ...await readBilling(c, req.tenantContext.organizationId), paymentEnabled: paymentAvailable(req.tenantContext.organizationId) }); }
     catch { res.status(503).json({ error: 'Billing belum tersedia. Operator perlu memverifikasi migration 008.' }); }
     finally { c?.release(); }
   });

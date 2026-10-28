@@ -12,6 +12,10 @@
 .billing-plan a:hover{border-color:var(--accent);background:var(--accentSoft)}
 .billing-plan button:disabled,.billing-notice button:disabled{cursor:not-allowed;color:var(--mute);background:var(--bg);opacity:.8}
 .billing-policy{margin:26px auto 0;max-width:850px;font-size:13px;line-height:1.8;color:var(--soft);text-align:center}
+.payment-checkout{margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.payment-checkout h2,.payment-checkout h3{font-weight:800;margin:12px 0}.payment-checkout h2{font-size:20px}.payment-checkout h3{font-size:16px;margin-top:28px}
+.payment-actions{display:flex;flex-wrap:wrap;gap:8px}.payment-checkout button{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--accentSoft);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}.payment-checkout button:hover{border-color:var(--accent)}.payment-checkout button:disabled{opacity:.5;cursor:not-allowed}
+.payment-topup{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:24px 0}.payment-topup label{display:grid;gap:8px;font-size:13px;font-weight:700}.payment-topup input{padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);max-width:100%}.payment-topup small{flex-basis:100%;color:var(--soft)}.payment-checkout table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}.payment-checkout td,.payment-checkout th{padding:14px 8px;border-bottom:1px solid var(--line)}
 .billing-page{color:var(--ink);max-width:1400px}.billing-page header h2{font-size:28px;font-weight:800;letter-spacing:-.03em;margin:10px 0}
 .billing-page p{color:var(--soft);line-height:1.7;font-size:14px}.billing-eyebrow{font-size:11px;letter-spacing:.1em;font-weight:800;color:var(--accentText)}
 .billing-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:28px 0}

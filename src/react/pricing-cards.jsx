@@ -3,7 +3,7 @@ import { formatIdr } from './billing-data.js';
 import './billing.css';
 
 const descriptions = { starter: 'Awal yang ringan untuk kantor AI Anda.', pro: 'Ruang lebih luas untuk tim yang berkembang.', business: 'Kapasitas lebih besar untuk banyak divisi.', custom: 'Sesuaikan kapasitas dengan kebutuhan organisasi.' };
-export function PricingCards({ plans = [], dashboard = false, currentPlan }) {
+export function PricingCards({ plans = [], dashboard = false, currentPlan, paymentEnabled = false }) {
   return <div className="billing-plans">{plans.map((plan) => {
     const custom = Boolean(plan.quoteRequired);
     return <article key={plan.code} className={`billing-plan${plan.code === 'pro' ? ' billing-plan-featured' : ''}`}>
@@ -18,11 +18,11 @@ export function PricingCards({ plans = [], dashboard = false, currentPlan }) {
         <li>{custom ? 'Anggota manusia sesuai kesepakatan' : `${plan.maxMembers} anggota manusia`}</li>
         <li>{custom ? 'WhatsApp sesuai kesepakatan (belum aktif)' : plan.whatsapp ? 'Notifikasi & persetujuan WhatsApp (belum aktif)' : 'Tanpa fitur WhatsApp'}</li>
       </ul>
-      {dashboard ? <button type="button" disabled>{currentPlan === plan.code ? 'Paket saat ini' : custom ? 'Konsultasi belum tersedia' : 'Pembayaran belum tersedia'}</button>
+      {dashboard ? <button type="button" disabled>{currentPlan === plan.code ? 'Paket saat ini' : custom ? 'Hubungi admin untuk penawaran' : paymentEnabled ? 'Pilih melalui bagian pembayaran di atas' : 'Pembayaran belum tersedia'}</button>
         : <a href="/dashboard/billing">Lihat paket di dashboard <span aria-hidden="true">↗</span></a>}
     </article>;
   })}</div>;
 }
 export function BillingPolicyNote() {
-  return <p className="billing-policy">Saldo AI paket berlaku untuk periode bulanan dan digunakan lebih dahulu. Saldo top up tidak kedaluwarsa. Tidak ada batas penggunaan 5 jam atau mingguan. Pembayaran, top up, pemotongan saldo AI otomatis, dan pengiriman WhatsApp belum aktif.</p>;
+  return <p className="billing-policy">Saldo AI paket berlaku untuk periode bulanan dan digunakan lebih dahulu. Saldo top up tidak kedaluwarsa. Tidak ada batas penggunaan 5 jam atau mingguan. Pembayaran tersedia di bagian pembayaran dashboard setelah Midtrans diaktifkan. Biaya AI dipotong sesuai penggunaan aktual. Pengiriman WhatsApp belum aktif.</p>;
 }

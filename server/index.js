@@ -30,6 +30,8 @@ import { createPaidMutationGate } from './billing-enforcement.js';
 import { installBillingAdministrationRoutes } from './billing-administration.js';
 import { installTenantMemberRoutes } from './tenant-members.js';
 import { createWorkLifecycle } from './work-lifecycle.js';
+import { createMidtrans } from './midtrans.js';
+import { installPaymentRoutes } from './payments.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -69,7 +71,12 @@ const usagePricing = createUsagePricing({ getModelRates: () => chatModels.estima
 const usageStore = createUsageStore(() => pool, { billing: createAiBilling(() => pool, { pricing: usagePricing, resolveTariff: (model) => chatModels.resolveTariff(model) }) });
 const requirePaidAi = lifecycle.handler(createPaidMutationGate({ getPool: () => pool, providerAvailable: Boolean(client) }));
 app.post(['/api/dashboard/jobs', '/api/dashboard/items/:id/revise'], requireTenantDashboard, requirePaidAi);
-installBillingRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
+const paymentProvider = createMidtrans();
+installBillingRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
+  paymentAvailable: org => paymentProvider.enabled && (!paymentProvider.allowedOrganizationId || paymentProvider.allowedOrganizationId === org) });
+installPaymentRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
+  provider: paymentProvider, trackHandler: lifecycle.handler,
+  appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173') });
 installTaskTemplateRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173') });
 installTeamRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,

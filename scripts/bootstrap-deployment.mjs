@@ -46,6 +46,7 @@ const fullSchemaOptions = {
     requireBilling: true, requireAdminCatalog: true, requirePlatformAdminAudit: true,
     requireAiBilling: true, requireBillingAdmin: true, requireModelCatalog: true,
     requireTaskTemplates: true, requireWorkspaceTasks: true, requireTenantMembers: true,
+    requirePayments: true,
 };
 
 // No DDL/DML. Used after bootstrap, including validation-only failures.
@@ -66,8 +67,8 @@ async function main() {
   try {
     const options = deploymentOptions(process.argv.slice(2), process.env);
     const report = await inspectMigrationDirectory(resolve(root, 'migrations'));
-    if (hasErrors(report.diagnostics) || report.migrations.length !== 16
-      || report.migrations.at(-1)?.id !== '016_tenant_members') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
+    if (hasErrors(report.diagnostics) || report.migrations.length !== 17
+      || report.migrations.at(-1)?.id !== '017_midtrans_payments') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     connection = await mysql.createConnection(options);
     await acquireMigrationLock(connection); locked = true;
     if (process.argv.includes('--validate')) {

@@ -19,6 +19,12 @@ else {
       result.differences.push(...await validateTenantMemberSchema(connection));
       result.valid = result.differences.length === 0;
     }
+    const [paymentHistory] = await connection.execute("SELECT migration_id FROM schema_migrations WHERE migration_id = '017_midtrans_payments' AND status = 'applied'");
+    if (paymentHistory.length) {
+      const { validatePaymentSchema } = await import('../server/migrations/payment-contract.js');
+      result.differences.push(...await validatePaymentSchema(connection));
+      result.valid = result.differences.length === 0;
+    }
     console.log(JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } catch (error) { console.error(JSON.stringify({ error: safeDatabaseError(error) })); process.exitCode = 1; }
