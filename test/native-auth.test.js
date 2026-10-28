@@ -12,7 +12,7 @@ import { inspectMigrationDirectory } from '../server/migrations/status.js';
 import { passwordRequirements, validateAuthFields } from '../shared/auth-validation.js';
 import { scryptSync } from 'node:crypto';
 
-async function fixture(t, { failed = false, duplicate = false, suspended = false, legacyHash = null } = {}) {
+async function fixture(t, { failed = false, duplicate = false, suspended = false, legacyHash = null, trustProxy = false } = {}) {
   const calls = [];
   let credential = legacyHash ? { user_id: 7, password_hash: legacyHash, status: 'active' } : null;
   const connection = {
@@ -34,6 +34,7 @@ async function fixture(t, { failed = false, duplicate = false, suspended = false
     },
   };
   const app = express(); app.use(express.json());
+  app.set('trust proxy', trustProxy);
   installAuthRoutes(app, { env: { AUTH_PROVIDER: 'native', APP_ORIGIN: 'http://localhost:5173' }, getPool: () => ({ getConnection: async () => connection }) });
   const server = app.listen(0, '127.0.0.1'); await new Promise((resolve) => server.once('listening', resolve));
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
@@ -191,6 +192,32 @@ test('limiter bounds account and IP attempts, expires windows and never retains 
   assert.equal(allow('one', 'new@example.test'), false);
   now = 15 * 60 * 1000;
   assert.equal(allow('one', 'person@example.test'), true);
+});
+
+test('trusted local proxy separates visitor IP limits but retains cross-IP account limit', async t => {
+  const { request, calls } = await fixture(t, { trustProxy: 'loopback' });
+  const send = (email, ip) => request('/auth/login', { email, password: '' }, { 'X-Forwarded-For': ip });
+  // Invalid input exercises limiter before database or password hashing.
+  for (let i = 0; i < 30; i++) assert.equal((await send(`visitor${i}@example.test`, '198.51.100.11')).status, 400);
+  const blocked = await send('last@example.test', '198.51.100.11');
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get('retry-after'), '900');
+  assert.equal((await send('newvisitor@example.test', '198.51.100.12')).status, 400);
+  for (let i = 0; i < 10; i++) assert.equal((await send('same@example.test', `203.0.113.${i + 1}`)).status, 400);
+  assert.equal((await send('same@example.test', '203.0.113.99')).status, 429);
+  // Express selects the nearest untrusted address, not a forged leftmost entry.
+  assert.equal((await send('forged@example.test', '203.0.113.250, 198.51.100.11')).status, 429);
+  assert.equal(calls.length, 0);
+});
+
+test('untrusted forwarding headers cannot evade the direct connection IP limit', async t => {
+  const { request } = await fixture(t);
+  for (let i = 0; i < 30; i++) {
+    assert.equal((await request('/auth/login', { email: `direct${i}@example.test`, password: '' },
+      { 'X-Forwarded-For': `198.51.100.${i + 1}` })).status, 400);
+  }
+  assert.equal((await request('/auth/login', { email: 'last@example.test', password: '' },
+    { 'X-Forwarded-For': '203.0.113.90' })).status, 429);
 });
 
 test('native migration is registered, hashed, and creates only a separate credential table', async () => {

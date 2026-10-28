@@ -82,7 +82,8 @@ export async function loadWorkspaceMembers(connection, workspaceId) {
   return rows.map((member) => ({ id: member.id, email: member.email, displayName: member.display_name, role: member.role }));
 }
 
-export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob, runTenantRevision, modelCatalog, appOrigin }) {
+export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJob, runTenantRevision, modelCatalog, appOrigin,
+  trackHandler = fn => fn, runBackground = work => Promise.resolve().then(work) }) {
   app.use('/api/dashboard', (req, res, next) => {
     if (['GET','HEAD','OPTIONS'].includes(req.method)) return next();
     requireTenant(req, res, () => {
@@ -210,7 +211,7 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' });
     } finally { connection?.release(); }
   });
-  app.post('/api/dashboard/items/:id/revise', requireTenant, async (req, res) => {
+  app.post('/api/dashboard/items/:id/revise', requireTenant, trackHandler(async (req, res) => {
     let connection;
     try {
       if (!runTenantRevision) return res.status(503).json({ error: 'Item revision service unavailable.' });
@@ -219,21 +220,24 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       const { reserveTenantRevision, recoverTenantRevision } = await import('./tenant-review.js');
       const reservation = await reserveTenantRevision(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id), body: req.body });
       res.status(202).json({ itemId: reservation.itemId, status: 'revising' });
-      void Promise.resolve().then(() => runTenantRevision(reservation)).catch(async () => {
-        let recovery;
-        try { recovery = await getPool()?.getConnection(); if (recovery) await recoverTenantRevision(recovery, reservation); }
-        catch { /* Operator recovery is required if the database is unavailable. No automatic replay. */ }
-        finally { recovery?.release(); }
-      });
+      void runBackground(async () => {
+        try { await runTenantRevision(reservation); }
+        catch {
+          let recovery;
+          try { recovery = await getPool()?.getConnection(); if (recovery) await recoverTenantRevision(recovery, reservation); }
+          catch { /* Operator recovery is required if the database is unavailable. No automatic replay. */ }
+          finally { recovery?.release(); }
+        }
+      }).catch(() => {});
     } catch (error) {
       res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item revision service unavailable.' });
     } finally { connection?.release(); }
-  });
+  }));
   app.delete('/api/dashboard/items/:id', requireTenant, async (req, res) => {
     let connection;
     try { connection = await getPool()?.getConnection(); if (!connection) return res.status(503).json({ error: 'Item service unavailable.' }); const { deleteTenantItem } = await import('./tenant-items.js'); await deleteTenantItem(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, itemId: Number(req.params.id) }); res.status(204).end(); } catch (error) { res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Item service unavailable.' }); } finally { connection?.release(); }
   });
-  app.post('/api/dashboard/jobs', requireTenant, async (req, res) => {
+  app.post('/api/dashboard/jobs', requireTenant, trackHandler(async (req, res) => {
     let connection;
     try {
       // Historical jobs stay readable, but new customer work must select a real workspace agent.
@@ -245,9 +249,9 @@ export function installDashboardRoutes(app, { getPool, requireTenant, runTenantJ
       const { createTenantJob } = await import('./tenant-jobs.js');
       const created = await createTenantJob(connection, { tenantContext: req.tenantContext, principal: req.authPrincipal, body: req.body, modelCatalog });
       res.status(202).json(created);
-      if (runTenantJob && !created.duplicate) void Promise.resolve().then(() => runTenantJob(created.jobId, req.tenantContext, req.authPrincipal.userId, req.authPrincipal.sessionId)).catch(() => {});
+      if (runTenantJob && !created.duplicate) void runBackground(() => runTenantJob(created.jobId, req.tenantContext, req.authPrincipal.userId, req.authPrincipal.sessionId)).catch(() => {});
     } catch (error) {
       res.status(error?.status || 503).json({ error: error?.status ? error.message : 'Job service unavailable.' });
     } finally { connection?.release(); }
-  });
+  }));
 }

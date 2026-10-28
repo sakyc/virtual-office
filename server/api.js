@@ -7,13 +7,6 @@ import { generate, revise } from './runner.js';
 
 const badReq = (m, s = 400) => Object.assign(new Error(m), { status: s });
 
-const ah = (fn) => (req, res) =>
-  fn(req, res).catch((e) => {
-    if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message });
-    console.error('[api error]', e?.message || e);
-    res.status(500).json({ error: 'Terjadi kesalahan di server.' });
-  });
-
 function errMsg(e) {
   if (e?.user) return e.message;
   const s = e?.status;
@@ -87,8 +80,14 @@ async function loadItem(id) {
   return rows[0] ? shape(rows[0]) : null;
 }
 
-export function createApiRouter({ client, DEMO, requireAccess, rateLimit, dailyCap, models, customerAuth }) {
+export function createApiRouter({ client, DEMO, requireAccess, rateLimit, dailyCap, models, customerAuth,
+  trackHandler = fn => fn, runBackground = work => Promise.resolve().then(work) }) {
   const router = Router();
+  const ah = fn => trackHandler((req, res) => fn(req, res).catch(e => {
+    if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message });
+    console.error('[api error]', e?.message || e);
+    res.status(500).json({ error: 'Terjadi kesalahan di server.' });
+  }));
   const ctx = { apiClient: client, DEMO, models };
 
   router.use(customerAuth || requireAccess);
@@ -165,7 +164,7 @@ export function createApiRouter({ client, DEMO, requireAccess, rateLimit, dailyC
 
     const [r] = await pool.query('INSERT INTO jobs (agent_id, job_type, client_id, parent_item_id, params) VALUES (?,?,?,?,?)', [def.agent, def.id, clientId, parentId, JSON.stringify(params)]);
     res.status(202).json({ jobId: r.insertId });
-    processJob(r.insertId);
+    void runBackground(() => processJob(r.insertId)).catch(() => {});
   }));
 
   const jobRow = (j) => ({
@@ -278,7 +277,7 @@ export function createApiRouter({ client, DEMO, requireAccess, rateLimit, dailyC
     if (item.status === 'revising') throw badReq('Item ini sedang direvisi.', 409);
     await pool.query("UPDATE items SET status='revising', last_error=NULL WHERE id=?", [item.id]);
     res.status(202).json({ ok: true });
-    reviseItem(item, reason);
+    void runBackground(() => reviseItem(item, reason)).catch(() => {});
   }));
 
   router.post('/items/:id/approve', ah(async (req, res) => {

@@ -29,6 +29,7 @@ import { createAiBilling } from './ai-billing.js';
 import { createPaidMutationGate } from './billing-enforcement.js';
 import { installBillingAdministrationRoutes } from './billing-administration.js';
 import { installTenantMemberRoutes } from './tenant-members.js';
+import { createWorkLifecycle } from './work-lifecycle.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -48,7 +49,11 @@ const chatModels = createLiveChatModelCatalog({ models: { leader: MODEL_LEADER, 
   json: process.env.CHAT_MODELS_JSON || '', client, maxTokens: MAX_TOKENS, databaseOnly: true, readTariffs: () => readModelCatalog(pool) });
 
 const app = express();
-app.set('trust proxy', 1);
+const lifecycle = createWorkLifecycle();
+app.use(lifecycle.middleware);
+// Apache is directly connected over loopback and replaces forwarding headers.
+// Never trust forwarding headers from an arbitrary directly connected client.
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
 // Native login shares the existing server sessions. Migrations remain explicit.
 installAuthRoutes(app, { getPool: () => pool });
@@ -56,13 +61,13 @@ installCatalogRoutes(app, { getPool: () => pool });
 installPlatformAdminRoutes(app, { getPool: () => pool });
 installBillingAdministrationRoutes(app, { getPool: () => pool, modelCatalog: chatModels, readModels: readModelCatalog });
 installOnboardingRoutes(app, { getPool: () => pool });
-const requireTenantApi = createTenantGate({ getPool: () => pool });
-const requireTenantDashboard = createTenantGate({ getPool: () => pool, resourceQueriesScoped: true, memberAssignments: true });
+const requireTenantApi = lifecycle.handler(createTenantGate({ getPool: () => pool }));
+const requireTenantDashboard = lifecycle.handler(createTenantGate({ getPool: () => pool, resourceQueriesScoped: true, memberAssignments: true }));
 installTenantMemberRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173') });
 const usagePricing = createUsagePricing({ getModelRates: () => chatModels.estimateRates() });
 const usageStore = createUsageStore(() => pool, { billing: createAiBilling(() => pool, { pricing: usagePricing, resolveTariff: (model) => chatModels.resolveTariff(model) }) });
-const requirePaidAi = createPaidMutationGate({ getPool: () => pool, providerAvailable: Boolean(client) });
+const requirePaidAi = lifecycle.handler(createPaidMutationGate({ getPool: () => pool, providerAvailable: Boolean(client) }));
 app.post(['/api/dashboard/jobs', '/api/dashboard/items/:id/revise'], requireTenantDashboard, requirePaidAi);
 installBillingRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard });
 installTaskTemplateRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard,
@@ -72,6 +77,7 @@ installTeamRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashbo
   models: { leader: MODEL_LEADER, team: MODEL_TEAM } });
 installUsageRoutes(app, { getPool: () => pool, requireTenant: requireTenantDashboard, pricing: usagePricing });
 installDashboardRoutes(app, {
+  trackHandler: lifecycle.handler, runBackground: lifecycle.track,
   getPool: () => pool,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   modelCatalog: chatModels,
@@ -124,6 +130,7 @@ function dailyCap(req, res, next) {
 
 // ---------- Util ----------
 installOfficeChatRoutes(app, {
+  trackHandler: lifecycle.handler,
   requireTenant: requireTenantDashboard, client,
   appOrigin: process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:5173'),
   rateLimit, dailyCap, models: { leader: MODEL_LEADER, team: MODEL_TEAM }, maxTokens: MAX_TOKENS,
@@ -175,7 +182,7 @@ app.get('/api/config', (req, res) => {
 
 app.get('/api/verify', requireAccess, (req, res) => res.json({ ok: true }));
 
-app.post('/api/chat', requireTenantApi, rateLimit, dailyCap, async (req, res) => {
+app.post('/api/chat', requireTenantApi, rateLimit, dailyCap, lifecycle.handler(async (req, res) => {
   const agent = agentById(req.body?.agentId);
   if (!agent) return res.status(400).json({ error: 'Karyawan tidak ditemukan.' });
 
@@ -230,10 +237,11 @@ app.post('/api/chat', requireTenantApi, rateLimit, dailyCap, async (req, res) =>
   } finally {
     res.end();
   }
-});
+}));
 
 // ---------- Perintah (job), board, klien: butuh database ----------
 app.use('/api', createApiRouter({
+  trackHandler: lifecycle.handler, runBackground: lifecycle.track,
   client,
   DEMO,
   requireAccess,
@@ -253,10 +261,27 @@ if (existsSync(dist)) {
   });
 }
 
-initDb();
+void lifecycle.track(() => initDb());
 
-app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
+const server = app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
   console.log(`Kantor AI API jalan di http://localhost:${PORT}`);
   console.log(DEMO ? 'Mode: DEMO (tanpa ANTHROPIC_API_KEY)' : `Mode: LIVE  leader=${MODEL_LEADER}  tim=${MODEL_TEAM}`);
   console.log(ACCESS_CODE ? 'Kode akses: aktif' : 'Kode akses: TIDAK aktif (isi ACCESS_CODE sebelum dipublikasi)');
 });
+
+let shutdownRequested = false;
+function shutdown() {
+  if (shutdownRequested) return;
+  shutdownRequested = true;
+  console.log(`[shutdown] draining active=${lifecycle.active}; no automatic AI retries`);
+  void lifecycle.stop({ server, timeoutMs: 300000, closeResources: async () => { await pool?.end(); } })
+    .then(({ drained, active }) => {
+      console.log(`[shutdown] ${drained ? 'completed' : 'timeout; operator review required'} active=${active}`);
+      process.exit(drained ? 0 : 1);
+    }).catch(() => {
+      console.error('[shutdown] failed; operator review required');
+      process.exit(1);
+    });
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

@@ -19,7 +19,7 @@ export function installPasswordRoutes(app, { getPool, appOrigin, production = pr
       if (!connection) throw new Error();
       const principal = await resolveSession(connection, readCookie(req.headers.cookie, 'vo_session'));
       if (!principal) return res.status(401).json({ error: 'Sesi berakhir. Silakan masuk kembali.' });
-      if (!allowAttempt(req.socket.remoteAddress, String(principal.userId))) {
+      if (!allowAttempt(req.ip || req.socket.remoteAddress, String(principal.userId))) {
         res.setHeader('Retry-After', '900');
         return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' });
       }

@@ -41,7 +41,7 @@ export function installNativeRoutes(app, { getPool, env }) {
   app.get('/auth/login', (_req, res) => res.redirect('/login'));
   for (const action of ['login', 'register']) app.post(`/auth/${action}`, async (req, res) => {
     const email = normalizeEmail(req.body?.email);
-    if (!allowAttempt(req.socket.remoteAddress, email)) { res.setHeader('Retry-After', '900'); return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' }); }
+    if (!allowAttempt(req.ip || req.socket.remoteAddress, email)) { res.setHeader('Retry-After', '900'); return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' }); }
     const password = req.body?.password;
     const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
     const whatsappNumber = normalizeWhatsapp(req.body?.whatsappNumber);

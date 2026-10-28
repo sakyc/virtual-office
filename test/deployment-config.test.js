@@ -13,6 +13,7 @@ test('deployment runs one non-cluster worker on loopback port 3101, not occupied
   assert.equal(app.env.HOST, '127.0.0.1');
   assert.equal(app.env.PORT, '3101');
   assert.match(read('server/index.js'), /app\.listen\(PORT, process\.env\.HOST \|\| '0\.0\.0\.0'/);
+  assert.match(read('server/index.js'), /app\.set\('trust proxy', 'loopback'\)/);
 });
 test('Apache host templates isolate public catalog from app and preserve HTTPS proxy context', () => {
   const landing = read('deploy/apache/landing-https.conf');

@@ -77,5 +77,5 @@ test('office bootstrap selects tenant panel without changing fail-closed legacy 
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(source, /tenantOffice \? createTenantJobsUI : createJobsUI/);
   const server = await readFile(new URL('../server/index.js', import.meta.url), 'utf8');
-  assert.match(server, /const requireTenantApi = createTenantGate\(\{ getPool: \(\) => pool \}\)/);
+  assert.match(server, /const requireTenantApi = lifecycle\.handler\(createTenantGate\(\{ getPool: \(\) => pool \}\)\)/);
 });

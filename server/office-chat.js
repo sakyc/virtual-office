@@ -6,7 +6,7 @@ import { installConversationRoutes, validChatId } from './chat-history.js';
 import { createChatModelCatalog } from './chat-models.js';
 
 // Scope binding is not an authentication credential. Restart invalidates old tabs.
-export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500, usageStore, resolveAgent, historyStore, modelCatalog = createChatModelCatalog(models) }) {
+export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin, rateLimit, dailyCap, models, maxTokens = 1500, usageStore, resolveAgent, historyStore, modelCatalog = createChatModelCatalog(models), trackHandler = fn => fn }) {
   const secret = randomBytes(32);
   const scopeOf = (req) => createHmac('sha256', secret).update(JSON.stringify([
     req.authPrincipal.sessionId, req.authPrincipal.userId,
@@ -34,7 +34,7 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
       res.json({ scope: scopeOf(req), available: Boolean(client), ephemeral: !historyStore, persistent: Boolean(historyStore), modelSelection, models: choices, defaultModels });
     } catch { res.status(503).json({ error: 'Riwayat chat belum tersedia.' }); }
   });
-  app.post('/api/office/chat', requireTenant, permitted, async (req, res, next) => {
+  app.post('/api/office/chat', requireTenant, permitted, trackHandler(async (req, res, next) => {
     if (!appOrigin || req.get('origin') !== appOrigin || !req.is('application/json'))
       return res.status(403).json({ error: 'Origin chat tidak diizinkan.' });
     const body = req.body;
@@ -52,7 +52,7 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
     } catch (error) { return res.status([403,404].includes(error.status) ? error.status : 503).json({ error: error.status === 403 ? 'Agen ini belum ditugaskan kepada Anda.' : 'Agen workspace belum tersedia.' }); }
     if (!client) return res.status(503).json({ error: 'Layanan AI belum dikonfigurasi. Tidak ada jawaban demo yang dikirim.' });
     next();
-  }, rateLimit, dailyCap, async (req, res) => {
+  }), rateLimit, dailyCap, trackHandler(async (req, res) => {
     const agent = req.officeAgent;
     const context = { ...req.tenantContext, userId: req.authPrincipal.userId };
     let turn, model;
@@ -86,5 +86,5 @@ export function installOfficeChatRoutes(app, { requireTenant, client, appOrigin,
       if (turn) await historyStore.fail(context, turn).catch(() => {});
       send({ error: error.status === 402 ? (error.code === 'INSUFFICIENT_AI_BALANCE' ? 'Saldo AI tidak cukup untuk reservasi permintaan ini.' : error.message) : error.code === 'AI_BILLING_PRICING_REQUIRED' ? 'Tarif penagihan model belum divalidasi oleh operator. Tidak ada panggilan AI yang dikirim.' : 'Jawaban AI belum dapat diselesaikan. Saldo yang hasil pemakaiannya belum pasti tetap direservasi untuk pemeriksaan.' });
     } finally { clearTimeout(timeout); res.off('close', disconnect); res.end(); }
-  });
+  }));
 }

@@ -67,7 +67,8 @@ test('history metadata is created only by runner/adoption path', async () => {
 test('migration framework is explicit and does not alter application startup', async () => {
   const startup = await readFile(new URL('../server/index.js', import.meta.url), 'utf8');
   const framework = await readFile(new URL('../server/migrations/framework.js', import.meta.url), 'utf8');
-  assert.match(startup, /initDb\(\);/);
+  assert.match(startup, /void lifecycle\.track\(\(\) => initDb\(\)\);/);
+  assert.equal([...startup.matchAll(/\binitDb\(\)/g)].length, 1);
   assert.doesNotMatch(startup, /applyMigrations|createUmzug/);
   assert.match(framework, /new Umzug/);
 });
