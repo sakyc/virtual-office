@@ -14,6 +14,7 @@ import { createTenantJobsUI } from './tenant-jobs-ui.js';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { WorkspaceTaskComposer } from './react/workspace-task-composer.jsx';
+import './office-readability.css';
 import { createBoard } from './board.js';
 import { applyOfficeWorkloads } from './office-workloads.js';
 import { createOfficeUpgradeDialog } from './office-upgrade.js';

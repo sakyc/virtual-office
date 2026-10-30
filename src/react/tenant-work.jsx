@@ -70,15 +70,16 @@ function PageHeading({ title, description, children }) {
 function TenantJobs({ role, onNavigate }) {
   const jobs = useWorkData('jobs');
   const [filter, setFilter] = useState('all');
-  const [composer, setComposer] = useState(false);
+  const [initialTemplate]=useState(()=>typeof location==='undefined'?'':new URLSearchParams(location.search).get('template')||'');
+  const [composer, setComposer] = useState(Boolean(initialTemplate));
   const [createdId, setCreatedId] = useState(null);
   const permissions = workPermissions(role);
   if (jobs.loading || jobs.error) return <WorkNotice {...jobs} onRetry={jobs.reload} />;
   const visible = jobs.data.filter((job) => filter === 'all' || job.status === filter);
   return <>
-    <PageHeading title="Perintah" description="Kirim pekerjaan ke agent dan ikuti statusnya di workspace aktif.">
+    <PageHeading title="Tugas" description="Buat tugas bebas atau gunakan template, pilih agen dan model, lalu ikuti hasilnya di Board.">
       <button className="work-button btns" onClick={() => onNavigate('/dashboard/board')}>Lihat board</button>
-      {permissions.create && <button className="work-button btnp" onClick={() => setComposer(true)}>Perintah baru</button>}
+      {permissions.create && <button className="work-button btnp" onClick={() => setComposer(true)}>+ Buat tugas</button>}
     </PageHeading>
     {!permissions.create && <p className="work-hint">Viewer hanya dapat melihat status pekerjaan. Member dapat membuat tugas melalui agen yang ditugaskan oleh admin tenant.</p>}
     {createdId && <div className="work-notice" role="status">Perintah #{createdId} diterima. Hasil akan tersedia di Board setelah proses selesai.</div>}
@@ -92,7 +93,7 @@ function TenantJobs({ role, onNavigate }) {
       </article>) : <p className="work-empty">Belum ada perintah di tab ini.</p>}
     </section>
     <p className="work-hint">Menampilkan hingga 50 perintah terbaru. Status diperbarui otomatis setiap 8 detik selama halaman terbuka.</p>
-    {composer && <WorkspaceTaskComposer onCancel={() => setComposer(false)} onCreated={(id) => { setCreatedId(id); setComposer(false); jobs.reload(); }} />}
+    {composer && <WorkspaceTaskComposer initialTemplate={initialTemplate} onCancel={() => setComposer(false)} onCreated={(id) => { setCreatedId(id); setComposer(false); jobs.reload(); }} />}
   </>;
 }
 

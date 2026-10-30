@@ -20,7 +20,8 @@ export function createWorkApi(fetcher = globalThis.fetch) {
       const fallback = response.status === 401 ? 'Sesi berakhir. Silakan login kembali.'
         : response.status === 403 ? 'Anda tidak memiliki akses pada workspace atau aksi ini.'
           : response.status === 402 ? 'Langganan aktif dan saldo AI diperlukan. Periksa Langganan & Saldo.' : response.status === 404 ? 'Item tidak ditemukan pada workspace aktif.' : 'Layanan workspace belum tersedia. Coba lagi nanti.';
-      throw new WorkspaceApiError([400, 409].includes(response.status) && typeof result?.error === 'string' ? result.error : fallback, response.status);
+      const demoDisabled=response.status===402 && result?.code==='MANAGED_DEMO_AI_DISABLED';
+      throw new WorkspaceApiError(demoDisabled?'Akses AI demo sedang dinonaktifkan. Hubungi admin.':[400,409].includes(response.status) && typeof result?.error === 'string' ? result.error : fallback, response.status);
     }
     if (response.status !== 204 && (!result || typeof result !== 'object')) throw new WorkspaceApiError('Respons layanan tidak valid. Coba lagi.', 502);
     return result;

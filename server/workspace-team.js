@@ -1,10 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { agentInput, divisionInput, initialTeamInput, teamTemplates, teamError, MAX_AGENTS, MAX_DIVISIONS } from '../shared/workspace-team.js';
-import { assertPaidAccess } from './billing-enforcement.js';
+import { assertPaidAccess,lockBillingEntitlements,enforceCapacity } from './billing-enforcement.js';
+import {managedDemoForOrganization} from './managed-demo-policy.js';
 import { assertTenantAgentAccess } from './member-access.js';
 import {activeDemo} from './demo-policy.js';
 
 const scope = (tenant) => [tenant.organizationId, tenant.workspaceId];
+// Arranging a presentation office does not call AI. Its AI switch still gates
+// chat/jobs/reservations; only team configuration uses this capacity-only check.
+async function assertTeamManagementAccess(connection,tenant,options) {
+  const demo=await managedDemoForOrganization(connection,tenant.organizationId);
+  if(demo && demo.workspace_id===tenant.workspaceId) {
+    const entitlements=await lockBillingEntitlements(connection,tenant.organizationId);
+    enforceCapacity(entitlements,options);
+    return entitlements;
+  }
+  return assertPaidAccess(connection,tenant.organizationId,options);
+}
 export async function lockTeam(connection, tenant) {
   const [rows] = await connection.execute("SELECT id FROM workspaces WHERE organization_id = ? AND id = ? AND status = 'active' FOR UPDATE", scope(tenant));
   if (!rows[0]) throw teamError('Workspace tidak tersedia.', 403);
@@ -49,7 +61,7 @@ export async function addAgent(connection, tenant, userId, divisionId, body, tem
 }
 export async function addDivision(connection, tenant, userId, body) {
   const input = divisionInput(body);
-  await assertPaidAccess(connection, tenant.organizationId, { addDivisions: 1 });
+  await assertTeamManagementAccess(connection, tenant, { addDivisions: 1 });
   const [slots] = await connection.execute("SELECT slot FROM workspace_divisions WHERE organization_id = ? AND workspace_id = ? AND status = 'active'", scope(tenant));
   const slot = Array.from({ length: MAX_DIVISIONS }, (_, i) => i).find((i) => !slots.some((row) => row.slot === i));
   if (slot === undefined) throw teamError('Kapasitas tampilan saat ini maksimal 8 divisi.', 409);
@@ -68,7 +80,7 @@ export async function initializeTeam(connection, tenant, userId, body) {
   if (input.mode === 'custom') await addAgent(connection, tenant, userId, id, input.agent);
 }
 export async function resolveWorkspaceAgent(connection, tenant, id) {
-  const [rows] = await connection.execute(`SELECT a.id, a.name, a.role, a.instructions, a.model_tier AS modelTier, d.name AS divisionName
+  const [rows] = await connection.execute(`SELECT a.id, a.name, a.role, a.instructions, a.model_tier AS modelTier, d.name AS divisionName, d.id AS divisionId, d.template_id AS divisionTemplateId
     FROM workspace_agents a JOIN workspace_divisions d ON d.id = a.division_id AND d.organization_id = a.organization_id AND d.workspace_id = a.workspace_id
     WHERE a.organization_id = ? AND a.workspace_id = ? AND a.id = ? AND a.status = 'active' AND d.status = 'active'`, [...scope(tenant), id]);
   if (!rows[0]) throw teamError('Agen tidak tersedia di workspace aktif.', 404);
@@ -92,7 +104,7 @@ export function installTeamRoutes(app, { getPool, requireTenant, appOrigin, mode
       if (write) {
         await connection.beginTransaction();
         // Archive remains available to reduce capacity even after expiration.
-        if (!req.path.endsWith('/archive')) await assertPaidAccess(connection, req.tenantContext.organizationId);
+        if (!req.path.endsWith('/archive')) await assertTeamManagementAccess(connection, req.tenantContext);
         await lockTeam(connection, req.tenantContext);
       }
       const result = await action(connection, req);
@@ -105,7 +117,7 @@ export function installTeamRoutes(app, { getPool, requireTenant, appOrigin, mode
   };
   app.get('/api/team', requireTenant, handle(false, async (c, req) => ({ ...await loadTeam(c, req.tenantContext),
     divisionCapacity: await loadOfficeDivisionCapacity(c, req.tenantContext),
-    canManage: !req.authPrincipal?.sharedDemo && !req.authPrincipal?.managedDemo && ['owner', 'admin'].includes(req.tenantContext.role), templates: teamTemplates,
+    canManage: !req.authPrincipal?.sharedDemo && ['owner', 'admin'].includes(req.tenantContext.role), managedDemo: Boolean(req.authPrincipal?.managedDemo), templates: teamTemplates,
     models: [{ id: 'team', name: models.team, label: 'Model anggota' }, { id: 'leader', name: models.leader, label: 'Model leader' }],
   })));
   app.post('/api/team/divisions', requireTenant, handle(true, async (c, req) => ({ id: await addDivision(c, req.tenantContext, req.authPrincipal.userId, req.body) })));

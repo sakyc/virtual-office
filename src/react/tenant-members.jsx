@@ -58,6 +58,7 @@ export function TenantMembers({ profile }) {
   return <section className="tenant-work tenant-members">
     <div className="work-heading"><div><h1>Anggota & akses</h1><p>Atur orang, tanggung jawab agen AI, dan PIC persetujuan dalam workspace ini.</p></div>{data?.canManage && <button className="work-button btnp" disabled={saving} onClick={() => { setEditor({ create: true }); setError(''); setInvite(null); }}>Undang anggota</button>}</div>
     {state.loading || state.error ? <WorkNotice {...state} onRetry={() => setRetry(n => n + 1)}/> : <>
+      {data.managedDemo && <p className="work-notice">Akun demo presentasi memakai satu akun bersama. Daftar anggota dan penanggung jawab dapat dilihat; undangan, perubahan role, dan akses anggota tetap dikelola admin di luar akun demo.</p>}
       <div className="member-summary"><article><span>Anggota aktif</span><strong>{data.members.length}</strong></article><article><span>Divisi workspace</span><strong>{data.divisions.length}</strong></article><article><span>Undangan tertunda</span><strong>{data.canManage ? data.invitations.length : '—'}</strong></article></div>
       <p className="work-hint">Board dan data workspace dibaca bersama sesuai role. Penugasan membatasi pemakaian agen AI; persetujuan dibatasi ke PIC atau owner/admin. Batas anggota mengikuti paket organisasi, bukan jumlah agen AI.</p>
       {message && <p className="work-notice" role="status">{message}</p>}

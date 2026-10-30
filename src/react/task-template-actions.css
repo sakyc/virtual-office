@@ -1,0 +1,5 @@
+.tt-page .tt-use-template{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:9px;background:var(--accent,#3b63e0);color:var(--onAccent,#fff);text-decoration:none;font-size:13px;font-weight:750}
+.tt-page .tt-use-template:focus-visible{outline:3px solid var(--accent,#3b63e0);outline-offset:3px}
+.tt-page .tt-division-filter{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:16px 0;font-size:14px;font-weight:650}
+.tt-page .tt-division-filter select{font:inherit;padding:10px 12px;border:1px solid var(--line,#dce1eb);border-radius:9px;background:var(--surface,#fff);color:inherit;max-width:100%}
+.tt-page .tt-division-settings{padding:16px;border:1px solid var(--line,#dce1eb);border-radius:10px}

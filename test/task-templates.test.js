@@ -5,29 +5,33 @@ import { createServer } from 'vite';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { dashboardNavigation } from '../src/react/dashboard-navigation.js';
-import { builtinTaskTemplates, draftFromBuiltin, templateInput } from '../shared/task-templates.js';
+import { builtinTaskTemplates, draftFromBuiltin, templateInput, templateMatchesDivision } from '../shared/task-templates.js';
 import { JOBS } from '../shared/jobs.js';
 import { installTaskTemplateRoutes } from '../server/task-templates.js';
 import { createTenantGate } from '../server/auth/tenant-gate.js';
 import { TASK_TEMPLATE_COLUMNS, validateTaskTemplateSchema } from '../server/migrations/task-template-contract.js';
 import { inspectMigrationDirectory } from '../server/migrations/status.js';
 import { fileURLToPath } from 'node:url';
+import {managedDemoFirewall} from '../server/managed-demo.js';
+import {MANAGED_DEMO_ISSUER} from '../server/managed-demo-policy.js';
 
 const input = { name: 'Carousel produk', description: 'Edukasi', instructions: 'Buat draft dengan fakta dari input.', outputFormat: '7 slide', fields: [{ name: 'topik', label: 'Topik', type: 'text', required: true }] };
-async function fixture(t) {
+const divisionId='11111111-1111-1111-1111-111111111111';
+async function fixture(t,{managedDemo=false}={}) {
   const state = { role: 'admin', organization: 3, workspace: 8, revoked: false, fail: false };
   let rows = [], snapshot;
   const calls = [];
   const c = {
     release() {}, async beginTransaction() { snapshot = structuredClone(rows); }, async commit() { snapshot = null; }, async rollback() { if (snapshot) rows = snapshot; snapshot = null; },
     async execute(sql, values = []) {
-      if(sql.includes('FROM managed_demo_accounts'))return [[]];
+      if(sql.includes('FROM managed_demo_accounts'))return [managedDemo?[{organization_id:3,workspace_id:8,ai_enabled:0}]:[]];
       calls.push({ sql, values });
-      if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
+      if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', provider_issuer:managedDemo?MANAGED_DEMO_ISSUER:undefined, revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
       if (sql.startsWith('UPDATE sessions')) return [{}];
       if (sql.includes('LEFT JOIN organization_memberships')) return [[{ organizationId: state.organization, role: state.role, organizationRole: state.role === 'owner' ? 'owner' : null }]];
       if (state.fail) throw Error('mysql://secret@private');
       if (sql.startsWith('SELECT id FROM workspaces')) return [[{ id: state.workspace }]];
+      if (sql.includes('FROM workspace_divisions')) return [values[0]===3 && values[1]===8 ? [{id:divisionId,name:'Social Media',templateId:'social'}] : []];
       const scoped = (r, offset = 0) => r.organization === values[offset] && r.workspace === values[offset + 1] && r.status === 'active';
       if (sql.startsWith('SELECT COUNT')) return [[{ count: rows.filter(r => scoped(r)).length }]];
       if (sql.startsWith('SELECT id, name')) return [rows.filter(r => scoped(r)).map(({ id, name, description, definition, version }) => ({ id, name, description, definition, version }))];
@@ -47,6 +51,7 @@ async function fixture(t) {
   };
   const getPool = () => ({ getConnection: async () => c });
   const app = express(); app.use(express.json());
+  if(managedDemo)app.use(managedDemoFirewall({getPool}));
   installTaskTemplateRoutes(app, { getPool, requireTenant: createTenantGate({ getPool, authEnabled: true, resourceQueriesScoped: true }), appOrigin: 'http://localhost:5173' });
   const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
@@ -57,11 +62,42 @@ async function fixture(t) {
 }
 
 test('template validation and builtin catalog preserve public definitions without exposing private executor prompts', () => {
-  assert.deepEqual(templateInput(input), input);
+  assert.deepEqual(templateInput(input), {...input,divisionIds:[]});
   assert.equal(builtinTaskTemplates.length, JOBS.length);
   for (const template of builtinTaskTemplates) { assert.equal(template.readOnly, true); assert.equal(template.instructions, undefined); assert.deepEqual(template.fields, JOBS.find(j => j.id === template.id).fields); }
   assert.equal(draftFromBuiltin(builtinTaskTemplates[0]).instructions, '');
   for (const patch of [{ organizationId: 5 }, { userId: 5 }, { role: 'owner' }, { instructions: '' }, { name: 'a'.repeat(151) }, { fields: [...input.fields, ...input.fields] }, { fields: [{ ...input.fields[0], type: 'tool' }] }, { fields: Array(13).fill(input.fields[0]) }]) assert.throws(() => templateInput({ ...input, ...patch }), { status: 400 });
+});
+
+test('division selection is scoped, persisted and validated; legacy templates remain general',async t=>{
+  const f=await fixture(t);
+  const scopedInput={...input,divisionIds:[divisionId]};
+  const response=await f.request('','POST',scopedInput);assert.equal(response.status,200);
+  const id=(await response.json()).id;
+  let result=await (await f.request()).json();
+  assert.deepEqual(result.templates[0].divisionIds,[divisionId]);assert.equal(result.divisions[0].id,divisionId);
+  const foreign='22222222-2222-2222-2222-222222222222';
+  assert.equal((await f.request(`/${id}`,'PATCH',{...scopedInput,divisionIds:[foreign],version:1})).status,400);
+  assert.equal((await f.request(`/${id}`,'PATCH',{...input,divisionIds:[],version:1})).status,200);
+  result=await (await f.request()).json();assert.deepEqual(result.templates[0].divisionIds,[]);
+  assert(templateMatchesDivision({},undefined));
+  assert(templateMatchesDivision({divisionIds:[divisionId]},{id:divisionId}));
+  assert(!templateMatchesDivision({divisionIds:[divisionId]},{id:foreign}));
+  const carousel=builtinTaskTemplates.find(t=>t.id==='carousel');
+  assert(templateMatchesDivision(carousel,{templateId:'social'}));assert(!templateMatchesDivision(carousel,{templateId:'ads'}));
+  assert(builtinTaskTemplates.every(t=>t.divisionTemplateIds.length===1));
+  for(const divisionIds of [null,'all',['bad'],[divisionId,divisionId]]) {
+    assert.throws(()=>templateInput({...input,divisionIds}),{status:400});
+  }
+});
+
+test('presentation demo manages templates with AI off, but keeps role and origin checks',async t=>{
+  const f=await fixture(t,{managedDemo:true});assert.equal((await (await f.request()).json()).canManage,true);
+  const id=await f.create();assert.equal((await f.request(`/${id}`,'PATCH',{...input,name:'Presentasi',version:1})).status,200);
+  assert.equal((await f.request(`/${id}/archive`,'POST',{version:2})).status,200);
+  assert.equal((await (await f.request()).json()).templates.length,0);
+  assert.equal((await f.request('','POST',input,{Origin:'https://evil.test'})).status,403);
+  f.state.role='viewer';assert.equal((await (await f.request()).json()).canManage,false);assert.equal((await f.request('','POST',input)).status,403);
 });
 test('custom templates persist through CRUD, optimistic conflicts and archive without deleting rows', async t => {
   const f = await fixture(t), id = await f.create();
@@ -116,10 +152,14 @@ test('React template page exposes scoped management, public readonly templates a
     const { TemplateLibrary, TemplateEditor } = await vite.ssrLoadModule('/src/react/task-templates.jsx');
     const props = { data: { templates: [{ ...input, id: 'x', version: 1 }], builtins: builtinTaskTemplates, canManage: true }, tab: 'custom', search: '' };
     const html = renderToStaticMarkup(React.createElement(TemplateLibrary, props));
-    for (const label of ['Template Tugas', 'Buat template', 'Edit', 'Arsipkan', 'Pilih agen dan model']) assert.ok(html.includes(label));
+    for (const label of ['Template Tugas', 'Buat template', 'Edit', 'Arsipkan', 'Gunakan template', 'Tugas → Buat tugas']) assert.ok(html.includes(label));
+    assert.match(html,/href="\/dashboard\/jobs\?template=x"/);
     const readonly = renderToStaticMarkup(React.createElement(TemplateLibrary, { ...props, data: { ...props.data, canManage: false } })); assert.ok(!readonly.includes('>Edit<')); assert.ok(!readonly.includes('+ Buat template'));
     const builtins = renderToStaticMarkup(React.createElement(TemplateLibrary, { ...props, tab: 'builtin' })); assert.ok(builtins.includes('Salin struktur')); assert.ok(!builtins.includes('>Edit<'));
+    const socialOnly=renderToStaticMarkup(React.createElement(TemplateLibrary,{...props,tab:'builtin',divisionFilter:divisionId,data:{...props.data,divisions:[{id:divisionId,name:'Social Media',templateId:'social'}]}}));
+    assert(socialOnly.includes('Buat carousel'));assert(!socialOnly.includes('Copy Meta Ads'));
     const editor = renderToStaticMarkup(React.createElement(TemplateEditor, { value: input })); assert.ok(editor.includes('Instruksi tugas')); assert.ok(editor.includes('Tambah kolom'));
+    assert(editor.includes('Tersedia untuk divisi'));assert(editor.includes('Umum · semua divisi'));
     const navigated = [];
     const navigation = dashboardNavigation({ baseGroups: [], section: 'templates', onNavigate: path => navigated.push(path), setView() {} });
     const templateLink = navigation.flatMap(group => group.items).find(item => item.id === 'templates');

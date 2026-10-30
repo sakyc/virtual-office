@@ -21,7 +21,7 @@ const catalog = { async refresh() {}, resolve(id) { if (id !== 'test-model') thr
 const template = { id: templateId, name: 'My template', version: 2, definition: { instructions: 'Buat 3 slide.', outputFormat: 'Carousel', fields: [{ name: 'topik', label: 'Topik', type: 'text', required: true }] } };
 function fixture() {
   const calls = [], jobs = [], items = [], revisions = [];
-  const state = { access: true, agent: true, template: true, locked: true, client: true, failProvider: false };
+  const state = { access: true, agent: true, template: true, locked: true, client: true, failProvider: false, divisionId:'11111111-1111-1111-1111-111111111111',divisionTemplateId:'social',templateDivisionIds:[] };
   const scoped = (values, a, b) => values[a] === 3 && values[b] === 8;
   const c = {
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {}, destroy() {},
@@ -32,8 +32,8 @@ function fixture() {
       if (sql.includes('RELEASE_LOCK')) return [[{ released: 1 }]];
       if (sql.startsWith('SELECT s.id FROM sessions')) return [state.access ? [{ id: 4 }] : []];
       if (sql.startsWith('SELECT id FROM workspaces')) return [scoped(values, 0, 1) ? [{ id: 8 }] : []];
-      if (sql.startsWith('SELECT a.id, a.name')) return [state.agent && scoped(values, 0, 1) && values[2] === agentId ? [{ id: agentId, name: 'Sua', role: 'Penulis', instructions: 'Jangan mengarang fakta.', modelTier: 'team', divisionName: 'Konten' }] : []];
-      if (sql.includes('FROM workspace_task_templates')) return [state.template && scoped(values, 0, 1) && values[2] === templateId ? [structuredClone(template)] : []];
+      if (sql.startsWith('SELECT a.id, a.name')) return [state.agent && scoped(values, 0, 1) && values[2] === agentId ? [{ id: agentId, name: 'Sua', role: 'Penulis', instructions: 'Jangan mengarang fakta.', modelTier: 'team', divisionName: 'Konten',divisionId:state.divisionId,divisionTemplateId:state.divisionTemplateId }] : []];
+      if (sql.includes('FROM workspace_task_templates')) return [state.template && scoped(values, 0, 1) && values[2] === templateId ? [{...structuredClone(template),definition:{...template.definition,divisionIds:state.templateDivisionIds}}] : []];
       if (sql.startsWith('SELECT id FROM clients')) return [state.client && scoped(values, 1, 2) ? [{ id: 1 }] : []];
       if (sql.startsWith('SELECT name, brief FROM clients')) return [[{ name: 'Client', brief: 'Context' }]];
       if (sql.startsWith('SELECT id, params FROM jobs')) return [jobs.filter(j => scoped(values, 0, 1) && j.created_by_user_id === values[2] && j.request_key === values[3])];
@@ -146,12 +146,33 @@ test('builtin defaults, multi selections and financial calculations remain serve
   assert.ok(computed); assert.match(computed.value.join(' '), /3[.,]000/);
 });
 
+test('task execution rejects cross-division templates even when requests bypass the UI',async()=>{
+  const f=fixture();
+  f.state.divisionTemplateId='ads';
+  await assert.rejects(f.create({...input(),builtinId:'carousel',values:{topik:'Kopi'}}),/tidak tersedia untuk divisi/);
+  f.state.templateDivisionIds=['22222222-2222-2222-2222-222222222222'];
+  await assert.rejects(f.create({...input(),templateId,values:{topik:'Kopi'}}),/tidak tersedia untuk divisi/);
+  assert.equal(f.jobs.length,0);
+  f.state.templateDivisionIds=[f.state.divisionId];
+  await f.create({...input(),templateId,values:{topik:'Kopi'}});assert.equal(f.jobs.length,1);
+});
+
 test('015 is expand-only and preserves nullable legacy idempotency; workspace composer and admin editor render actual controls', async () => {
   const manifest = await inspectMigrationDirectory(fileURLToPath(new URL('../migrations', import.meta.url))); assert.deepEqual(manifest.diagnostics, []);
   const migration = manifest.migrations.find(m => m.id === '015_workspace_task_execution'); assert.match(migration.source, /VARCHAR\(64\)/); assert.match(migration.source, /request_key CHAR\(36\) NULL/); assert.doesNotMatch(migration.source, /\b(?:DROP|DELETE|TRUNCATE)\b/);
   const vite = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true, include: [] }, appType: 'custom' });
   try {
-    const { WorkspaceTaskFields } = await vite.ssrLoadModule('/src/react/workspace-task-composer.jsx');
+    const { WorkspaceTaskFields, taskTemplateSelection, templatesForAgent } = await vite.ssrLoadModule('/src/react/workspace-task-composer.jsx');
+    const templateData = { templates: [{ id: 'custom', fields: [{ name: 'topic', default: 'Promo' }, { name: 'empty' }] }], builtins: [{ id: 'carousel', fields: [{ name: 'slides', default: 5 }] }] };
+    assert.deepEqual(taskTemplateSelection(templateData, 'custom'), { template: 'custom', values: { topic: 'Promo' } });
+    assert.deepEqual(taskTemplateSelection(templateData, 'builtin:carousel'), { template: 'builtin:carousel', values: { slides: 5 } });
+    assert.equal(taskTemplateSelection(templateData, 'archived'), null);
+    const divided={agents:[{id:'social-agent',divisionId:'social-id'},{id:'ads-agent',divisionId:'ads-id'}],divisions:[{id:'social-id',templateId:'social'},{id:'ads-id',templateId:'ads'}],templates:[{id:'general'},{id:'social-only',divisionIds:['social-id']}],builtins:[{id:'carousel',divisionTemplateIds:['social']},{id:'ads-copy',divisionTemplateIds:['ads']}]};
+    assert.deepEqual(templatesForAgent(divided,'social-agent').templates.map(t=>t.id),['general','social-only']);
+    assert.deepEqual(templatesForAgent(divided,'ads-agent').templates.map(t=>t.id),['general']);
+    assert.deepEqual(templatesForAgent(divided,'social-agent').builtins.map(t=>t.id),['carousel']);
+    assert.deepEqual(templatesForAgent(divided,'ads-agent').builtins.map(t=>t.id),['ads-copy']);
+    assert.equal(templatesForAgent(divided,'').builtins.length,0);
     const html = renderToStaticMarkup(React.createElement(WorkspaceTaskFields, { data: { agents: [{ id: agentId, name: 'Sua', role: 'Writer' }], models: [{ id: 'test-model', label: 'Economy', costLabel: 'Hemat' }], templates: [], builtins: [], clients: [] }, form: { agentId, template: '', title: '', instructions: '', values: {}, clientId: '', modelId: '' }, setForm() {} }));
     for (const text of ['Agen pelaksana', 'Sua', 'Tugas bebas', 'Instruksi tugas', 'Model AI', 'Hemat', 'Saldo AI']) assert.ok(html.includes(text), text);
     const { AdminPlanCatalog } = await vite.ssrLoadModule('/src/react/admin-billing.jsx');

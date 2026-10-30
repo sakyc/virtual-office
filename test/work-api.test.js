@@ -42,6 +42,11 @@ test('unauthenticated and forbidden responses fail closed without retrying or sa
   }
 });
 
+test('demo AI-off code explains the admin switch without displaying arbitrary server diagnostics',async()=>{
+  const api=createWorkApi(async()=>Response.json({code:'MANAGED_DEMO_AI_DISABLED',error:'private diagnostic'},{status:402}));
+  await assert.rejects(api.jobs(),e=>e.status===402&&e.message.includes('dinonaktifkan')&&!e.message.includes('private'));
+});
+
 test('provider/database errors and raw transport errors are not shown to the user', async () => {
   for (const fetcher of [async () => Response.json({ error: 'mysql://secret@host' }, { status: 503 }), async () => { throw new Error('mysql://secret@host'); }]) {
     await assert.rejects(createWorkApi(fetcher).items(), (error) => !/secret|mysql/.test(error.message));

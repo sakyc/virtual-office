@@ -10,7 +10,11 @@ export async function loadTaskTemplates(c, tenant) {
 }
 export async function saveTaskTemplate(c, tenant, userId, body, id) {
   const input = templateInput(body, !!id);
-  const definition = JSON.stringify({ instructions: input.instructions, outputFormat: input.outputFormat, fields: input.fields });
+  if (input.divisionIds.length) {
+    const [divisions] = await c.execute("SELECT id FROM workspace_divisions WHERE organization_id=? AND workspace_id=? AND status='active'", scope(tenant));
+    if (input.divisionIds.some(id => !divisions.some(d => d.id === id))) throw templateError('Divisi tidak tersedia di workspace aktif.');
+  }
+  const definition = JSON.stringify({ instructions: input.instructions, outputFormat: input.outputFormat, fields: input.fields, divisionIds: input.divisionIds });
   if (id) {
     const [result] = await c.execute("UPDATE workspace_task_templates SET name = ?, description = ?, definition = ?, version = version + 1, updated_by_user_id = ? WHERE organization_id = ? AND workspace_id = ? AND id = ? AND status = 'active' AND version = ?", [input.name, input.description, definition, userId, ...scope(tenant), id, body.version]);
     if (!result.affectedRows) await missingOrConflict(c, tenant, id);
@@ -50,7 +54,10 @@ export function installTaskTemplateRoutes(app, { getPool, requireTenant, appOrig
       res.status(known ? error.status : 503).json({ error: known ? error.message : 'Template belum tersedia. Operator perlu memeriksa migration 014.' });
     } finally { c?.release(); }
   };
-  app.get('/api/task-templates', requireTenant, handle(false, async (c, req) => ({ templates: await loadTaskTemplates(c, req.tenantContext), builtins: builtinTaskTemplates, canManage: !req.authPrincipal?.sharedDemo && !req.authPrincipal?.managedDemo && ['owner', 'admin'].includes(req.tenantContext.role), executionReady: true })));
+  app.get('/api/task-templates', requireTenant, handle(false, async (c, req) => {
+    const [divisions] = await c.execute("SELECT id, name, template_id AS templateId FROM workspace_divisions WHERE organization_id=? AND workspace_id=? AND status='active' ORDER BY slot", scope(req.tenantContext));
+    return { templates: await loadTaskTemplates(c, req.tenantContext), builtins: builtinTaskTemplates, divisions, canManage: !req.authPrincipal?.sharedDemo && ['owner', 'admin'].includes(req.tenantContext.role), executionReady: true };
+  }));
   app.post('/api/task-templates', requireTenant, handle(true, (c, req) => saveTaskTemplate(c, req.tenantContext, req.authPrincipal.userId, req.body)));
   app.patch('/api/task-templates/:id', requireTenant, handle(true, (c, req) => saveTaskTemplate(c, req.tenantContext, req.authPrincipal.userId, req.body, req.params.id)));
   app.post('/api/task-templates/:id/archive', requireTenant, handle(true, async (c, req) => {

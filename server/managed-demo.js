@@ -5,7 +5,7 @@ import {readCookie,resolveSession} from './auth/sessions.js';
 import {requirePlatformAdmin} from './billing-catalog.js';
 import {teamTemplates} from '../shared/workspace-team.js';
 import {addAgent} from './workspace-team.js';
-import {MANAGED_DEMO_ISSUER,MANAGED_DEMO_DISABLED_MESSAGE} from './managed-demo-policy.js';
+import {MANAGED_DEMO_ISSUER,MANAGED_DEMO_DISABLED_MESSAGE,managedDemoTeamRouteAllowed,managedDemoTemplateRouteAllowed} from './managed-demo-policy.js';
 import {sharedDemoRouteAllowed} from './shared-demo-policy.js';
 
 const fail=(code,status=400)=>{throw Object.assign(Error(code),{code,status});};
@@ -89,7 +89,7 @@ export function managedDemoFirewall({getPool}) {
     try {
       c=await getPool().getConnection();const principal=await resolveSession(c,token);
       if(principal?.managedDemo) {
-        if(!sharedDemoRouteAllowed(req.method,req.path))return res.status(403).json({code:'MANAGED_DEMO_RESTRICTED',error:'Fitur ini hanya dapat dikelola admin untuk akun demo.'});
+        if(!sharedDemoRouteAllowed(req.method,req.path)&&!managedDemoTeamRouteAllowed(req.method,req.path)&&!managedDemoTemplateRouteAllowed(req.method,req.path)&&!(req.method==='GET'&&req.path==='/api/workspace/members'))return res.status(403).json({code:'MANAGED_DEMO_RESTRICTED',error:'Fitur ini hanya dapat dikelola admin untuk akun demo.'});
         if(!principal.managedDemo.aiEnabled && req.method==='POST' && (req.path==='/api/office/chat'||req.path==='/api/dashboard/jobs'||/^\/api\/dashboard\/items\/\d+\/revise$/.test(req.path)))return res.status(402).json({code:'MANAGED_DEMO_AI_DISABLED',error:MANAGED_DEMO_DISABLED_MESSAGE});
       }
       next();

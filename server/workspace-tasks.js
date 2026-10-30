@@ -1,4 +1,4 @@
-import { exactKeys, templateError } from '../shared/task-templates.js';
+import { exactKeys, templateError, builtinTaskTemplates, templateMatchesDivision } from '../shared/task-templates.js';
 import { resolveWorkspaceAgent, workspaceAgentPrompt } from './workspace-team.js';
 import { jobById } from '../shared/jobs.js';
 import { SPEC } from './jobSpecs.js';
@@ -36,8 +36,9 @@ export async function createWorkspaceTask(c, { tenantContext: tenant, principal,
     } else if (body.builtinId) {
       const def = jobById(body.builtinId);
       if (!def) throw templateError('Template bawaan tidak ditemukan.', 404);
-      template = { id: def.id, version: 1, name: def.label, fields: def.fields, outputFormat: def.type, builtin: true };
+      template = { id: def.id, version: 1, name: def.label, fields: def.fields, outputFormat: def.type, builtin: true, divisionTemplateIds: builtinTaskTemplates.find(t => t.id === def.id).divisionTemplateIds };
     }
+    if (template && !templateMatchesDivision(template, { id: agent.divisionId, templateId: agent.divisionTemplateId })) throw templateError('Template ini tidak tersedia untuk divisi agen yang dipilih.');
     if (!template && !instructions) throw templateError('Isi instruksi untuk tugas bebas.');
     const values = body.values || {};
     exactKeys(values, (template?.fields || []).map(f => f.name));

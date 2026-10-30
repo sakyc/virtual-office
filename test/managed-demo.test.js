@@ -6,7 +6,8 @@ import {createServer} from 'vite';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createManagedDemoAccount,changeManagedDemo,managedDemoFirewall,installManagedDemoRoutes} from '../server/managed-demo.js';
-import {MANAGED_DEMO_ISSUER,assertManagedDemoAi} from '../server/managed-demo-policy.js';
+import {MANAGED_DEMO_ISSUER,assertManagedDemoAi,managedDemoTeamRouteAllowed,managedDemoTemplateRouteAllowed} from '../server/managed-demo-policy.js';
+import {sharedDemoRouteAllowed} from '../server/shared-demo-policy.js';
 import {hashSessionToken,resolveSession} from '../server/auth/sessions.js';
 import {verifyPassword} from '../server/auth/passwords.js';
 import {installAuthRoutes} from '../server/auth/auth-routes.js';
@@ -20,6 +21,15 @@ import {validateManagedDemoSchema} from '../server/migrations/managed-demo-contr
 
 const password='Lentera!9Kantor',adminToken='a'.repeat(40),demoToken='d'.repeat(40),env={AUTH_PROVIDER:'native',APP_ORIGIN:'http://localhost:5173'};
 const body={name:'Kantor Demo',email:'demo@example.test',password,creditIdr:1000,reason:'Pembuatan akun untuk presentasi'};
+test('presentation team allowlist does not open visitor demo, arbitrary writes or account privileges',()=>{
+  const id='11111111-2222-3333-4444-555555555555';
+  for(const [method,path] of [['POST','/api/team/divisions'],['POST',`/api/team/divisions/${id}/agents`],['POST',`/api/team/divisions/${id}/archive`],['POST',`/api/team/agents/${id}/archive`],['PATCH',`/api/team/agents/${id}`]]){
+    assert.equal(managedDemoTeamRouteAllowed(method,path),true);assert.equal(sharedDemoRouteAllowed(method,path),false);
+  }
+  for(const [method,path] of [['DELETE',`/api/team/agents/${id}`],['POST',`/api/team/users/${id}/archive`],['POST','/api/team/divisions/invalid/agents'],['POST','/api/payments/checkout'],['POST','/auth/password']])assert.equal(managedDemoTeamRouteAllowed(method,path),false);
+});
+
+test('template write allowlist is specific to managed demo and does not open visitor writes',()=>{const id='11111111-2222-3333-4444-555555555555';for(const [method,path] of [['POST','/api/task-templates'],['PATCH',`/api/task-templates/${id}`],['POST',`/api/task-templates/${id}/archive`]]){assert(managedDemoTemplateRouteAllowed(method,path));assert(!sharedDemoRouteAllowed(method,path));}assert(!managedDemoTemplateRouteAllowed('POST','/api/workspace/members/invitations'));assert(!managedDemoTemplateRouteAllowed('DELETE',`/api/task-templates/${id}`));});
 function fixture(){
   let state={account:null,hash:null,status:'active',divisions:[],agents:[],audit:[],grants:[],ledger:[],sessions:[],failAudit:false};const calls=[];let snapshot;
   const c={release(){},async beginTransaction(){snapshot=structuredClone(state);},async commit(){snapshot=null;},async rollback(){if(snapshot)state=snapshot;},async execute(raw,v=[]){const sql=raw.replace(/\s+/g,' ').trim();calls.push({sql,v});assert.equal((sql.match(/\?/g)||[]).length,v.length,sql);

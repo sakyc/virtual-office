@@ -101,7 +101,7 @@ try {
   assert.equal(await evaluate('document.querySelectorAll(".sbar").length'), 1);
   assert.ok(!(await evaluate('document.body.textContent.includes("Q4 launch narrative")')));
   check('empty live jobs use original shell and no sample records');
-  await click('Perintah baru'); await wait('!!document.querySelector(".work-dialog select")');
+  await click('+ Buat tugas'); await wait('!!document.querySelector(".work-dialog select")');
   await fill('.work-dialog select', '10000000-0000-4000-8000-000000000001');
   await fill('.work-dialog input', 'Tugas pengujian fixture');
   await fill('.work-dialog label:last-of-type select', 'fixture-model');
@@ -157,7 +157,7 @@ try {
   check('revision failure leaves content/version intact and shows a recoverable error');
 
   state.role = 'viewer'; await open('/dashboard/jobs'); await wait('!!document.querySelector(".work-job")');
-  assert.equal(await evaluate(`[...document.querySelectorAll('button')].some(e=>e.textContent==='Perintah baru')`), false);
+  assert.equal(await evaluate(`[...document.querySelectorAll('button')].some(e=>e.textContent==='+ Buat tugas')`), false);
   await open('/dashboard/board'); await evaluate(`document.querySelectorAll('[role="tab"]')[3].click();true`);
   await wait('!!document.querySelector(".work-detail .work-content")');
   assert.equal(await evaluate(`[...document.querySelectorAll('button')].find(e=>e.textContent==='Setujui').disabled`), true);

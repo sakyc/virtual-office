@@ -46,10 +46,10 @@ export async function listTenantMembers(c, tenant, principal) {
   const [divisions] = await c.execute('SELECT user_id AS userId, division_id AS divisionId FROM workspace_member_divisions WHERE organization_id=? AND workspace_id=?', scope(tenant));
   const [agents] = await c.execute('SELECT user_id AS userId, agent_id AS agentId FROM workspace_member_agents WHERE organization_id=? AND workspace_id=?', scope(tenant));
   const [reviewers] = await c.execute('SELECT division_id AS divisionId, user_id AS userId FROM workspace_division_reviewers WHERE organization_id=? AND workspace_id=?', scope(tenant));
-  const canManage = isManager(actor.role);
+  const canManage = !principal.managedDemo && !principal.sharedDemo && isManager(actor.role);
   const [invitations] = canManage ? await c.execute(`SELECT id, email_normalized AS email, role, expires_at AS expiresAt FROM workspace_invitations
     WHERE organization_id=? AND workspace_id=? AND revoked_at IS NULL AND consumed_at IS NULL AND expires_at>UTC_TIMESTAMP() ORDER BY created_at DESC LIMIT 100`, scope(tenant)) : [[]];
-  return { canManage, actorRole: actor.role, members: members.map(m => ({ ...m, role: m.organizationRole === 'owner' ? 'owner' : m.role,
+  return { canManage, managedDemo: Boolean(principal.managedDemo), actorRole: actor.role, members: members.map(m => ({ ...m, role: m.organizationRole === 'owner' ? 'owner' : m.role,
     divisionIds: divisions.filter(d => d.userId === m.id).map(d => d.divisionId), agentIds: agents.filter(a => a.userId === m.id).map(a => a.agentId) })),
     reviewers, invitations, ...await loadTeam(c, tenant) };
 }

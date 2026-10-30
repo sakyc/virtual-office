@@ -26,7 +26,7 @@ export function dashboardNavigation({ baseGroups, section, view = 'overview', pl
     ['Pengaturan', [['keys', 'Model AI'], ['settings', 'Pengaturan akun']]],
     ...(platformAdmin ? [['Platform', [['catalogAdmin', 'Dashboard admin']]]] : []),
   ];
-  return groups.map(([title, entries]) => ({ title, items: entries.filter(([id])=>!managedDemo||!['members','catalogAdmin'].includes(id)).map(([id, label]) => {
+  return groups.map(([title, entries]) => ({ title, items: entries.filter(([id])=>!managedDemo||id!=='catalogAdmin').map(([id, label]) => {
     const active = id === activeId;
     return {
       id, label, icon: extraIcons[id] || base[id]?.icon || '',

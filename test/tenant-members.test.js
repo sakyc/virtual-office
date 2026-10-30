@@ -8,13 +8,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 import { memberInput } from '../shared/tenant-members.js';
 import { normalizeWhatsapp, validateAuthFields } from '../shared/auth-validation.js';
-import { inviteTenantMember, updateTenantMember, acceptTenantInvitation, invitationHash, installTenantMemberRoutes } from '../server/tenant-members.js';
+import { listTenantMembers, inviteTenantMember, updateTenantMember, acceptTenantInvitation, invitationHash, installTenantMemberRoutes } from '../server/tenant-members.js';
 import { assertTenantAgentAccess, assertTenantItemReview } from '../server/member-access.js';
 import { MEMBER_COLUMNS, MEMBER_INDEXES, MEMBER_KEYS, validateTenantMemberSchema } from '../server/migrations/tenant-member-contract.js';
 import { inspectMigrationDirectory } from '../server/migrations/status.js';
 
 const division = randomUUID(), agent = randomUUID(), tenant = { organizationId: 3, workspaceId: 8, userId: 9, role: 'member', memberPolicy: true };
 const input = { role: 'member', email: ' Person@Example.Test ', divisionIds: [division], agentIds: [] };
+
+test('managed demo owner can read members without invitations or management controls',async()=>{
+  const calls=[];const c={async execute(sql){calls.push(sql);if(sql.startsWith('SELECT u.id'))return [[{id:9,email:'demo@example.test',role:'admin',organizationRole:'owner'}]];if(sql.includes('wm.membership_version'))return [[{role:'admin',organizationRole:'owner'}]];return [[]];}};
+  const result=await listTenantMembers(c,{organizationId:3,workspaceId:8},{userId:9,managedDemo:{aiEnabled:false}});
+  assert.equal(result.canManage,false);assert.equal(result.managedDemo,true);assert.deepEqual(result.invitations,[]);assert(!calls.some(sql=>sql.includes('FROM workspace_invitations')));
+});
 
 test('member input rejects forged scope, owner roles, invalid assignments and stale/missing versions', () => {
   assert.equal(memberInput(input, true).email, 'person@example.test');

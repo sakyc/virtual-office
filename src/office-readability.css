@@ -1,0 +1,29 @@
+/* Office controls also run outside the dashboard CSS scope, inside an iframe. */
+:root{--panel-w:480px}
+#panel{font-size:16px}
+#panel .who strong{font-size:19px}
+#panel .who span,#panel .mate{font-size:14px}
+#panel .bubble{font-size:16px;line-height:1.7}
+#panel .bubble h3,#panel .bubble h4{font-size:17px}
+#panel .bubble code,#panel .bubble pre code{font-size:14px}
+#panel .panel-foot,#panel .chat-model-info,#panel .message-model{font-size:13px;line-height:1.65}
+#panel #input,#panel #chat-model{font-size:16px}
+#panel .tabs button,#panel .btn,#panel .q{font-size:15px;min-height:42px}
+#panel .client-bar label,#panel .client-new,#panel .muted,#panel .job-card span,#panel .hist small{font-size:14px;line-height:1.65}
+#panel .job-card b,#panel .sec{font-size:16px}
+#panel .work-task-inline{font-size:16px;padding:20px 0}
+#panel .work-task-inline h2{font-size:22px}
+#panel .work-task-inline label{font-size:15px;gap:9px}
+#panel .work-task-inline input,#panel .work-task-inline select,#panel .work-task-inline textarea{font-size:16px;min-height:44px;max-width:100%}
+#panel .work-task-inline .work-hint,#panel .work-task-inline .task-mode-note{font-size:14px;line-height:1.75}
+#panel .work-task-inline .work-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:16px;border-top:1px solid var(--line)}
+#panel .work-task-inline .work-button{display:inline-flex;justify-content:center;align-items:center;border:1px solid var(--line);border-radius:11px;padding:12px 18px;min-height:46px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;background:#f6f8fb;color:var(--ink)}
+#panel .work-task-inline .work-button.btnp{background:var(--accent);border-color:var(--accent);color:#fff}
+#panel .work-task-inline .work-button:disabled{cursor:not-allowed;opacity:.5}
+#panel .work-task-inline .work-button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+#panel .work-task-inline .work-notice{font-size:15px;line-height:1.65;padding:14px;border:1px solid #f5c3ba;border-radius:10px;background:#fff0ed;color:#943822}
+.tag{font-size:14px;padding:5px 12px 5px 9px}
+.tag small,.tag .st{font-size:12px}
+.chip{font-size:14px}
+#hint{font-size:14px;max-width:calc(100vw - 24px);white-space:normal;text-align:center}
+@media(max-width:600px){#panel{width:auto;left:8px;right:8px}#panel .work-task-inline .work-actions>button{flex:1}#panel .who strong{font-size:18px}}

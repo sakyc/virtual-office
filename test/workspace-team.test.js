@@ -12,9 +12,11 @@ import { inspectMigrationDirectory } from '../server/migrations/status.js';
 import { TEAM_CONTRACT, validateTeamSchema } from '../server/migrations/team-contract.js';
 import { Scene } from 'three';
 import { buildOffice } from '../src/office.js';
+import {managedDemoFirewall} from '../server/managed-demo.js';
+import {MANAGED_DEMO_ISSUER} from '../server/managed-demo-policy.js';
 
 const input = { name: 'Rina', role: 'Penulis properti', instructions: 'Tulis draft listing, jangan mengarang harga.', modelTier: 'team' };
-async function fixture(t, { resolverAvailable = true } = {}) {
+async function fixture(t, { resolverAvailable = true, managedDemo = false } = {}) {
   const state = { role: 'admin', organization: 3, workspace: 8, revoked: false, fail: false, paid: true, maxDivisions: 8, maxMembers: 6, members: 1, otherDivisions: 0 };
   let divisions = [], agents = [], snapshot;
   const calls = [], provider = [];
@@ -24,7 +26,7 @@ async function fixture(t, { resolverAvailable = true } = {}) {
     async commit() { calls.push({ transaction: 'commit' }); snapshot = null; },
     async rollback() { calls.push({ transaction: 'rollback' }); if (snapshot) ({ divisions, agents } = snapshot); snapshot = null; },
     async execute(sql, values = []) {
-      if(sql.includes('FROM managed_demo_accounts'))return [[]];
+      if(sql.includes('FROM managed_demo_accounts'))return [managedDemo?[{user_id:9,organization_id:3,workspace_id:8,ai_enabled:0}]:[]];
       calls.push({ sql, values });
       if (sql.startsWith('SELECT id FROM organizations WHERE')) {
         if (state.fail) throw new Error('mysql://secret@private');
@@ -33,7 +35,7 @@ async function fixture(t, { resolverAvailable = true } = {}) {
       if (sql.includes('FROM billing_subscriptions WHERE')) return [state.paid ? [{ maxDivisions: state.maxDivisions, maxMembers: state.maxMembers, whatsapp: 1 }] : []];
       if (sql.startsWith('SELECT s.max_divisions')) return [state.paid ? [{ maxDivisions: state.maxDivisions, otherDivisions: state.otherDivisions }] : []];
       if (sql.startsWith('SELECT\n    (SELECT COUNT(*) FROM workspace_divisions')) return [[{ divisions: state.otherDivisions + divisions.filter(d => d.organization === values[0] && d.status === 'active').length, members: state.members }]];
-      if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
+      if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', provider_issuer:managedDemo?MANAGED_DEMO_ISSUER:undefined, revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
       if (sql.startsWith('UPDATE sessions')) return [{}];
       if (sql.includes('LEFT JOIN organization_memberships')) return [[{ organizationId: state.organization, role: state.role, organizationRole: null }]];
       if (sql.startsWith('SELECT id FROM workspaces')) return [[{ id: state.workspace }]];
@@ -63,6 +65,7 @@ async function fixture(t, { resolverAvailable = true } = {}) {
   const getPool = () => ({ getConnection: async () => connection });
   const requireTenant = createTenantGate({ getPool, authEnabled: true, resourceQueriesScoped: true });
   const app = express(); app.use(express.json());
+  if(managedDemo)app.use(managedDemoFirewall({getPool}));
   installTeamRoutes(app, { getPool, requireTenant, appOrigin: 'http://localhost:5173', models: { team: 'team-test', leader: 'leader-test' } });
   installOfficeChatRoutes(app, { requireTenant, appOrigin: 'http://localhost:5173', models: { team: 'team-test', leader: 'leader-test' },
     rateLimit: (_q, _s, next) => next(), dailyCap: (_q, _s, next) => next(), resolveAgent: resolverAvailable ? (tenant, id) => resolveWorkspaceAgent(connection, tenant, id) : undefined,
@@ -84,6 +87,30 @@ test('team validation rejects identity/permission injection and arbitrary model 
   assert.throws(() => initialTeamInput({ mode: 'empty', agents: ['roy'] }), { status: 400 });
   assert.throws(() => initialTeamInput({ mode: 'custom', division: '', agent: input }), { status: 400 });
   assert.equal(teamTemplates.length, DIVISIONS.length); assert.equal(teamTemplates.flatMap((d) => d.agents).length, AGENTS.length);
+});
+
+test('presentation demo can manage team with AI off but capacity, permissions and AI gate stay enforced',async t=>{
+  const f=await fixture(t,{managedDemo:true});f.state.paid=false;
+  const initial=await (await f.request()).json();assert.equal(initial.canManage,true);assert.equal(initial.managedDemo,true);assert.equal(initial.divisionCapacity,6);
+  const id=await f.create();
+  for(let i=0;i<4;i++)assert.equal((await f.request(`/divisions/${id}/agents`,'POST',input)).status,200);
+  assert.equal((await f.request(`/divisions/${id}/agents`,'POST',input)).status,409);
+  const agent=f.rows().agents[0].id;
+  assert.equal((await f.request(`/agents/${agent}`,'PATCH',{...input,name:'Presentasi Baru'})).status,200);
+  assert.equal((await f.request(`/agents/${agent}/archive`,'POST',{})).status,200);
+  assert.equal((await f.request(`/divisions/${id}/agents`,'POST',input)).status,200);
+  for(let i=0;i<5;i++)await f.create({name:`Divisi ${i}`});
+  assert.equal((await f.request('/divisions','POST',{name:'Melebihi batas demo'})).status,402);
+  assert.equal((await f.request(`/divisions/${id}/archive`,'POST',{})).status,200);
+  assert(f.rows().agents.filter(a=>a.divisionId===id).every(a=>a.status==='archived'));
+  await f.create({name:'Divisi pengganti'});
+  assert.equal((await (await f.request()).json()).divisions.length,6);
+  assert.equal((await f.request('/api/office/chat','POST',{agentId:agent,messages:[]})).status,402);assert.equal(f.provider.length,0);
+  assert.equal((await f.request('/divisions','POST',{name:'Lintas origin'},{Origin:'https://evil.test'})).status,403);
+  assert.equal((await f.request('/api/admin/managed-demo','POST',{})).status,403);
+  f.state.role='viewer';assert.equal((await (await f.request()).json()).canManage,false);
+  assert.equal((await f.request(`/divisions/${id}/agents`,'POST',input)).status,403);
+  assert(!f.calls.some(c=>c.sql?.startsWith('DELETE')));
 });
 
 test('team API returns subscription capacity without accepting client capacity overrides', async (t) => {

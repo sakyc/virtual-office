@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { draftFromBuiltin, templateInput } from '../../shared/task-templates.js';
+import { draftFromBuiltin, templateInput, templateMatchesDivision } from '../../shared/task-templates.js';
 import './task-templates.css';
+import './task-template-actions.css';
 
-export const emptyTemplate = () => ({ name: '', description: '', instructions: '', outputFormat: 'Dokumen', fields: [] });
+export const emptyTemplate = () => ({ name: '', description: '', instructions: '', outputFormat: 'Dokumen', fields: [], divisionIds: [] });
+export const templateTaskPath = (template,builtin=false) => `/dashboard/jobs?template=${encodeURIComponent(builtin?`builtin:${template.id}`:template.id)}`;
 export async function templateRequest(path = '', method = 'GET', body, signal) {
   const response = await fetch(`/api/task-templates${path}`, { method, credentials: 'same-origin', cache: 'no-store', signal,
     ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
@@ -11,7 +13,7 @@ export async function templateRequest(path = '', method = 'GET', body, signal) {
   return result;
 }
 
-export function TemplateEditor({ value, onChange, onSubmit, onCancel, busy, copied }) {
+export function TemplateEditor({ value, onChange, onSubmit, onCancel, busy, copied, divisions = [] }) {
   const change = key => event => onChange({ ...value, [key]: event.target.value });
   const fieldChange = (index, patch) => onChange({ ...value, fields: value.fields.map((field, i) => i === index ? { ...field, ...patch } : field) });
   return <form className="tt-editor" onSubmit={onSubmit} aria-label="Editor template tugas">
@@ -19,6 +21,12 @@ export function TemplateEditor({ value, onChange, onSubmit, onCancel, busy, copi
     {copied && <p className="tt-notice">Salinan mengambil nama dan kolom publik saja. Isi instruksi sendiri; prompt internal dan aturan eksekusi template bawaan tidak disalin. Kolom pilihan/tanggal/referensi diubah menjadi teks.</p>}
     <fieldset disabled={busy}><label>Nama template<input required maxLength={150} value={value.name} onChange={change('name')} placeholder="Mis. Carousel edukasi produk"/></label>
       <label>Deskripsi singkat<textarea rows={2} maxLength={500} value={value.description} onChange={change('description')}/></label>
+      <div className="tt-division-settings"><h3>Tersedia untuk divisi</h3>
+        <label className="tt-checkbox"><input type="checkbox" checked={!value.divisionIds?.length} onChange={e => { if(e.target.checked)onChange({...value,divisionIds:[]}); }}/> Umum · semua divisi</label>
+        <p className="tt-muted">Pilih satu atau beberapa divisi untuk membatasi template. Tanpa pilihan divisi, template tersedia untuk semua agen.</p>
+        {divisions.map(d => <label className="tt-checkbox" key={d.id}><input type="checkbox" checked={value.divisionIds?.includes(d.id) || false} onChange={e => onChange({...value,divisionIds:e.target.checked?[...(value.divisionIds || []),d.id]:(value.divisionIds || []).filter(id=>id!==d.id)})}/>{d.name}</label>)}
+        {(value.divisionIds || []).some(id=>!divisions.some(d=>d.id===id)) && <p className="tt-muted">Ada divisi yang sudah tidak aktif. Pilih ulang divisi atau jadikan template umum sebelum menyimpan.</p>}
+      </div>
       <label>Instruksi tugas<textarea required rows={5} maxLength={8000} value={value.instructions} onChange={change('instructions')} placeholder="Jelaskan tujuan, langkah kerja, gaya bahasa, dan hasil yang diharapkan."/></label>
       <label>Format hasil<input required maxLength={100} value={value.outputFormat} onChange={change('outputFormat')} placeholder="Mis. Carousel 7 slide"/></label>
       <div className="tt-fields-heading"><h3>Kolom input <small>{value.fields.length}/12</small></h3><button type="button" disabled={value.fields.length >= 12} onClick={() => {
@@ -37,20 +45,23 @@ export function TemplateEditor({ value, onChange, onSubmit, onCancel, busy, copi
   </form>;
 }
 
-export function TemplateLibrary({ data, tab, search, onTab, onSearch, onCreate, onEdit, onCopy, onArchive, onInspect, busy }) {
-  const rows = (tab === 'custom' ? data.templates : data.builtins).filter(t => `${t.name} ${t.description}`.toLocaleLowerCase('id').includes(search.toLocaleLowerCase('id')));
+export function TemplateLibrary({ data, tab, search, onTab, onSearch, onCreate, onEdit, onCopy, onArchive, onInspect, busy, divisionFilter = '', onDivisionFilter = () => {} }) {
+  const divisions = data.divisions || [];
+  const rows = (tab === 'custom' ? data.templates : data.builtins).filter(t => `${t.name} ${t.description}`.toLocaleLowerCase('id').includes(search.toLocaleLowerCase('id')) && (!divisionFilter || (divisionFilter==='general' ? !t.divisionIds?.length && !t.divisionTemplateIds?.length : templateMatchesDivision(t,divisions.find(d=>d.id===divisionFilter)))));
   return <><header className="tt-heading"><div><span className="tt-eyebrow">KELOLA WORKSPACE</span><h1>Template Tugas</h1><p>Simpan arahan kerja yang bisa digunakan kembali oleh tim Anda.</p></div>{data.canManage && <button className="tt-primary" disabled={busy} onClick={onCreate}>+ Buat template</button>}</header>
-    <p className="tt-notice">Gunakan template ini melalui <a href="/dashboard/jobs">Perintah → Perintah baru</a> atau tombol Buat tugas pada agen di kantor. Pilih agen dan model; hasil masuk sebagai draft ke Board.</p>
+    <p className="tt-notice">Klik Gunakan template untuk membuat tugas langsung, atau buka <a href="/dashboard/jobs">Tugas → Buat tugas</a>. Di kantor, pilih agen lalu Buat tugas. Pilih model aktif; hasil masuk sebagai draft ke Board.</p>
     <div className="tt-toolbar"><div role="tablist" aria-label="Jenis template">{[['custom', 'Template saya', data.templates.length], ['builtin', 'Bawaan', data.builtins.length]].map(([id, label, count]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => onTab(id)}>{label} <span>{count}</span></button>)}</div><input aria-label="Cari template" placeholder="Cari template…" value={search} onChange={e => onSearch(e.target.value)}/></div>
+    <label className="tt-division-filter">Filter divisi<select value={divisionFilter} onChange={e=>onDivisionFilter(e.target.value)}><option value="">Semua divisi</option><option value="general">Umum saja</option>{divisions.map(d=><option key={d.id} value={d.id}>{d.name} + umum</option>)}</select></label>
     {!data.canManage && <p className="tt-muted">Anda dapat melihat template. Pengelolaan tersedia untuk owner dan admin workspace.</p>}
     {!rows.length && <div className="tt-empty"><h2>{search ? 'Template tidak ditemukan' : 'Belum ada template custom'}</h2><p>{search ? 'Coba kata kunci lain.' : 'Mulai dari template kosong atau salin struktur template bawaan.'}</p></div>}
-    <div className="tt-grid">{rows.map(template => <article className="tt-card" key={template.id}><span className="tt-tag">{tab === 'builtin' ? 'Bawaan · hanya baca' : `Custom · v${template.version}`}</span><h2>{template.name}</h2><p>{template.description || 'Belum ada deskripsi.'}</p><div className="tt-meta">{template.outputFormat} · {template.fields.length} kolom input</div><footer><button onClick={() => onInspect(template)}>Lihat detail</button>{data.canManage && (tab === 'builtin' ? <button disabled={busy} onClick={() => onCopy(template)}>Salin struktur</button> : <><button disabled={busy} onClick={() => onEdit(template)}>Edit</button><button disabled={busy} onClick={() => onArchive(template)}>Arsipkan</button></>)}</footer></article>)}</div>
+    <div className="tt-grid">{rows.map(template => <article className="tt-card" key={template.id}><span className="tt-tag">{tab === 'builtin' ? 'Bawaan · hanya baca' : `Custom · v${template.version}`}</span><h2>{template.name}</h2><p>{template.description || 'Belum ada deskripsi.'}</p><div className="tt-meta">{template.outputFormat} · {template.fields.length} kolom input</div><footer><a className="tt-use-template" href={templateTaskPath(template,tab==='builtin')}>Gunakan template</a><button onClick={() => onInspect(template)}>Lihat detail</button>{data.canManage && (tab === 'builtin' ? <button disabled={busy} onClick={() => onCopy(template)}>Salin struktur</button> : <><button disabled={busy} onClick={() => onEdit(template)}>Edit</button><button disabled={busy} onClick={() => onArchive(template)}>Arsipkan</button></>)}</footer></article>)}</div>
   </>;
 }
 
 export function TaskTemplates() {
   const [data, setData] = useState(null), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [tab, setTab] = useState('custom'), [search, setSearch] = useState(''), [retry, setRetry] = useState(0);
+  const [divisionFilter,setDivisionFilter]=useState('');
   const [editor, setEditor] = useState(null), [copied, setCopied] = useState(false), [inspect, setInspect] = useState(null), [archive, setArchive] = useState(null);
   const [busy, setBusy] = useState(false), flight = useRef(false), mounted = useRef(true);
   const editorAnchor = useRef(null);
@@ -76,11 +87,11 @@ export function TaskTemplates() {
     {error && <p role="alert" className="tt-error">{error} <button disabled={busy} onClick={() => setRetry(n => n + 1)}>Muat ulang daftar</button></p>}
     {notice && <p role="status">{notice}</p>}
     {!data && !error && <p role="status">Memuat template…</p>}
-    {data && <TemplateLibrary data={data} tab={tab} search={search} onTab={setTab} onSearch={setSearch} busy={busy} onCreate={() => edit(emptyTemplate())} onEdit={edit} onCopy={t => { edit(draftFromBuiltin(t)); setCopied(true); }} onInspect={setInspect} onArchive={setArchive}/>}
+    {data && <TemplateLibrary data={data} tab={tab} search={search} divisionFilter={divisionFilter} onDivisionFilter={setDivisionFilter} onTab={setTab} onSearch={setSearch} busy={busy} onCreate={() => edit(emptyTemplate())} onEdit={edit} onCopy={t => { edit({...draftFromBuiltin(t),divisionIds:(data.divisions || []).filter(d=>templateMatchesDivision(t,d)).map(d=>d.id)}); setCopied(true); }} onInspect={setInspect} onArchive={setArchive}/>}
     {inspect && <article className="tt-editor"><header><h2>{inspect.name}</h2><button onClick={() => setInspect(null)}>Tutup detail</button></header><p>{inspect.description}</p>{inspect.instructions && <p className="tt-instructions">{inspect.instructions}</p>}<h3>Kolom input</h3><ul>{inspect.fields.map(f => <li key={f.name}>{f.label} · {f.type}{f.required ? ' · wajib' : ''}</li>)}</ul><p>Format: {inspect.outputFormat}</p></article>}
-    {editor && <div ref={editorAnchor}><TemplateEditor value={editor} onChange={setEditor} busy={busy} copied={copied} onCancel={() => setEditor(null)} onSubmit={e => {
+    {editor && <div ref={editorAnchor}><TemplateEditor value={editor} divisions={data?.divisions || []} onChange={setEditor} busy={busy} copied={copied} onCancel={() => setEditor(null)} onSubmit={e => {
       e.preventDefault();
-      try { const body = { name: editor.name, description: editor.description, instructions: editor.instructions, outputFormat: editor.outputFormat, fields: editor.fields, ...(editor.id ? { version: editor.version } : {}) }; templateInput(body, !!editor.id); void mutate(editor.id ? `/${editor.id}` : '', editor.id ? 'PATCH' : 'POST', body); } catch (failure) { setError(failure.message); }
+      try { const body = { name: editor.name, description: editor.description, instructions: editor.instructions, outputFormat: editor.outputFormat, fields: editor.fields, divisionIds:editor.divisionIds || [], ...(editor.id ? { version: editor.version } : {}) }; templateInput(body, !!editor.id); void mutate(editor.id ? `/${editor.id}` : '', editor.id ? 'PATCH' : 'POST', body); } catch (failure) { setError(failure.message); }
     }}/></div>}
     {archive && <div className="tt-editor" role="alertdialog" aria-label="Konfirmasi arsip template"><h2>Arsipkan “{archive.name}”?</h2><p>Template tidak muncul di daftar aktif. Data tetap tersimpan di database; tugas dan riwayat lama tidak dihapus.</p><footer><button disabled={busy} onClick={() => setArchive(null)}>Batal</button><button disabled={busy} onClick={() => void mutate(`/${archive.id}/archive`, 'POST', { version: archive.version })}>Ya, arsipkan</button></footer></div>}
   </section>;
