@@ -10,6 +10,7 @@ test('office capacity comes from active server subscription and subtracts siblin
   for (const [row, capacity] of [[{ maxDivisions: 1, otherDivisions: 0 }, 1], [{ maxDivisions: 3, otherDivisions: 0 }, 3],
     [{ maxDivisions: 3, otherDivisions: 2 }, 1], [{ maxDivisions: 3, otherDivisions: 5 }, 0], [{ maxDivisions: 50, otherDivisions: 0 }, 8], [null, 0]]) {
     const connection = { async execute(sql, values) {
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       assert.deepEqual(values, [8, 3]);
       assert.match(sql, /s.status='active'/);
       assert.match(sql, /s.period_end>UTC_TIMESTAMP/);

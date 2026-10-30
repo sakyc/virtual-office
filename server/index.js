@@ -34,6 +34,7 @@ import { createMidtrans } from './midtrans.js';
 import { installPaymentRoutes } from './payments.js';
 import { installDemoRoutes } from './demo.js';
 import {installSharedDemoRoutes,sharedDemoFirewall} from './shared-demo.js';
+import {installManagedDemoRoutes,managedDemoFirewall} from './managed-demo.js';
 
 // ---------- Konfigurasi (lihat .env.example) ----------
 const PORT = Number(process.env.PORT || 3001);
@@ -59,11 +60,13 @@ app.use(lifecycle.middleware);
 // Never trust forwarding headers from an arbitrary directly connected client.
 app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '1mb' })); // 1mb: Reporting dan Review kode menempelkan data/kode panjang
+app.use(managedDemoFirewall({getPool:()=>pool}));
 app.use(sharedDemoFirewall({getPool:()=>pool}));
 // Native login shares the existing server sessions. Migrations remain explicit.
 installAuthRoutes(app, { getPool: () => pool });
 installDemoRoutes(app, { getPool: () => pool });
 installSharedDemoRoutes(app, {getPool:()=>pool});
+installManagedDemoRoutes(app,{getPool:()=>pool});
 installCatalogRoutes(app, { getPool: () => pool });
 installPlatformAdminRoutes(app, { getPool: () => pool });
 installBillingAdministrationRoutes(app, { getPool: () => pool, modelCatalog: chatModels, readModels: readModelCatalog });

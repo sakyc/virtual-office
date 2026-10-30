@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {visitRequest,visitDate,visitStatus} from './shared-demo.jsx';
 import {formatIdr} from './billing-data.js';
+import {AdminManagedDemo} from './admin-managed-demo.jsx';
 
 const actionLabels={approve:'Setujui & kirim kode', 'send-code':'Kirim ulang kode WA',pause:'Jeda akses',resume:'Aktifkan akses',end:'Akhiri demo',reject:'Tolak pengajuan',control:'Ubah akses global'};
 export function AdminDemo({onDenied}) {
@@ -21,7 +22,7 @@ export function AdminDemo({onDenied}) {
       if(c.signal.aborted)return;setSelected(null);setMessage('Tindakan tersimpan dan tercatat di audit.');setRetry(n=>n+1);
     }catch(e){if(!c.signal.aborted){setMessage(e.saved?'Persetujuan sudah tersimpan, tetapi kode WA belum terkirim. Gunakan Kirim ulang kode WA setelah jeda pengiriman.':e.message);if(e.saved){setSelected(null);setRetry(n=>n+1);}}}finally{lock.current=false;if(!c.signal.aborted)setBusy(false);}
   }
-  return <div className="admin-demo"><aside className="admin-policy"><p>Satu akun demo internal, satu pengunjung aktif. Tidak perlu menentukan tanggal: durasi mulai saat berhasil masuk. Kode dikirim otomatis saat disetujui dan dapat diaktifkan dalam 7 hari. Setiap kunjungan memakai data terisolasi dengan 6 divisi. Trial pribadi tidak berubah.</p></aside>
+  return <div className="admin-demo"><AdminManagedDemo/><aside className="admin-policy"><h2>Alur pengajuan demo sebelumnya</h2><p>Satu akun demo internal, satu pengunjung aktif. Tidak perlu menentukan tanggal: durasi mulai saat berhasil masuk. Kode dikirim otomatis saat disetujui dan dapat diaktifkan dalam 7 hari. Setiap kunjungan memakai data terisolasi dengan 6 divisi. Trial pribadi tidak berubah.</p></aside>
     {state.loading?<p role="status">Memuat pengajuan demo…</p>:state.error?<p role="alert">{state.error}</p>:<>
       <section className="admin-panel visit-section-heading"><div><h2>Akses demo bersama</h2><p>{state.data.control.enabled?'Aktif · menerima pengajuan dan akses bergantian':'Nonaktif · semua akses demo ditutup'} · Akun internal {state.data.control.userId?`#${state.data.control.userId}`:'dibuat otomatis saat kunjungan pertama'}</p></div><button disabled={busy} onClick={()=>choose(null,'control')}>{state.data.control.enabled?'Nonaktifkan':'Aktifkan'} demo</button></section>
       <section className="admin-panel"><h2>Pengajuan & pemakaian</h2><p>100 pengajuan terbaru. Tentukan durasi dan saldo rupiah saat menyetujui. Pengiriman kode otomatis; tombol kirim ulang hanya untuk pengiriman ulang/pemulihan.</p><div className="admin-directory-table"><table><thead><tr>{['Pemohon','Status & durasi','Pemakaian','Tindakan'].map(s=><th key={s}>{s}</th>)}</tr></thead><tbody>{!state.data.rows.length?<tr><td colSpan={4}>Belum ada pengajuan.</td></tr>:state.data.rows.map(b=><tr key={b.id}>

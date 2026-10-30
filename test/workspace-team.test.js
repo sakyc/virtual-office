@@ -24,6 +24,7 @@ async function fixture(t, { resolverAvailable = true } = {}) {
     async commit() { calls.push({ transaction: 'commit' }); snapshot = null; },
     async rollback() { calls.push({ transaction: 'rollback' }); if (snapshot) ({ divisions, agents } = snapshot); snapshot = null; },
     async execute(sql, values = []) {
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       calls.push({ sql, values });
       if (sql.startsWith('SELECT id FROM organizations WHERE')) {
         if (state.fail) throw new Error('mysql://secret@private');

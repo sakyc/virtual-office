@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { billingError, money, subscriptionTerms, resolveBillingEntitlements } from './billing-policy.js';
 import { PLAN_SELECT, readCatalog, catalogTerms } from './billing-catalog.js';
 import {activeDemo,demoEntitlements,readDemoStatus} from './demo-policy.js';
+import {assertManagedDemoAi,managedDemoForOrganization} from './managed-demo-policy.js';
 
 const json = (value) => typeof value === 'string' ? JSON.parse(value) : value;
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
@@ -81,6 +82,7 @@ export function createBillingService(getPool) {
     async reserve({ organizationId: org, key, amountIdr, onReserved }) {
       const requested = money(amountIdr);
       return transaction(org, key, 'reserve', { amountIdr }, async (c) => {
+        await assertManagedDemoAi(c,org);
         const [[subscription]] = await c.execute("SELECT id FROM billing_subscriptions WHERE organization_id = ? AND status = 'active' AND period_start <= UTC_TIMESTAMP() AND period_end > UTC_TIMESTAMP()", [org]);
         if (!subscription && !await activeDemo(c,org)) throw billingError('ACTIVE_SUBSCRIPTION_REQUIRED', 402);
         const [grants] = await c.execute(`SELECT id, CAST(available_idr AS CHAR) AS available FROM billing_credit_grants
@@ -138,9 +140,9 @@ export async function readBilling(c, org) {
     FROM billing_credit_grants WHERE organization_id = ? GROUP BY source`, [org]);
   const [ledger] = await c.execute('SELECT id, kind, CAST(amount_idr AS CHAR) AS amountIdr, created_at AS createdAt FROM billing_ledger WHERE organization_id = ? ORDER BY created_at DESC, id DESC LIMIT 50', [org]);
   const paidEntitlements=resolveBillingEntitlements(subscription);
-  const demo=paidEntitlements.active?null:await readDemoStatus(c,org);
+  const demo=paidEntitlements.active?await managedDemoForOrganization(c,org):await readDemoStatus(c,org);
   return { currency: 'IDR', plans, subscription: subscription || null, demo,
-    subscriptionStatus:paidEntitlements.active?'active':demo?(demo.active?'trial':'trial_expired'):subscription?.status || 'none',
+    subscriptionStatus:demo?.managed?'demo':paidEntitlements.active?'active':demo?(demo.active?'trial':'trial_expired'):subscription?.status || 'none',
     entitlements: demo?.active?demoEntitlements(demo):paidEntitlements, grants, ledger,
     paymentEnabled: false, automaticAiDebitsEnabled: true, whatsappDeliveryEnabled: false, addOnsEnabled: false };
 }

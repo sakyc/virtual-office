@@ -16,7 +16,7 @@ const paths = {
   members: '/dashboard/members', billing: '/dashboard/billing', settings: '/dashboard/settings', catalogAdmin: '/admin',
   usage: '/dashboard/usage', keys: '/dashboard/models',
 };
-export function dashboardNavigation({ baseGroups, section, view = 'overview', platformAdmin = false, onNavigate, setView }) {
+export function dashboardNavigation({ baseGroups, section, view = 'overview', platformAdmin = false, managedDemo = false, onNavigate, setView }) {
   const base = Object.fromEntries(baseGroups.flatMap(group => group.items).map(item => [item.id, item]));
   const activeId = section === 'overview' ? view : sections[section];
   const groups = [
@@ -26,7 +26,7 @@ export function dashboardNavigation({ baseGroups, section, view = 'overview', pl
     ['Pengaturan', [['keys', 'Model AI'], ['settings', 'Pengaturan akun']]],
     ...(platformAdmin ? [['Platform', [['catalogAdmin', 'Dashboard admin']]]] : []),
   ];
-  return groups.map(([title, entries]) => ({ title, items: entries.map(([id, label]) => {
+  return groups.map(([title, entries]) => ({ title, items: entries.filter(([id])=>!managedDemo||!['members','catalogAdmin'].includes(id)).map(([id, label]) => {
     const active = id === activeId;
     return {
       id, label, icon: extraIcons[id] || base[id]?.icon || '',

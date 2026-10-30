@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { hashPassword, normalizeEmail, validPassword, verifyPassword } from './passwords.js';
 import { issueSession, readCookie, resolveSession, revokeSession, sessionCookie } from './sessions.js';
 import { normalizeWhatsapp } from '../../shared/auth-validation.js';
+import {MANAGED_DEMO_ISSUER} from '../managed-demo-policy.js';
 
 export function nativeOrigin(env) {
   const value = env.APP_ORIGIN || (env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
@@ -51,7 +52,7 @@ export function installNativeRoutes(app, { getPool, env }) {
     try {
       connection = await getPool()?.getConnection();
       if (!connection) throw new Error('Database unavailable.');
-      let userId;
+      let userId,activeWorkspaceId=null;
       if (action === 'register') {
         const encoded = await hashPassword(password);
         await connection.beginTransaction();
@@ -59,7 +60,7 @@ export function installNativeRoutes(app, { getPool, env }) {
         userId = result.insertId;
         await connection.execute('INSERT INTO native_credentials (user_id, email_normalized, password_hash) VALUES (?, ?, ?)', [userId, email, encoded]);
       } else {
-        const [rows] = await connection.execute('SELECT c.user_id, c.password_hash, u.status FROM native_credentials c JOIN users u ON u.id = c.user_id WHERE c.email_normalized = ? LIMIT 1', [email]);
+        const [rows] = await connection.execute('SELECT c.user_id, c.password_hash, u.status, u.provider_issuer FROM native_credentials c JOIN users u ON u.id = c.user_id WHERE c.email_normalized = ? LIMIT 1', [email]);
         const matched = await verifyPassword(password, rows[0]?.password_hash);
         if (!matched || rows[0]?.status !== 'active') return res.status(401).json({ error: 'Email atau kata sandi salah.' });
         userId = rows[0].user_id;
@@ -67,10 +68,14 @@ export function installNativeRoutes(app, { getPool, env }) {
         const [active] = await connection.execute("SELECT id FROM users WHERE id = ? AND status = 'active' FOR UPDATE", [userId]);
         if (!active.length) { await connection.rollback(); return res.status(401).json({ error: 'Email atau kata sandi salah.' }); }
         await connection.execute('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [userId]);
+        if(rows[0].provider_issuer===MANAGED_DEMO_ISSUER) {
+          const [[account]]=await connection.execute('SELECT workspace_id FROM managed_demo_accounts WHERE user_id=?',[userId]);
+          if(!account)throw Error('Managed demo unavailable');activeWorkspaceId=account.workspace_id;
+        }
       }
       const previous = await resolveSession(connection, readCookie(req.headers.cookie, 'vo_session'));
       if (previous) await revokeSession(connection, previous.sessionId, 'reauthenticated');
-      const session = await issueSession(connection, { userId });
+      const session = await issueSession(connection, { userId,activeWorkspaceId });
       await connection.commit();
       res.setHeader('Set-Cookie', sessionCookie('vo_session', session.token, { production: secure }));
       res.status(action === 'register' ? 201 : 200).json({ next: '/login/complete' });

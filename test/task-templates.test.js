@@ -21,6 +21,7 @@ async function fixture(t) {
   const c = {
     release() {}, async beginTransaction() { snapshot = structuredClone(rows); }, async commit() { snapshot = null; }, async rollback() { if (snapshot) rows = snapshot; snapshot = null; },
     async execute(sql, values = []) {
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       calls.push({ sql, values });
       if (sql.startsWith('SELECT s.')) return [[{ id: 4, user_id: 9, active_workspace_id: state.workspace, user_status: 'active', revoked_at: state.revoked ? new Date() : null, idle_expires_at: new Date(Date.now() + 60000), absolute_expires_at: new Date(Date.now() + 60000) }]];
       if (sql.startsWith('UPDATE sessions')) return [{}];

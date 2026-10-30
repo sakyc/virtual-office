@@ -24,6 +24,7 @@ export function AccountSettings({ profile, onSaved, onlyProfile = false }) {
     } catch (error) { setState({ busy: false, error: error.message, success: '' }); }
     finally { pending.current = false; }
   };
+  if(profile.managedDemo)return <div className="live-overview account-settings"><section className="live-card"><h2>Profil akun demo</h2><p>{profile.user.displayName} · {profile.user.email}</p><p>Profil, password, dan akses AI akun bersama ini dikelola admin. Jangan simpan informasi pribadi di akun demo.</p></section></div>;
   return <div className="live-overview account-settings">
     {!onlyProfile && <h1>Pengaturan</h1>}
     {state.error && <p role="alert">{state.error}</p>}{state.success && <p role="status">{state.success}</p>}

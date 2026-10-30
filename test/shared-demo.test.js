@@ -30,6 +30,7 @@ function fixture() {
     async beginTransaction(){const previous=queue;queue=new Promise(r=>{unlock=r;});await previous;snapshot=structuredClone(db);},
     async commit(){snapshot=null;},async rollback(){if(snapshot)db=snapshot;},release(){unlock?.();},
     async execute(raw,v=[]){const sql=raw.replace(/\s+/g,' ').trim(),b=db.bookings.find(r=>r.id===v.at(-1));
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       if(sql.startsWith('INSERT INTO ')) {
         assert.equal((sql.match(/\?/g)||[]).length,v.length,'SQL placeholder/bind count must match');
         const insert=sql.match(/^INSERT INTO \w+\(([^)]+)\) VALUES \((.*)\)$/);
@@ -562,7 +563,7 @@ test('020 upgrade refuses wrong target, missing history, partial DDL; applies on
 });
 
 test('021 upgrade supports verified 019 or 020 deployments, refuses partial DDL and wrong history, and is validation-only when requested',async()=>{
-  const {migrations,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
+  const {migrations:all,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url))),migrations=all.slice(0,21);
   assert.equal(diagnostics.length,0);assert.equal(migrations.at(-1).id,'021_flexible_shared_demo');
   assert.doesNotMatch(migrations.at(-1).source,/DROP |DELETE FROM|INSERT INTO users|TRUNCATE/i);
   let length=20,partial=false,guestPartial=false,valid=true,applied=0;

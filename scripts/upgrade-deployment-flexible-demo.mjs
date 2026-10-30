@@ -41,7 +41,7 @@ async function main() {
     const report=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
     if(hasErrors(report.diagnostics))throw Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     c=await mysql.createConnection({...options,timezone:'Z'});await acquireMigrationLock(c);locked=true;
-    console.log(JSON.stringify(await upgradeFlexibleDemo(c,options.database,report.migrations,{apply:args.includes('--apply')}),null,2));
+    console.log(JSON.stringify(await upgradeFlexibleDemo(c,options.database,report.migrations.slice(0,21),{apply:args.includes('--apply')}),null,2));
   }catch(e){const code=e.code||e.message;console.error(JSON.stringify({failed:true,code:/^[A-Z][A-Z0-9_]{2,80}$/.test(code)?code:'FLEXIBLE_DEMO_UPGRADE_FAILED',warning:'Stop on failure. DDL is not transactional; never drop tables or rerun blindly.'}));process.exitCode=1;}
   finally{if(locked)await releaseMigrationLock(c).catch(()=>{});await c?.end();}
 }

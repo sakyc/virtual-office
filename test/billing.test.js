@@ -17,6 +17,7 @@ function fixture() {
       async beginTransaction() { const before = queue; queue = new Promise((r) => { unlock = r; }); await before; snapshot = structuredClone(state); },
       async commit() { snapshot = null; }, async rollback() { if (snapshot) state = snapshot; }, release() { unlock(); },
       async execute(sql, v = []) {
+        if(sql.includes('FROM managed_demo_accounts'))return [[]];
         calls.push({ sql, v });
         if (sql.startsWith('INSERT INTO billing_wallets')) { state.wallets.add(v[0]); return [{}]; }
         if (sql.startsWith('SELECT w.organization_id')) return [[{ organization_id: v[0] }]];

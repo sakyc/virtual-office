@@ -50,7 +50,7 @@ export function installTaskTemplateRoutes(app, { getPool, requireTenant, appOrig
       res.status(known ? error.status : 503).json({ error: known ? error.message : 'Template belum tersedia. Operator perlu memeriksa migration 014.' });
     } finally { c?.release(); }
   };
-  app.get('/api/task-templates', requireTenant, handle(false, async (c, req) => ({ templates: await loadTaskTemplates(c, req.tenantContext), builtins: builtinTaskTemplates, canManage: !req.authPrincipal?.sharedDemo && ['owner', 'admin'].includes(req.tenantContext.role), executionReady: true })));
+  app.get('/api/task-templates', requireTenant, handle(false, async (c, req) => ({ templates: await loadTaskTemplates(c, req.tenantContext), builtins: builtinTaskTemplates, canManage: !req.authPrincipal?.sharedDemo && !req.authPrincipal?.managedDemo && ['owner', 'admin'].includes(req.tenantContext.role), executionReady: true })));
   app.post('/api/task-templates', requireTenant, handle(true, (c, req) => saveTaskTemplate(c, req.tenantContext, req.authPrincipal.userId, req.body)));
   app.patch('/api/task-templates/:id', requireTenant, handle(true, (c, req) => saveTaskTemplate(c, req.tenantContext, req.authPrincipal.userId, req.body, req.params.id)));
   app.post('/api/task-templates/:id/archive', requireTenant, handle(true, async (c, req) => {

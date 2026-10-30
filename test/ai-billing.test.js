@@ -24,6 +24,7 @@ function fixture({resolveTariff=null}={}) {
   const env = { BILLING_MODEL_RATES_JSON:JSON.stringify({[input.model]:tariff}) };
   const fx = { available:true, date:'2026-10-25', idrPerUsd:'16000' };
   const db = { async execute(sql,v=[]) {
+    if(sql.includes('FROM managed_demo_accounts'))return [[]];
     if (sql.startsWith('SELECT id FROM organizations')) return [[{id:1}]];
     if (sql.includes('FROM billing_subscriptions WHERE')) return [s.paid ? [{maxDivisions:3,maxMembers:6,whatsapp:1}] : []];
     if (sql.includes('FROM demo_access')) return [s.demo ? [{workspace_id:2}] : []];

@@ -31,6 +31,7 @@ export function BillingContent({ data, onChanged }) {
   const active = data.entitlements.active && Boolean(subscription) && !data.demo;
   const plan = data.plans.find((p) => p.code === subscription?.plan_code);
   const trial = active ? null : trialTiming(data.demo);
+  if(data.demo?.managed)return <section className="billing-page"><h1>Saldo akun demo</h1><p>{data.demo.aiEnabled?'AI aktif. Pemakaian tetap memotong saldo sesuai model dan token aktual.':'AI sedang dinonaktifkan admin. Kantor dan riwayat tetap dapat dibuka.'} Akun, password, dan akses AI dikelola admin; akun ini tidak dapat membeli paket.</p><BillingBalanceHighlight compact state={{data,refresh:onChanged}} onNavigate={()=>{}}/><p>Ini kantor bersama. Jangan masukkan data pribadi atau rahasia.</p></section>;
   if(data.demo?.shared)return <section className="billing-page"><h1>Saldo demo bersama</h1><p>Akses sampai {trial.expiresLabel}. Saldo kunjungan ini terpisah dari trial pribadi dan tidak bisa ditambah atau dipakai membeli paket.</p><BillingBalanceHighlight compact state={{data,refresh:onChanged}} onNavigate={()=>{}}/><p>Untuk berlangganan, keluar dari akun demo dan masuk ke akun pribadi Anda.</p></section>;
   return <section className="billing-page" aria-label="Langganan dan saldo organisasi">
     <header><span className="billing-eyebrow">LANGGANAN & SALDO</span><h2>Kantor Anda, kapasitas pilihan Anda.</h2><p>Paket dan saldo dibagikan dalam organisasi, bukan per akun pengguna.</p></header>

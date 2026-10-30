@@ -1,0 +1,10 @@
+.managed-demo-panel{border-top:3px solid var(--accent,#6254f4)}
+.managed-demo-panel>p{line-height:1.7;max-width:780px}
+.managed-demo-panel .visit-form{max-width:680px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line,#e0e6f2)}
+.managed-demo-panel input,.managed-demo-panel textarea{width:100%;min-width:0;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line,#dbe2f0);border-radius:10px;background:var(--surface,#fafaff);color:var(--ink,#17213b);font:inherit}
+.managed-demo-panel textarea{min-height:88px;resize:vertical}
+.managed-demo-panel small{font-weight:400;line-height:1.6;color:var(--mute,#68748d)}
+.managed-demo-password{display:flex;align-items:stretch;gap:8px}
+.managed-demo-password>button{display:grid;place-items:center;flex:0 0 44px}
+.managed-demo-panel>button,.managed-demo-panel details{margin-top:18px}
+.managed-demo-panel summary{cursor:pointer;font-weight:650}

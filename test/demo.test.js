@@ -25,6 +25,7 @@ function fixture() {
     async beginTransaction(){const previous=queue;queue=new Promise(r=>{unlock=r;});await previous;snapshot=structuredClone(db);},
     async commit(){snapshot=null;},async rollback(){if(snapshot)db=snapshot;},release(){unlock?.();},
     async execute(raw,v=[]){const sql=raw.replace(/\s+/g,' ').trim(),row=db.rows.get(v.at(-1));
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       if(sql.startsWith('SELECT id, whatsapp_number'))return [[users.get(v[0])].filter(Boolean)];
       if(sql.startsWith('SELECT *, otp_expires_at')){const r=db.rows.get(v[0]);return [r?[{...r,otp_valid:r.otp_expires_at>Date.now(),activation_valid:r.activation_expires_at>Date.now(),cooling:r.last_sent_at>Date.now()-60000,in_window:r.send_window_at>Date.now()-86400000,active:r.expires_at>Date.now()}]:[]];}
       if(sql.startsWith('INSERT INTO demo_access')){
@@ -218,7 +219,7 @@ test('existing tenant and activation database failures never leave partial teams
 
 test('trial entitlement lookup is feature gated, checks expiry and has no model restriction',async()=>{
   let queries=0;
-  const c={execute:async(sql)=>{queries++;assert(sql.includes('expires_at>UTC_TIMESTAMP()'));assert(!sql.includes('model_id'));return [[{workspace_id:2}]];}};
+  const c={execute:async(sql)=>{if(sql.includes('FROM managed_demo_accounts'))return [[]];queries++;assert(sql.includes('expires_at>UTC_TIMESTAMP()'));assert(!sql.includes('model_id'));return [[{workspace_id:2}]];}};
   assert.equal(await activeDemo(c,1,{}),null);assert.equal(queries,0);
   assert.equal((await activeDemo(c,1,env)).workspace_id,2);
   assert.deepEqual(demoEntitlements(),{active:true,canUseAi:true,maxDivisions:6,maxMembers:1,agentsPerDivision:4,whatsapp:false,demo:true});

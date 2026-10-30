@@ -1,5 +1,6 @@
 import { billingError } from './billing-policy.js';
 import { activeDemo, demoEntitlements } from './demo-policy.js';
+import {assertManagedDemoAi} from './managed-demo-policy.js';
 
 // All capacity-changing writers lock the organization first, then its workspaces.
 // Limits apply to the WHOLE organization, not independently to every workspace.
@@ -31,6 +32,7 @@ export function enforceCapacity(entitlements, { addDivisions = 0, addMembers = 0
 }
 export async function assertPaidAccess(c, organizationId, options) {
   const entitlements = await lockBillingEntitlements(c, organizationId);
+  await assertManagedDemoAi(c,organizationId);
   enforceCapacity(entitlements, options);
   return entitlements;
 }

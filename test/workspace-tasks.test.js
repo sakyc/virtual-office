@@ -26,6 +26,7 @@ function fixture() {
   const c = {
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {}, destroy() {},
     async execute(sql, values = []) {
+      if(sql.includes('FROM managed_demo_accounts'))return [[]];
       calls.push({ sql, values });
       if (sql.includes('GET_LOCK')) return [[{ acquired: state.locked ? 1 : 0 }]];
       if (sql.includes('RELEASE_LOCK')) return [[{ released: 1 }]];

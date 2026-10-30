@@ -49,6 +49,8 @@ else {
       result.differences.push(...await validateFlexibleDemoSchema(connection));
       result.valid=result.differences.length===0;
     }
+    const [managedDemoHistory]=await connection.execute("SELECT migration_id FROM schema_migrations WHERE migration_id='022_managed_demo_account' AND status='applied'");
+    if(managedDemoHistory.length){const {validateManagedDemoSchema}=await import('../server/migrations/managed-demo-contract.js');result.differences.push(...await validateManagedDemoSchema(connection));result.valid=result.differences.length===0;}
     console.log(JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } catch (error) { console.error(JSON.stringify({ error: safeDatabaseError(error) })); process.exitCode = 1; }

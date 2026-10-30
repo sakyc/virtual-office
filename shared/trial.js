@@ -3,6 +3,7 @@ export const TRIAL_DAYS = 7;
 
 export function trialTiming(trial, now = Date.now()) {
   if (!trial) return null;
+  if (trial.managed) return {active:true,label:trial.aiEnabled?'Demo · AI aktif':'Demo · AI nonaktif',managed:true,expiresLabel:'Dikelola admin'};
   const end = Date.parse(trial.expiresAt);
   const active = trial.active !== false && trial.status !== 'expired' && Number.isFinite(end) && now < end;
   return { active, label: trial.shared ? active ? 'Demo terjadwal' : 'Demo berakhir' : active ? 'Trial' : 'Trial berakhir',

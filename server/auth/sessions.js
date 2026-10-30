@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { SHARED_DEMO_ISSUER, sharedDemoEnabled } from '../shared-demo-policy.js';
+import {MANAGED_DEMO_ISSUER} from '../managed-demo-policy.js';
 
 export const SESSION_ABSOLUTE_MS = 24 * 60 * 60 * 1000;
 export const SESSION_IDLE_MS = 8 * 60 * 60 * 1000;
@@ -41,7 +42,12 @@ export async function resolveSession(connection, token, { now = new Date() } = {
   const session = rows[0];
   if (!session || session.revoked_at || session.user_status !== 'active') return null;
   if (new Date(session.idle_expires_at) <= now || new Date(session.absolute_expires_at) <= now) return null;
-  let sharedDemo = null;
+  let sharedDemo = null,managedDemo=null;
+  if(session.provider_issuer===MANAGED_DEMO_ISSUER) {
+    const [[account]]=await connection.execute('SELECT organization_id,workspace_id,ai_enabled FROM managed_demo_accounts WHERE user_id=?',[session.user_id]);
+    if(!account || session.active_workspace_id!==account.workspace_id)return null;
+    managedDemo={organizationId:account.organization_id,workspaceId:account.workspace_id,aiEnabled:Boolean(account.ai_enabled)};
+  }
   if (session.provider_issuer === SHARED_DEMO_ISSUER) {
     if (!sharedDemoEnabled()) return null;
     const [[visit]] = await connection.execute(`SELECT b.id,b.ends_at FROM shared_demo_bookings b
@@ -54,7 +60,7 @@ export async function resolveSession(connection, token, { now = new Date() } = {
   }
   const idleExpiresAt = new Date(Math.min(now.getTime() + SESSION_IDLE_MS, new Date(session.absolute_expires_at).getTime()));
   await connection.execute('UPDATE sessions SET last_seen_at = ?, idle_expires_at = ? WHERE id = ? AND revoked_at IS NULL', [now, idleExpiresAt, session.id]);
-  return { userId: session.user_id, sessionId: session.id, activeWorkspaceId: session.active_workspace_id, absoluteExpiresAt: session.absolute_expires_at, idleExpiresAt, ...(sharedDemo ? {sharedDemo} : {}) };
+  return { userId: session.user_id, sessionId: session.id, activeWorkspaceId: session.active_workspace_id, absoluteExpiresAt: session.absolute_expires_at, idleExpiresAt, ...(sharedDemo ? {sharedDemo} : {}),...(managedDemo?{managedDemo}:{}) };
 }
 
 export async function revokeSession(connection, sessionId, reason = 'logout') {

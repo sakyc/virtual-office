@@ -19,7 +19,7 @@ export async function loadSessionProfile(connection, principal) {
       ORDER BY o.name, w.name`,
     [principal.userId, principal.userId],
   );
-  const workspaces = rows.filter(row => !principal.sharedDemo || row.workspace_id === principal.activeWorkspaceId).map((row) => ({
+  const workspaces = rows.filter(row => !(principal.sharedDemo||principal.managedDemo) || row.workspace_id === principal.activeWorkspaceId).map((row) => ({
     id: row.workspace_id,
     slug: row.workspace_slug,
     name: row.workspace_name,
@@ -31,11 +31,12 @@ export async function loadSessionProfile(connection, principal) {
     activeWorkspace: workspaces.find((workspace) => workspace.id === principal.activeWorkspaceId) || null,
     workspaces,
     ...(principal.sharedDemo ? {sharedDemo:principal.sharedDemo} : {}),
+    ...(principal.managedDemo ? {managedDemo:principal.managedDemo} : {}),
   };
 }
 
 export async function selectActiveWorkspace(connection, principal, workspaceId) {
-  if (principal.sharedDemo) return false;
+  if (principal.sharedDemo||principal.managedDemo) return false;
   if (!Number.isSafeInteger(workspaceId) || workspaceId <= 0) return false;
   const [memberships] = await connection.execute(
     `SELECT w.id

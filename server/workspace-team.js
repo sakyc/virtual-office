@@ -105,7 +105,7 @@ export function installTeamRoutes(app, { getPool, requireTenant, appOrigin, mode
   };
   app.get('/api/team', requireTenant, handle(false, async (c, req) => ({ ...await loadTeam(c, req.tenantContext),
     divisionCapacity: await loadOfficeDivisionCapacity(c, req.tenantContext),
-    canManage: !req.authPrincipal?.sharedDemo && ['owner', 'admin'].includes(req.tenantContext.role), templates: teamTemplates,
+    canManage: !req.authPrincipal?.sharedDemo && !req.authPrincipal?.managedDemo && ['owner', 'admin'].includes(req.tenantContext.role), templates: teamTemplates,
     models: [{ id: 'team', name: models.team, label: 'Model anggota' }, { id: 'leader', name: models.leader, label: 'Model leader' }],
   })));
   app.post('/api/team/divisions', requireTenant, handle(true, async (c, req) => ({ id: await addDivision(c, req.tenantContext, req.authPrincipal.userId, req.body) })));

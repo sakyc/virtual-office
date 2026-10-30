@@ -9,6 +9,12 @@ import { validateDemoSchema } from './demo-contract.js';
 import {validateSharedDemoSchema} from './shared-demo-contract.js';
 import {validateGuestDemoSchema} from './guest-demo-contract.js';
 import {validateFlexibleDemoSchema} from './flexible-demo-contract.js';
+import {validateManagedDemoSchema} from './managed-demo-contract.js';
+
+export async function validateDeploymentManagedDemo(connection,result) {
+  const differences=[...result.differences,...await validateManagedDemoSchema(connection)];
+  return {valid:differences.length===0,differences};
+}
 
 export async function validateDeploymentFlexibleDemo(connection,result) {
   const differences=[...result.differences,...await validateFlexibleDemoSchema(connection)];

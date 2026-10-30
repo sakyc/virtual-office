@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectMigrationDirectory, hasErrors } from '../server/migrations/status.js';
 import { acquireMigrationLock, releaseMigrationLock, applyMigrations, validateHistory } from '../server/migrations/framework.js';
-import { validateCurrentSchema,validateDeploymentSharedDemo,validateDeploymentGuestDemo,validateDeploymentFlexibleDemo } from '../server/migrations/schema-contract.js';
+import { validateCurrentSchema,validateDeploymentSharedDemo,validateDeploymentGuestDemo,validateDeploymentFlexibleDemo,validateDeploymentManagedDemo } from '../server/migrations/schema-contract.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -36,6 +36,7 @@ export async function bootstrapDeployment(connection, database, migrations, oper
   if(migrations.some(m=>m.id==='019_scheduled_demo')) validation=await validateDeploymentSharedDemo(connection,validation);
   if(migrations.some(m=>m.id==='020_guest_scheduled_demo')) validation=await validateDeploymentGuestDemo(connection,validation);
   if(migrations.some(m=>m.id==='021_flexible_shared_demo')) validation=await validateDeploymentFlexibleDemo(connection,validation);
+  if(migrations.some(m=>m.id==='022_managed_demo_account')) validation=await validateDeploymentManagedDemo(connection,validation);
   if (!validation.valid) {
     console.log(JSON.stringify({ validation }, null, 2));
     throw new Error('DEPLOYMENT_SCHEMA_INVALID');
@@ -65,6 +66,7 @@ export async function validateDeployment(connection, database, migrations) {
   if(migrations.some(m=>m.id==='019_scheduled_demo')) validation=await validateDeploymentSharedDemo(connection,validation);
   if(migrations.some(m=>m.id==='020_guest_scheduled_demo')) validation=await validateDeploymentGuestDemo(connection,validation);
   if(migrations.some(m=>m.id==='021_flexible_shared_demo')) validation=await validateDeploymentFlexibleDemo(connection,validation);
+  if(migrations.some(m=>m.id==='022_managed_demo_account')) validation=await validateDeploymentManagedDemo(connection,validation);
   return { database, migrations: rows.length, validation };
 }
 
@@ -73,8 +75,8 @@ async function main() {
   try {
     const options = deploymentOptions(process.argv.slice(2), process.env);
     const report = await inspectMigrationDirectory(resolve(root, 'migrations'));
-    if (hasErrors(report.diagnostics) || report.migrations.length !== 21
-      || report.migrations.at(-1)?.id !== '021_flexible_shared_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
+    if (hasErrors(report.diagnostics) || report.migrations.length !== 22
+      || report.migrations.at(-1)?.id !== '022_managed_demo_account') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     connection = await mysql.createConnection(options);
     await acquireMigrationLock(connection); locked = true;
     if (process.argv.includes('--validate')) {

@@ -134,7 +134,7 @@ export function DashboardPage({ onNavigate, section = 'overview', verifiedProfil
     // Prototype role controls affect preview state only; real permissions always come from the session.
     const navGroups = dashboardNavigation({ baseGroups: values.navGroups, section,
       view: values.v.usage ? 'usage' : values.v.keys ? 'keys' : values.v.agents ? 'agents' : 'overview',
-      platformAdmin, onNavigate, setView: view => design.setState({ view }) });
+      platformAdmin, managedDemo:Boolean(profile?.managedDemo), onNavigate, setView: view => design.setState({ view }) });
     const result = { ...values, live: true, navGroups: navGroups.filter((group) => group.title !== 'Admin platform'),
       workspaceName: 'Memuat workspace…', organizationName: '', userName: 'Memuat akun…', roleLabel: 'Memeriksa sesi',
       userInitials: '', goOffice: () => onNavigate('/dashboard/office'), goBilling: () => onNavigate('/dashboard/billing'), logout,
