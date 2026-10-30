@@ -10,7 +10,7 @@ export async function lockBillingEntitlements(c, organizationId) {
     FROM billing_subscriptions WHERE organization_id = ? AND status = 'active'
     AND period_start <= UTC_TIMESTAMP() AND period_end > UTC_TIMESTAMP() FOR UPDATE`, [organizationId]);
   if (!plan) { const demo=await activeDemo(c,organizationId); if(demo)plan=demoEntitlements(demo); }
-  if (!plan) throw billingError('Langganan atau demo aktif diperlukan. Buka Langganan & Saldo.', 402);
+  if (!plan) throw billingError('Langganan atau trial aktif diperlukan. Buka Langganan & Saldo.', 402);
   const [[usage]] = await c.execute(`SELECT
     (SELECT COUNT(*) FROM workspace_divisions d JOIN workspaces w ON w.id=d.workspace_id AND w.organization_id=d.organization_id
       WHERE d.organization_id=? AND d.status='active' AND w.status='active') AS divisions,

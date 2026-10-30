@@ -72,6 +72,10 @@
     {
       "id": "018_whatsapp_demo",
       "file": "018_whatsapp_demo.sql"
+    },
+    {
+      "id": "019_scheduled_demo",
+      "file": "019_scheduled_demo.sql"
     }
   ]
 }

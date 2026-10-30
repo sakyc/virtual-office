@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { PricingCards, BillingPolicyNote } from './pricing-cards.jsx';
 import { billingBalances, formatIdr, loadBilling } from './billing-data.js';
 import { PaymentCheckout } from './payment-checkout.jsx';
+import { trialTiming } from '../../shared/trial.js';
+import {BillingBalanceHighlight} from './billing-balance.jsx';
 
 const eventNames = { subscription: 'Aktivasi langganan', credit: 'Penambahan saldo', reserve: 'Reservasi saldo', settle: 'Pemakaian AI', release: 'Pelepasan reservasi' };
 const eventNotes = { subscription: 'Saldo paket masuk, bukan biaya penggunaan AI.', credit: 'Saldo ditambahkan.', reserve: 'Ditahan sementara, bukan potongan final. Jangan dijumlahkan dengan pemakaian AI.', settle: 'Biaya final. Sisa dari reservasi terkait otomatis kembali ke saldo tersedia.', release: 'Dana yang ditahan dikembalikan, bukan top up baru.' };
@@ -26,13 +28,15 @@ export function BillingPage({ balanceState } = {}) {
 export function BillingContent({ data, onChanged }) {
   const balances = billingBalances(data.grants);
   const subscription = data.subscription;
-  const active = data.entitlements.active && Boolean(subscription);
+  const active = data.entitlements.active && Boolean(subscription) && !data.demo;
   const plan = data.plans.find((p) => p.code === subscription?.plan_code);
+  const trial = active ? null : trialTiming(data.demo);
+  if(data.demo?.shared)return <section className="billing-page"><h1>Saldo demo terjadwal</h1><p>Akses sampai {trial.expiresLabel}. Saldo kunjungan ini terpisah dari trial pribadi dan tidak bisa ditambah atau dipakai membeli paket.</p><BillingBalanceHighlight compact state={{data,refresh:onChanged}} onNavigate={()=>{}}/><p>Untuk berlangganan, keluar dari akun demo dan masuk ke akun pribadi Anda.</p></section>;
   return <section className="billing-page" aria-label="Langganan dan saldo organisasi">
     <header><span className="billing-eyebrow">LANGGANAN & SALDO</span><h2>Kantor Anda, kapasitas pilihan Anda.</h2><p>Paket dan saldo dibagikan dalam organisasi, bukan per akun pengguna.</p></header>
-    {data.demo && <aside className="billing-notice"><strong>Demo Karyora · 6 divisi</strong><p>Saldo awal Rp3.000 · berakhir {new Date(data.demo.expiresAt).toLocaleString('id-ID')}. Demo bukan langganan berbayar dan tidak bisa top up. Untuk membeli paket dengan kapasitas lebih kecil, arsipkan divisi yang tidak dipilih di halaman Tim terlebih dahulu. Riwayat tetap tersimpan.</p></aside>}
+    {trial && <aside className="billing-notice"><strong>{trial.label} · 6 divisi</strong><p>{trial.active ? `${trial.daysRemaining} hari tersisa · berakhir ${trial.expiresLabel}.` : `Trial berakhir pada ${trial.expiresLabel}. Penggunaan AI terkunci sampai paket berbayar aktif.`} Saldo awal Rp3.000 untuk seluruh masa trial, bukan diperbarui setiap hari. Trial tidak bisa top up. Untuk membeli paket dengan kapasitas lebih kecil, arsipkan divisi yang tidak dipilih di halaman Tim terlebih dahulu. Akun dan riwayat tetap tersimpan.</p></aside>}
     <div className="billing-summary">
-      <article><span>Langganan</span><h3>{active ? plan?.name || subscription.plan_code : subscription ? 'Langganan tidak aktif' : 'Belum berlangganan'}</h3><p>{active ? `Periode berakhir ${new Date(subscription.period_end).toLocaleDateString('id-ID')}` : 'Belum ada paket aktif untuk organisasi ini.'}</p></article>
+      <article><span>Langganan</span><h3>{active ? plan?.name || subscription.plan_code : trial ? trial.label : subscription ? 'Langganan tidak aktif' : 'Belum berlangganan'}</h3><p>{active ? `Periode berakhir ${new Date(subscription.period_end).toLocaleDateString('id-ID')}` : trial ? trial.active ? `${trial.daysRemaining} hari tersisa · berakhir ${trial.expiresLabel}` : 'Pilih paket untuk melanjutkan penggunaan AI. Data Anda tetap tersimpan.' : 'Belum ada paket aktif untuk organisasi ini.'}</p></article>
       <article className="billing-available"><span>Sisa Saldo AI · bisa dipakai</span><h3>{formatIdr(balances.available)}</h3><p>Paket {formatIdr(balances.package)} · Top up {formatIdr(balances.topup)}{balances.adjustment > 0n ? ` · Penyesuaian ${formatIdr(balances.adjustment)}` : ''}</p><p>Sudah dikurangi dana yang sedang ditahan. Tidak perlu dikurangi lagi.</p></article>
       <article><span>Ditahan sementara (reservasi)</span><h3>{formatIdr(balances.reserved)}</h3><p>Belum menjadi biaya final. Sisa dana kembali setelah penggunaan berhasil dihitung; proses yang belum pasti tetap ditahan untuk diperiksa.</p></article>
     </div>

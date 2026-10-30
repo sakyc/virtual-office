@@ -5,12 +5,13 @@ import {createWhatsapp} from './whatsapp.js';
 import {normalizeWhatsapp} from '../shared/auth-validation.js';
 import {teamTemplates} from '../shared/workspace-team.js';
 import {addAgent} from './workspace-team.js';
+import {TRIAL_DAYS} from '../shared/trial.js';
 
 const fail=(code,status=409)=>{throw Object.assign(Error(code),{code,status});};
 const phoneDigest=phone=>createHash('sha256').update(`karyora-demo-phone:${phone}`).digest('hex');
 export function demoConfiguration(env=process.env) {
   return {enabled:env.DEMO_ENABLED==='1' && Boolean(env.BLITZMES_API_KEY?.trim()) && (env.DEMO_CODE_SECRET?.length||0)>=32,
-    days:3,creditIdr:'3000',divisions:6};
+    days:TRIAL_DAYS,creditIdr:'3000',divisions:6};
 }
 export function demoDigest(secret,user,purpose,value) {
   return createHmac('sha256',secret).update(JSON.stringify([user,purpose,value])).digest('hex');
@@ -43,7 +44,8 @@ export function createDemoService({getPool,env=process.env,whatsapp=createWhatsa
     return transaction(userId,async(_c,user,row)=>({enabled:config.enabled,days:config.days,creditIdr:config.creditIdr,divisions:6,
       phone:normalizeWhatsapp(user.whatsapp_number)?.replace(/.(?=.{4})/g,'•') || null,
       stage:row?.activated_at?'activated':row?.verified_at?'activation':'otp',
-      active:Boolean(row?.activated_at && row.active),workspaceId:row?.workspace_id || null,expiresAt:row?.expires_at || null}));
+      active:Boolean(row?.activated_at && row.active),subscriptionStatus:row?.activated_at?(row.active?'trial':'trial_expired'):null,
+      workspaceId:row?.workspace_id || null,activatedAt:row?.activated_at || null,expiresAt:row?.expires_at || null}));
   }
   async function send(userId,kind) {
     if(!config.enabled)fail('DEMO_UNAVAILABLE',503);
@@ -62,8 +64,8 @@ export function createDemoService({getPool,env=process.env,whatsapp=createWhatsa
       }
       const activation=kind==='activation';
       const code=activation?`KRY-DEMO-${randomBytes(10).toString('hex').toUpperCase()}`:String(randomInt(100000,1000000));
-      const message=activation?`Nomor WhatsApp Anda berhasil diverifikasi.\n\nKode aktivasi demo Karyora: ${code}\n\nMasukkan di halaman Demo Karyora. Berlaku 24 jam, sekali pakai, khusus akun Anda. Demo 3 hari dimulai setelah aktivasi. Jangan bagikan kode ini.`
-        :`Kode OTP Karyora Anda: ${code}\n\nBerlaku 5 menit. Jangan bagikan kode ini. OTP ini untuk verifikasi nomor, bukan kode aktivasi demo.`;
+      const message=activation?`Nomor WhatsApp Anda berhasil diverifikasi.\n\nKode aktivasi Trial Karyora: ${code}\n\nMasukkan di halaman Trial Karyora. Berlaku 24 jam, sekali pakai, khusus akun Anda. Trial ${config.days} hari dimulai setelah aktivasi. Jangan bagikan kode ini.`
+        :`Kode OTP Karyora Anda: ${code}\n\nBerlaku 5 menit. Jangan bagikan kode ini. OTP ini untuk verifikasi nomor, bukan kode aktivasi trial.`;
       const prefix=activation?'activation':'otp';
       await c.execute(`UPDATE demo_access SET ${prefix}_hash=?,${prefix}_expires_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL ${activation?'24 HOUR':'5 MINUTE'}),${prefix}_attempts=0,
         sends=CASE WHEN send_window_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) THEN sends+1 ELSE 1 END,
@@ -110,10 +112,10 @@ export function createDemoService({getPool,env=process.env,whatsapp=createWhatsa
       const [[membership]]=await c.execute(`SELECT organization_id FROM organization_memberships WHERE user_id=? AND revoked_at IS NULL LIMIT 1`,[userId]);
       const [[workspaceMembership]]=await c.execute('SELECT workspace_id FROM workspace_memberships WHERE user_id=? AND revoked_at IS NULL LIMIT 1',[userId]);
       if(membership || workspaceMembership)fail('DEMO_FRESH_ACCOUNT_REQUIRED');
-      const [org]=await c.execute('INSERT INTO organizations(slug,name,created_by_user_id) VALUES (?,?,?)',[`demo-${randomUUID()}`,'Kantor Demo Karyora',userId]);
+      const [org]=await c.execute('INSERT INTO organizations(slug,name,created_by_user_id) VALUES (?,?,?)',[`demo-${randomUUID()}`,'Kantor Trial Karyora',userId]);
       const organizationId=org.insertId;
       await c.execute("INSERT INTO organization_memberships(organization_id,user_id,role,created_by_user_id) VALUES (?,?,'owner',?)",[organizationId,userId,userId]);
-      const [workspace]=await c.execute("INSERT INTO workspaces(organization_id,slug,name,created_by_user_id) VALUES (?,'main','Kantor Demo',?)",[organizationId,userId]);
+      const [workspace]=await c.execute("INSERT INTO workspaces(organization_id,slug,name,created_by_user_id) VALUES (?,'main','Kantor Trial',?)",[organizationId,userId]);
       const tenant={organizationId,workspaceId:workspace.insertId};
       await c.execute("INSERT INTO workspace_memberships(workspace_id,user_id,role,created_by_user_id) VALUES (?,?,'admin',?)",[tenant.workspaceId,userId,userId]);
       // No paid-plan row. All six teams and credit are committed with activation.
@@ -124,9 +126,10 @@ export function createDemoService({getPool,env=process.env,whatsapp=createWhatsa
       }
       await c.execute('INSERT INTO billing_wallets(organization_id) VALUES (?)',[organizationId]);
       const grant=randomUUID();
-      await c.execute("INSERT INTO billing_credit_grants(id,organization_id,source,reference_id,original_idr,available_idr,expires_at) VALUES (?,?,'package',?,3000,3000,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 DAY))",[grant,organizationId,`demo:${userId}`]);
+      await c.execute(`UPDATE demo_access SET organization_id=?,workspace_id=?,activated_at=UTC_TIMESTAMP(),expires_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL ${config.days} DAY),activation_hash=NULL WHERE user_id=?`,[organizationId,tenant.workspaceId,userId]);
+      // Credit and access share the exact stored deadline, even across queries.
+      await c.execute("INSERT INTO billing_credit_grants(id,organization_id,source,reference_id,original_idr,available_idr,expires_at) SELECT ?,?,'package',?,3000,3000,expires_at FROM demo_access WHERE user_id=?",[grant,organizationId,`demo:${userId}`,userId]);
       await c.execute("INSERT INTO billing_ledger(id,organization_id,idempotency_key,request_hash,kind,amount_idr,result) VALUES (?,?,?,?,'credit',3000,?)",[randomUUID(),organizationId,`demo:${userId}`,digest(userId,'grant','3000'),JSON.stringify({grantId:grant,source:'demo',amountIdr:'3000'})]);
-      await c.execute(`UPDATE demo_access SET organization_id=?,workspace_id=?,activated_at=UTC_TIMESTAMP(),expires_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 DAY),activation_hash=NULL WHERE user_id=?`,[organizationId,tenant.workspaceId,userId]);
       await c.execute('UPDATE sessions SET active_workspace_id=? WHERE id=? AND user_id=?',[tenant.workspaceId,sessionId,userId]);
       return {activated:true};
     });

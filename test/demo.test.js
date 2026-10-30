@@ -7,7 +7,10 @@ import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createWhatsapp} from '../server/whatsapp.js';
 import {createDemoService,demoConfiguration,demoDigest,installDemoRoutes} from '../server/demo.js';
-import {activeDemo,demoEntitlements} from '../server/demo-policy.js';
+import {activeDemo,demoEntitlements,readDemoStatus} from '../server/demo-policy.js';
+import {readBilling} from '../server/billing.js';
+import {assertPaidAccess} from '../server/billing-enforcement.js';
+import {TRIAL_DAYS,trialTiming} from '../shared/trial.js';
 import {validateDemoSchema} from '../server/migrations/demo-contract.js';
 import {inspectMigrationDirectory} from '../server/migrations/status.js';
 import {upgradeDemo} from '../scripts/upgrade-deployment-demo.mjs';
@@ -49,9 +52,16 @@ function fixture() {
       if(sql.startsWith('SELECT COUNT(*) AS count FROM workspace_agents'))return [[{count:db.agents.filter(a=>a[3]===v[2]).length}]];
       if(sql.startsWith('INSERT INTO workspace_agents')){db.agents.push(v);return [{}];}
       if(sql.startsWith('INSERT INTO billing_wallets'))return [{}];
-      if(sql.startsWith('INSERT INTO billing_credit_grants')){db.grants.push(v);return [{}];}
+      if(sql.startsWith('INSERT INTO billing_credit_grants')){
+        assert.match(sql,/SELECT .*expires_at FROM demo_access WHERE user_id=\?/);
+        assert.equal(v[3],1);assert(db.rows.get(v[3]).expires_at);
+        db.grants.push({...v,expiresAt:db.rows.get(v[3]).expires_at});return [{}];
+      }
       if(sql.startsWith('INSERT INTO billing_ledger')){if(failInsert)throw Error('test database failure');db.ledger.push(v);return [{}];}
-      if(sql.startsWith('UPDATE demo_access SET organization_id')){Object.assign(row,{organization_id:v[0],workspace_id:v[1],activated_at:Date.now(),expires_at:Date.now()+3*86400000,activation_hash:null});return [{}];}
+      if(sql.startsWith('UPDATE demo_access SET organization_id')){
+        assert.match(sql,/INTERVAL 7 DAY/);
+        const started=Date.now();Object.assign(row,{organization_id:v[0],workspace_id:v[1],activated_at:started,expires_at:started+7*86400000,activation_hash:null});return [{}];
+      }
       if(sql.startsWith('UPDATE sessions SET active_workspace_id')){db.sessions.push(v);return [{}];}
       if(sql.startsWith('SELECT id FROM sessions'))return [[{id:v[0]}]];
       throw Error(`Unexpected test SQL: ${sql}`);
@@ -79,6 +89,9 @@ test('Blitzmes adapter uses documented fixed POST body and accepts only explicit
 
 test('OTP verification and separate activation code provision exactly six private teams once',async()=>{
   const f=fixture();await verified(f);
+  assert.equal(demoConfiguration(env).days,7);assert.equal(TRIAL_DAYS,7);
+  assert.equal(f.row().activated_at,undefined);assert.equal(f.row().expires_at,undefined);
+  assert(f.messages.at(-1).message.includes('Trial 7 hari dimulai setelah aktivasi'));
   assert.notEqual(f.row().otp_hash,otp(f));assert.notEqual(f.row().activation_hash,activation(f));
   assert.equal(f.messages[0].phone,'+6281234567890');
   const publicStatus=JSON.stringify(await f.service.status(1));
@@ -87,10 +100,69 @@ test('OTP verification and separate activation code provision exactly six privat
   assert.equal(f.db().orgs.length,1);assert.equal(f.db().divisions.length,6);
   assert.equal(f.db().agents.length,teamTemplates.slice(0,6).reduce((n,t)=>n+t.agents.length,0));
   assert.equal(f.db().grants.length,1);assert.equal(f.db().ledger.length,1);
+  const originalExpiry=f.row().expires_at;
+  assert.equal(originalExpiry-f.row().activated_at,7*86400000);
+  assert.equal(f.db().grants[0].expiresAt,originalExpiry);
   assert(f.db().agents.every(a=>a[8]==='team'));
   assert.equal(f.db().sessions[0][1],77);
   assert.equal(f.row().activation_hash,null);assert.equal((await f.service.status(1)).stage,'activated');
   await assert.rejects(f.service.send(1,'activation'),{code:'DEMO_ALREADY_CLAIMED'});
+  await assert.rejects(f.service.send(1,'otp'),{code:'DEMO_ALREADY_CLAIMED'});
+  const status=await f.service.status(1);assert.equal(status.subscriptionStatus,'trial');
+  await f.service.activate(1,88,activation(f));assert.equal(f.row().expires_at,originalExpiry);
+});
+
+test('an expired trial stays readable and never renews through status, activation or resend',async()=>{
+  const f=fixture();await verified(f);await f.service.activate(1,77,activation(f));
+  f.row().expires_at=Date.now()-1;const deadline=f.row().expires_at;
+  const status=await f.service.status(1);
+  assert.equal(status.active,false);assert.equal(status.subscriptionStatus,'trial_expired');
+  await f.service.activate(1,88,activation(f));
+  await assert.rejects(f.service.send(1,'activation'),{code:'DEMO_ALREADY_CLAIMED'});
+  assert.equal(f.row().expires_at,deadline);assert.equal(f.db().grants.length,1);
+  assert.equal(f.db().divisions.length,6);assert.equal(f.db().orgs.length,1);
+});
+
+test('trial timing expires at the exact deadline and displays WIB without resetting older grants',()=>{
+  const start=Date.parse('2026-10-30T03:00:00.000Z'),end=start+7*86400000;
+  const trial={expiresAt:new Date(end).toISOString(),active:true,status:'trial'};
+  assert.equal(trialTiming(trial,start).daysRemaining,7);
+  assert.equal(trialTiming(trial,end-1).daysRemaining,1);
+  assert.equal(trialTiming(trial,end).label,'Trial berakhir');
+  assert.equal(trialTiming(trial,end).active,false);
+  assert.equal(trialTiming(trial,start).expiresLabel.includes('WIB'),true);
+  assert.equal(trialTiming({...trial,active:false},start).active,false);
+  const older={...trial,expiresAt:new Date(start+3*86400000).toISOString()};
+  assert.equal(trialTiming(older,start).daysRemaining,3);
+});
+
+test('billing exposes trial or expired status without granting expired access; paid plan takes priority',async(t)=>{
+  const previous=process.env.DEMO_ENABLED;process.env.DEMO_ENABLED='1';
+  t.after(()=>{if(previous===undefined)delete process.env.DEMO_ENABLED;else process.env.DEMO_ENABLED=previous;});
+  let active=1,paid=false,trialReads=0;
+  const c={execute:async(sql,args)=>{
+    if(sql.includes('FROM demo_access')){
+      assert.deepEqual(args,[12]);trialReads++;
+      if(sql.includes('AND expires_at>UTC_TIMESTAMP()') && !active)return [[]];
+      return [[{organization_id:12,workspace_id:2,credit_idr:'3000',active,
+        activatedAt:new Date(Date.now()-86400000).toISOString(),expiresAt:new Date(Date.now()+(active?6:-1)*86400000).toISOString()}]];
+    }
+    if(sql.includes('FROM billing_subscriptions'))return [paid?[{plan_code:'pro',status:'active',max_divisions:3,max_members:6,
+      period_start:new Date(Date.now()-86400000).toISOString(),period_end:new Date(Date.now()+86400000).toISOString()}]:[]];
+    if(sql.includes('FROM workspace_divisions') || sql.includes('FROM organization_memberships'))return [[{count:1}]];
+    return [[]];
+  }};
+  let data=await readBilling(c,12);
+  assert.equal(data.subscription,null);assert.equal(data.subscriptionStatus,'trial');
+  assert.equal(data.demo.active,true);assert.equal(data.entitlements.canUseAi,true);
+  active=0;data=await readBilling(c,12);
+  assert.equal(data.subscriptionStatus,'trial_expired');assert.equal(data.demo.status,'expired');
+  assert.equal(data.entitlements.canUseAi,false);
+  assert.equal((await readDemoStatus(c,12,env)).active,false);
+  await assert.rejects(assertPaidAccess(c,12));
+  paid=true;trialReads=0;data=await readBilling(c,12);
+  assert.equal(data.subscriptionStatus,'active');assert.equal(data.demo,null);
+  assert.equal(data.entitlements.canUseAi,true);assert.equal(trialReads,0);
 });
 
 test('same normalized phone cannot claim a second demo or transfer codes between accounts',async()=>{
@@ -175,8 +247,8 @@ test('demo HTTP writes require session, same-origin JSON, no forged fields and s
 
 test('018 is additive and schema validation checks security columns, uniqueness and foreign keys',async()=>{
   const manifest=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
-  assert.equal(manifest.diagnostics.length,0);assert.equal(manifest.migrations.at(-1).id,'018_whatsapp_demo');
-  assert.doesNotMatch(manifest.migrations.at(-1).source,/DROP |ALTER |INSERT INTO users/);
+  assert.equal(manifest.diagnostics.length,0);const migration=manifest.migrations.find(m=>m.id==='018_whatsapp_demo');assert.ok(migration);
+  assert.doesNotMatch(migration.source,/DROP |ALTER |INSERT INTO users/);
   const missing=await validateDemoSchema({execute:async()=>[[]]});
   assert(missing.some(m=>m.index==='uq_demo_phone'));assert(missing.some(m=>m.column==='otp_hash'));assert(missing.some(m=>m.constraint==='fk_demo_user'));
   await assert.rejects(upgradeDemo({execute:async()=>[[{db:'other'}]]},'expected',[]),/DATABASE_MISMATCH/);
@@ -187,7 +259,7 @@ test('demo React entry explains both codes, trial limits and exposes no provider
   try {
     const {DemoPage,demoRequest}=await vite.ssrLoadModule('/src/react/demo-page.jsx');
     const html=renderToStaticMarkup(React.createElement(DemoPage,{}));
-    for(const text of ['6 divisi','Rp3.000','3 hari','OTP WhatsApp','Kode aktivasi'])assert(html.includes(text),text);
+    for(const text of ['6 divisi','Rp3.000','7 hari','OTP WhatsApp','Kode aktivasi'])assert(html.includes(text),text);
     assert(html.includes('katalog aktif'));assert(!html.includes('model hemat khusus demo'));
     assert(!html.includes(env.BLITZMES_API_KEY));assert(!html.includes(env.DEMO_CODE_SECRET));
     let options;await demoRequest('/verify',{code:'123456'},undefined,async(_url,o)=>{options=o;return Response.json({verified:true});});

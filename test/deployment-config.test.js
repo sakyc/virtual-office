@@ -4,6 +4,25 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const read = name => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
 
+test('landing hosts redirect demo and registration to the app while preserving request URLs', () => {
+  const apache = read('deploy/apache/landing-https.conf');
+  const nginx = read('deploy/nginx/karyora.conf');
+  const apachePattern = apache.match(/^RewriteRule (\S+) https:\/\/app\.karyora\.vetencode\.com%\{REQUEST_URI\} \[R=302,L,NE\]$/m)?.[1];
+  const nginxPattern = nginx.match(/location ~ (\S+) \{/ )?.[1];
+  assert.ok(apachePattern);
+  assert.ok(nginxPattern);
+  for (const pattern of [apachePattern, nginxPattern]) {
+    const route = new RegExp(pattern);
+    for (const path of ['/demo', '/demo/', '/scheduled-demo','/scheduled-demo/','/register?demo=1', '/login?demo=1']) {
+      assert.ok(route.test(new URL(path, 'https://karyora.vetencode.com').pathname), path);
+    }
+    assert.equal(route.test('/demographic'), false);
+    assert.equal(route.test('/api/demo'), false);
+  }
+  assert.match(nginx, /return 302 https:\/\/app\.karyora\.vetencode\.com\$request_uri;/);
+  assert.match(read('src/react/reference/landing.jsx'), /href="\/demo"/);
+});
+
 test('deployment runs one non-cluster worker on loopback port 3101, not occupied 3001', () => {
   const config = createRequire(import.meta.url)('../deploy/ecosystem.config.cjs');
   const app = config.apps[0];

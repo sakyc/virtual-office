@@ -6,6 +6,12 @@ import { validateWorkspaceTaskSchema } from './workspace-task-contract.js';
 import { validateTenantMemberSchema } from './tenant-member-contract.js';
 import { validatePaymentSchema } from './payment-contract.js';
 import { validateDemoSchema } from './demo-contract.js';
+import {validateSharedDemoSchema} from './shared-demo-contract.js';
+
+export async function validateDeploymentSharedDemo(connection, result) {
+  const differences=[...result.differences,...await validateSharedDemoSchema(connection)];
+  return {valid:differences.length===0,differences};
+}
 
 const CONTRACT = {
   clients: ['id', 'name', 'brief', 'created_at'],

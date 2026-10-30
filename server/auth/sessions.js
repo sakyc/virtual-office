@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { SHARED_DEMO_ISSUER, sharedDemoEnabled } from '../shared-demo-policy.js';
 
 export const SESSION_ABSOLUTE_MS = 24 * 60 * 60 * 1000;
 export const SESSION_IDLE_MS = 8 * 60 * 60 * 1000;
@@ -33,16 +34,27 @@ export async function issueSession(connection, { userId, activeWorkspaceId = nul
 export async function resolveSession(connection, token, { now = new Date() } = {}) {
   if (typeof token !== 'string' || token.length < 32) return null;
   const [rows] = await connection.execute(
-    `SELECT s.id, s.user_id, s.active_workspace_id, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, u.status AS user_status
+    `SELECT s.id, s.user_id, s.active_workspace_id, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, u.status AS user_status, u.provider_issuer
      FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? LIMIT 1`,
     [hashSessionToken(token)],
   );
   const session = rows[0];
   if (!session || session.revoked_at || session.user_status !== 'active') return null;
   if (new Date(session.idle_expires_at) <= now || new Date(session.absolute_expires_at) <= now) return null;
+  let sharedDemo = null;
+  if (session.provider_issuer === SHARED_DEMO_ISSUER) {
+    if (!sharedDemoEnabled()) return null;
+    const [[visit]] = await connection.execute(`SELECT b.id,b.ends_at FROM shared_demo_bookings b
+      JOIN shared_demo_control d ON d.id=1 AND d.enabled=1 AND d.user_id=?
+      WHERE b.session_id=? AND b.workspace_id=? AND b.status='active' AND b.enabled=1
+        AND b.starts_at<=? AND b.ends_at>? LIMIT 1`,
+    [session.user_id,session.id,session.active_workspace_id,now,now]);
+    if (!visit) return null;
+    sharedDemo = { bookingId: visit.id, endsAt: visit.ends_at };
+  }
   const idleExpiresAt = new Date(Math.min(now.getTime() + SESSION_IDLE_MS, new Date(session.absolute_expires_at).getTime()));
   await connection.execute('UPDATE sessions SET last_seen_at = ?, idle_expires_at = ? WHERE id = ? AND revoked_at IS NULL', [now, idleExpiresAt, session.id]);
-  return { userId: session.user_id, sessionId: session.id, activeWorkspaceId: session.active_workspace_id, absoluteExpiresAt: session.absolute_expires_at, idleExpiresAt };
+  return { userId: session.user_id, sessionId: session.id, activeWorkspaceId: session.active_workspace_id, absoluteExpiresAt: session.absolute_expires_at, idleExpiresAt, ...(sharedDemo ? {sharedDemo} : {}) };
 }
 
 export async function revokeSession(connection, sessionId, reason = 'logout') {

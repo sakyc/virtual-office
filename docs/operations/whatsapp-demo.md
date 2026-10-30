@@ -1,4 +1,4 @@
-# WhatsApp demo activation
+# WhatsApp activation and seven-day Trial subscription
 
 ## Scope and user flow
 
@@ -9,7 +9,9 @@ Normal registration, paid subscriptions and Midtrans remain separate.
 
 Defaults are intentionally small and fixed for this first implementation:
 
-- Three days from successful activation, not registration; no recurring reset.
+- Seven days (168 hours) from successful activation, not registration or OTP
+  verification; no recurring reset. The credit grant uses the exact stored access
+  deadline. A reload, another login, resending or replaying activation never changes it.
 - Rp3,000 AI credit, debited using existing reservation/actual-cost settlement.
 - Six existing division templates: Proposal Writer, Ads Copywriter, Social Media,
   Web QA, Developer Helper and Reporting. Their existing roster contains 21 agents
@@ -69,6 +71,25 @@ No code or configuration in the Blitzmes project is changed by this feature.
   Activation rechecks the active session. Expired trial cannot reserve new AI work;
   existing held work can settle. Insufficient available balance denies new work.
 - No paid subscription, schema reset, shared demo account or global access code.
+
+## Trial subscription status and expiry
+
+The customer sees **Trial** in Langganan & Saldo and the dashboard balance card,
+with remaining days and an exact expiry in WIB. `/api/billing` exposes
+`subscriptionStatus: "trial"` while valid and `"trial_expired"` afterward.
+Expired history is presentation-only: it never grants AI or capacity entitlements.
+At the stored deadline the backend denies new AI work and the remaining trial
+credit expires. Accounts, teams, conversations and task history are not deleted.
+There is no expiry cron required to enforce this rule.
+
+Trial remains in `demo_access`, not `billing_subscriptions`; paid entitlement
+takes priority and is not revoked when the old trial ends. Route `/demo`, existing
+environment names and migration 018 stay compatible. No new migration is needed
+for the duration/status update if 018 is already applied.
+
+The seven-day duration applies to **new activations after deployment**. Existing
+trials retain their previously stored deadline (including older three-day grants),
+so deploying this change does not renew trials, refill balances or rewrite paid data.
 
 ## Deployment (not performed automatically)
 
@@ -135,5 +156,7 @@ Do not claim live gateway delivery or production migration success from unit tes
 
 To stop new demo operations set `DEMO_ENABLED=0` and restart the correct PM2 owner.
 This also denies trial AI access; it does not remove historical teams/messages or
-affect paid entitlement. There is no admin demo-management page/background cleanup
-or automatic abuse-detection service in this release.
+affect paid entitlement. Individual Trial has no admin scheduling or background
+cleanup. The separate one-account **scheduled demo** is managed at `/admin/demo`;
+see [scheduled-demo.md](scheduled-demo.md). It has its own feature flag and does
+not replace or extend individual Trial deadlines.

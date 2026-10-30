@@ -37,6 +37,7 @@ export function validatePlanUpdate(code, body) {
 export async function requirePlatformAdmin(c, req) {
   const principal = await resolveSession(c, readCookie(req.headers.cookie, 'vo_session'));
   if (!principal) throw billingError('SESSION_REQUIRED', 401);
+  if (principal.sharedDemo) throw billingError('PLATFORM_ADMIN_REQUIRED', 403);
   // No tenant role, email, browser claim, or shared access code grants platform rights.
   const [[grant]] = await c.execute('SELECT user_id FROM platform_admins WHERE user_id = ? AND revoked_at IS NULL FOR UPDATE', [principal.userId]);
   if (!grant) throw billingError('PLATFORM_ADMIN_REQUIRED', 403);

@@ -9,7 +9,7 @@ function Brand() {
   return <a href="/" className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight"><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-[#4f7cff]" aria-hidden="true"><BrandMark /></span>Karyora</a>;
 }
 
-export function AuthPage({ register = false, complete = false, demo = false, onNavigate }) {
+export function AuthPage({ register = false, complete = false, demo = false, scheduledDemo = false, onNavigate }) {
   const [dark, setDark] = useState(() => {
     if (typeof window === 'undefined') return false;
     let storage; try { storage = window.localStorage; } catch {}
@@ -47,6 +47,7 @@ export function AuthPage({ register = false, complete = false, demo = false, onN
         const profile = await loadAuthProfile(controller.signal);
         if (controller.signal.aborted) return;
         if (profile) {
+          if(scheduledDemo){onNavigate('/scheduled-demo');return;}
           if(demo){onNavigate('/demo');return;}
           const destination = destinationForProfile(profile);
           if (destination) { onNavigate(destination); return; }
@@ -58,7 +59,7 @@ export function AuthPage({ register = false, complete = false, demo = false, onN
     };
     void load();
     return () => controller.abort();
-  }, [complete, demo, onNavigate, retry]);
+  }, [complete, demo, scheduledDemo, onNavigate, retry]);
   const select = async (workspaceId) => {
     if (busy) return;
     setBusy(true);
@@ -96,7 +97,7 @@ export function AuthPage({ register = false, complete = false, demo = false, onN
         throw new Error(message);
       }
       setForm({ email: '', password: '', displayName: '', whatsappNumber: '' });
-      onNavigate(demo?'/demo':'/login/complete');
+      onNavigate(scheduledDemo?'/scheduled-demo':demo?'/demo':'/login/complete');
     } catch (error) {
       setState((value) => ({ ...value, error: error instanceof TypeError ? 'Tidak dapat menghubungi layanan. Coba lagi.' : error.message }));
     } finally { setBusy(false); }
@@ -123,7 +124,7 @@ export function AuthPage({ register = false, complete = false, demo = false, onN
             <button disabled={!state.enabled || busy} className="mt-2 w-full rounded-xl bg-gradient-to-br from-[#3b63e0] to-[#5a4de0] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#3b63e0]/15 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3b63e0] disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Memproses…' : register ? 'Buat akun' : 'Masuk'}</button>
           </form>}
         {state.error && <button onClick={() => setRetry((value) => value + 1)} className="mt-4 text-sm font-semibold text-[var(--auth-accent)]">Coba lagi</button>}
-        {!choosing && <p className="mt-8 border-t border-[var(--auth-line)] pt-6 text-center text-sm text-[var(--auth-soft)]">{register ? 'Sudah punya akun?' : 'Belum punya akun?'} <a className="font-bold text-[var(--auth-accent)]" href={(register ? '/login' : '/register')+(demo?'?demo=1':'')}>{register ? 'Masuk' : 'Daftar sekarang'}</a></p>}
+        {!choosing && <p className="mt-8 border-t border-[var(--auth-line)] pt-6 text-center text-sm text-[var(--auth-soft)]">{register ? 'Sudah punya akun?' : 'Belum punya akun?'} <a className="font-bold text-[var(--auth-accent)]" href={(register ? '/login' : '/register')+(scheduledDemo?'?visit=1':demo?'?demo=1':'')}>{register ? 'Masuk' : 'Daftar sekarang'}</a></p>}
       </section>
     </main>
   </div>;

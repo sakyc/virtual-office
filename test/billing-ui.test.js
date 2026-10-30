@@ -104,6 +104,31 @@ test('landing renders all four real packages and dashboard cards cannot perform 
   } finally { await server.close(); }
 });
 
+test('Trial appears as a subscription, keeps expiry visible and never masks an active paid plan', async () => {
+  const vite=await createServer({configFile:false,server:{middlewareMode:true,hmr:false},optimizeDeps:{noDiscovery:true,include:[]},appType:'custom'});
+  try {
+    const {BillingContent}=await vite.ssrLoadModule('/src/react/billing-page.jsx');
+    const {BillingBalanceHighlight}=await vite.ssrLoadModule('/src/react/billing-balance.jsx');
+    const data={plans:publicBillingPlans,subscription:null,entitlements:{active:true},grants:[],ledger:[],
+      demo:{active:true,status:'trial',credit_idr:'3000',expiresAt:new Date(Date.now()+6.5*86400000).toISOString()}};
+    const render=d=>renderToStaticMarkup(React.createElement(BillingContent,{data:d}));
+    const active=render(data);
+    assert(active.includes('<h3>Trial</h3>'));assert(active.includes('7 hari tersisa'));assert(active.includes('WIB'));
+    assert(!active.includes('Belum berlangganan'));assert(active.includes('bukan diperbarui setiap hari'));
+    const oldPaid=render({...data,subscription:{plan_code:'pro',status:'expired',period_end:new Date(Date.now()-1000).toISOString()}});
+    assert(oldPaid.includes('<span>Langganan</span><h3>Trial</h3>'));
+    assert(!oldPaid.includes('<span>Langganan</span><h3>Pro</h3>'));
+    const highlight=renderToStaticMarkup(React.createElement(BillingBalanceHighlight,{state:{data},onNavigate(){}}));
+    assert(highlight.includes('Trial · 7 hari tersisa'));assert(highlight.includes('WIB'));assert(!highlight.includes('3 hari'));
+    const expired={...data,entitlements:{active:false},demo:{...data.demo,active:false,status:'expired',expiresAt:new Date(Date.now()-1000).toISOString()}};
+    const ended=render(expired);
+    assert(ended.includes('<h3>Trial berakhir</h3>'));assert(ended.includes('Penggunaan AI terkunci'));
+    assert(ended.includes('Akun dan riwayat tetap tersimpan'));assert(!ended.includes('Belum berlangganan'));
+    const paid=render({...data,demo:null,subscription:{plan_code:'pro',period_end:new Date(Date.now()+86400000).toISOString()}});
+    assert(paid.includes('<h3>Pro</h3>'));assert(!paid.includes('<h3>Trial</h3>'));
+  }finally{await vite.close();}
+});
+
 test('balance highlights show real available funds, package progress and pending holds without double subtraction', async () => {
   const vite = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true, include: [] }, appType: 'custom' });
   try {

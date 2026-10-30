@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { billingBalances, formatIdr, loadBilling } from './billing-data.js';
+import { trialTiming } from '../../shared/trial.js';
 
 // Scope keys only invalidate presentation; the endpoint resolves identity/tenant.
 export function useBillingBalance(profile, page) {
@@ -39,15 +40,17 @@ export function BillingBalanceIndicator({ state, onNavigate }) {
 export function BillingBalanceHighlight({ state, onNavigate, compact = false }) {
   const { data, error, loading, restricted } = state;
   const balances = data ? billingBalances(data.grants) : null;
-  const included = data?.subscription?.included_credit_idr ?? data?.demo?.credit_idr;
+  const included = data?.demo?.credit_idr ?? data?.subscription?.included_credit_idr;
   const budget = /^\d+$/.test(String(included)) ? BigInt(included) : 0n;
   const percent = balances && budget > 0n ? Number((balances.package > budget ? budget : balances.package) * 100n / budget) : null;
   const plan = data?.plans.find(p => p.code === data.subscription?.plan_code)?.name;
+  const trial = data?.demo ? trialTiming(data.demo) : null;
   return <section className={`balance-highlight${compact ? ' balance-compact' : ''}`} aria-label="Sisa Saldo AI">
     <div className="balance-heading"><span>SALDO AI TERSEDIA</span>{data && <button type="button" onClick={state.refresh} aria-label="Perbarui saldo">↻</button>}</div>
     {restricted ? <p>Saldo organisasi dikelola pemilik organisasi.</p> : loading || (!data && !error) ? <p role="status">Memuat saldo…</p> : error ? <><p role="status">Saldo belum dapat dimuat.</p><button type="button" onClick={state.refresh}>Coba lagi</button></> : <>
       <strong className="balance-amount">{formatIdr(balances.available)}</strong>
-      <p>{data.demo ? 'Demo · 3 hari sejak aktivasi' : data.entitlements.active ? `Paket ${plan || data.subscription?.plan_code}` : 'Tidak ada paket aktif'} · saldo bersama organisasi</p>
+      <p>{trial ? data.demo.shared ? trial.label : trial.active ? `Trial · ${trial.daysRemaining} hari tersisa` : trial.label : data.entitlements.active ? `Paket ${plan || data.subscription?.plan_code}` : 'Tidak ada paket aktif'} · saldo bersama organisasi</p>
+      {trial && <p>{trial.active ? 'Berakhir' : 'Berakhir pada'} {trial.expiresLabel}{!trial.active && ' · penggunaan AI terkunci'}</p>}
       {percent !== null && <><div className="balance-progress" role="progressbar" aria-label="Sisa saldo paket yang tersedia" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><i style={{ width: `${percent}%` }}/></div><p>Sisa paket {formatIdr(balances.package)} / {formatIdr(budget)}</p></>}
       {balances.reserved > 0n && <p className="balance-pending">Ditahan sementara {formatIdr(balances.reserved)} · sudah dikecualikan dari saldo tersedia</p>}
       {!compact && <p>Saldo dalam rupiah, bukan jumlah token. Biaya mengikuti model dan penggunaan aktual.</p>}

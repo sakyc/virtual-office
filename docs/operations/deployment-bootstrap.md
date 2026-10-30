@@ -2,7 +2,7 @@
 
 `scripts/bootstrap-deployment.mjs` is a separate production-aware entry point;
 existing non-production migration guards are unchanged. It supports exactly the
-current 001–016 release and initializes **only an empty database**. Never use it
+current 001–019 release and initializes **only an empty database**. Never use it
 to upgrade, retry partial DDL, seed models, or repair an existing installation.
 
 Prerequisites: a new dedicated deployment database/user, loopback database server,
@@ -20,7 +20,7 @@ This command changes schema and inserts migration seed/history rows. It inspects
 the manifest/checksums before connecting, locks using the existing migration
 framework, confirms the selected database and absence of all tables, then applies
 the registered migrations. It validates history checksums and the full schema
-contract including tenant members. Expected output contains 16 applied IDs and
+contract including tenant members and scheduled demos. Expected output contains 19 applied IDs and
 `validation: { valid: true, differences: [] }`. No provider calls, model-catalog
 API seed, legacy ownership assignment, or application startup are performed.
 
@@ -31,7 +31,7 @@ node scripts/bootstrap-deployment.mjs --validate --confirm-production --database
 ```
 
 This mode runs metadata/history SELECTs in a read-only transaction, requires all
-16 migration IDs to be applied with matching checksums, and validates the full
+19 migration IDs to be applied with matching checksums, and validates the full
 schema. It is also the correct next step after a validation-only failure. The
 validator accepts MariaDB integer display widths and its JSON alias only when
 an exact JSON_VALID check exists on the corresponding LONGTEXT column. Signedness,

@@ -8,6 +8,7 @@ import './admin-dashboard.css';
 import { AdminDirectory, AdminActivity } from './admin-management.jsx';
 import { BillingOperations } from './admin-billing-operations.jsx';
 import { AdminModels } from './admin-models.jsx';
+import {AdminDemo} from './admin-demo.jsx';
 
 export function PlanEditor({ plan, onSaved, onDenied }) {
   const custom = Boolean(plan.quoteRequired);
@@ -78,6 +79,7 @@ export function CatalogAudit({ audit }) {
 }
 
 const adminSections = {
+  demo: {path:'/admin/demo',name:'Demo terjadwal',title:'Demo bersama',description:'Verifikasi pemohon, persetujuan jadwal, kode akses, dan pemakaian.'},
   overview: { path: '/admin', name: 'Ringkasan', title: 'Pusat kendali platform', description: 'Satu tempat untuk mengelola arah dan operasional Karyora.' },
   users: { path: '/admin/users', name: 'Pengguna', title: 'Kelola pengguna', description: 'Cari akun, kelola status, dan cabut sesi dengan jejak audit.' },
   organizations: { path: '/admin/organizations', name: 'Organisasi & anggota', title: 'Organisasi & anggota', description: 'Lihat organisasi, workspace, dan role anggota tanpa mengakses konten pelanggan.' },
@@ -89,7 +91,7 @@ const adminSections = {
 
 const adminNavigationGroups = [
   { title: 'Utama', sections: ['overview'] },
-  { title: 'Pelanggan', sections: ['users', 'organizations', 'subscriptions'] },
+  { title: 'Pelanggan', sections: ['users', 'organizations', 'subscriptions','demo'] },
   { title: 'Produk & AI', sections: ['billing', 'models'] },
   { title: 'Audit', sections: ['audit'] },
 ];
@@ -147,6 +149,7 @@ export function AdminBilling({ onNavigate, section = 'billing' }) {
     return () => controller.abort();
   }, [retry, section]);
   const current = adminSections[section] || adminSections.overview;
+  if(section==='demo')return <div className="reference-dashboard admin-workspace"><AdminSidebar section={section} onNavigate={onNavigate}/><div className="admin-main"><header className="admin-topbar"><strong>Platform / Demo terjadwal</strong><span className="admin-role">Admin Platform</span></header><main className="admin-content billing-page"><header className="admin-page-heading"><div><span className="admin-kicker">DEMO CONTROL CENTER</span><h1>Demo bersama</h1><p>{current.description}</p></div><button onClick={()=>setRetry(n=>n+1)}>Muat ulang</button></header>{state.error?<p role="alert">{state.error}</p>:<AdminDemo key={retry} onDenied={error=>setState({error})}/>}</main></div></div>;
   return <div className="reference-dashboard admin-workspace">
     <AdminSidebar section={section} onNavigate={onNavigate}/>
     <div className="admin-main"><header className="admin-topbar"><div><span>Platform</span><span>/</span><strong>{current.name}</strong></div><span className="admin-role"><AdminIcon name="shield"/>Admin Platform</span></header>
