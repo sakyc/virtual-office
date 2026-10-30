@@ -1,0 +1,11 @@
+:is(#panel,.reference-dashboard) fieldset.task-multi{display:block;min-width:0;border:0;padding:0;margin:0}
+:is(#panel,.reference-dashboard) .task-multi legend{font-size:15px;font-weight:650;padding:0;margin-bottom:6px;color:var(--ink,#141a29)}
+:is(#panel,.reference-dashboard) .task-multi .task-multi-help,:is(#panel,.reference-dashboard) .task-multi .task-multi-summary{font-size:13px;line-height:1.6;margin:0 0 10px;color:var(--ink,#141a29)}
+:is(#panel,.reference-dashboard) .task-multi .task-multi-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+:is(#panel,.reference-dashboard) .task-multi label.task-multi-option{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:10px;min-height:46px;padding:10px 12px;margin:0;border:1px solid var(--line,#dfe4ec);border-radius:10px;background:var(--bg,#f6f8fb);color:var(--ink,#141a29);font-size:15px;font-weight:550;cursor:pointer;box-sizing:border-box;overflow-wrap:anywhere}
+:is(#panel,.reference-dashboard) .task-multi label.is-selected{border-color:var(--accent,#4f7cff);background:var(--accentSoft,#eaf0ff)}
+:is(#panel,.reference-dashboard) .task-multi input[type=checkbox]{appearance:auto;width:20px;height:20px;min-height:20px;margin:0;padding:0;accent-color:var(--accent,#4f7cff);cursor:pointer}
+:is(#panel,.reference-dashboard) .task-multi .task-multi-option:focus-within{outline:2px solid var(--accent,#4f7cff);outline-offset:2px}
+:is(#panel,.reference-dashboard) .task-multi .task-multi-summary{margin:10px 0 0;font-weight:600}
+:is(#panel,.reference-dashboard) .task-multi:disabled .task-multi-option,:is(#panel,.reference-dashboard) fieldset:disabled .task-multi-option{opacity:.6;cursor:not-allowed}
+@media(max-width:360px){:is(#panel,.reference-dashboard) .task-multi .task-multi-options{grid-template-columns:1fr}}

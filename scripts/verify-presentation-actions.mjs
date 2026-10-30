@@ -5,7 +5,7 @@ import {existsSync,mkdtempSync,readFileSync,writeFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createServer} from 'vite';
 const output=mkdtempSync(resolve('output/presentation-browser-'));
-const template={id:'11111111-2222-3333-4444-555555555555',name:'Carousel presentasi',description:'Template untuk presentasi',version:1,outputFormat:'Carousel',divisionIds:['social-id'],fields:[{name:'topik',label:'Topik',type:'text',required:true}],instructions:'Susun carousel dari fakta pengguna'};
+const template={id:'11111111-2222-3333-4444-555555555555',name:'Carousel presentasi',description:'Template untuk presentasi',version:1,outputFormat:'Carousel',divisionIds:['social-id'],fields:[{name:'topik',label:'Topik',type:'text',required:true},{name:'platform',label:'Platform',type:'multi',options:['Instagram','Facebook','TikTok','LinkedIn'],default:['Instagram']}],instructions:'Susun carousel dari fakta pengguna'};
 const options={canCreate:true,templates:[template,{...template,id:'general',name:'Template umum',divisionIds:[]}],builtins:[{...template,id:'social-builtin',name:'Bawaan social',divisionIds:[],divisionTemplateIds:['social']},{...template,id:'ads-builtin',name:'Bawaan ads',divisionIds:[],divisionTemplateIds:['ads']}],divisions:[{id:'social-id',name:'Social Media',templateId:'social'},{id:'ads-id',name:'Ads',templateId:'ads'}],agents:[{id:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',name:'Rina',role:'Penulis konten',divisionId:'social-id'},{id:'bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee',name:'Adit',role:'Ads writer',divisionId:'ads-id'}],clients:[],models:[{id:'fixture-model',label:'Model fixture',costLabel:'Hemat'}]};
 const server=await createServer({configFile:false,optimizeDeps:{noDiscovery:true,include:['react','react-dom/client','react/jsx-dev-runtime']},server:{port:5191,host:'127.0.0.1',hmr:false},plugins:[{name:'presentation-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{
   if(!req.url.startsWith('/__qa/')&&!req.url.startsWith('/dashboard/jobs'))return next();
@@ -35,14 +35,25 @@ try{
   await send('Page.navigate',{url:base+'/__qa/templates'});await wait('!!document.querySelector(".tt-use-template")');await evaluate('document.querySelector(".tt-use-template").click();true');
   await wait('!!document.querySelector(".work-task-inline select")');assert.equal(await evaluate('document.querySelectorAll("select")[1].value'),template.id);
   assert.equal(await evaluate('document.querySelectorAll("select")[1].textContent.includes("Bawaan ads")'),false);
+  assert.equal(await evaluate('document.querySelector(".task-multi-summary").textContent'),'1 dipilih: Instagram');
+  await evaluate('for(const e of document.querySelectorAll(".task-multi input:not(:checked)"))e.click();true');
+  assert.equal(await evaluate('document.querySelectorAll(".task-multi input:checked").length'),4);
+  await evaluate('document.querySelector(".task-multi input").click();true');
+  assert.equal(await evaluate('document.querySelectorAll(".task-multi input:checked").length'),3);
+  await evaluate('document.querySelector(".task-multi input").click();true');
   await fill('input[maxlength="150"]','Carousel promosi');await fill('.task-inputs input','Kopi lokal');await fill('label:last-of-type select','fixture-model');
   await evaluate('window.deny=true;document.querySelector(".btnp").click();true');await wait('document.body.textContent.includes("Akses AI demo sedang dinonaktifkan")');
   assert.equal(await evaluate('document.querySelector("input[maxlength=\\"150\\"]").value'),'Carousel promosi');
   await evaluate('window.deny=false;document.querySelector(".btnp").click();document.querySelector(".btnp").click();true');await wait('window.created===45');assert.equal(await evaluate('window.submissions.length'),2);
   assert.equal(await evaluate('window.submissions.at(-1).templateId'),template.id);assert.equal(await evaluate('window.submissions.at(-1).values.topik'),'Kopi lokal');
+  assert.deepEqual((await evaluate('window.submissions.at(-1).values.platform')).sort(),['Facebook','Instagram','LinkedIn','TikTok']);
   const style=await evaluate('(()=>{const b=document.querySelector(".btnp"),s=getComputedStyle(b),label=getComputedStyle(document.querySelector("label"));return {height:b.getBoundingClientRect().height,font:s.fontSize,label:label.fontSize,background:s.backgroundColor,overflow:document.documentElement.scrollWidth>innerWidth}})()');assert(style.height>=44);assert.equal(style.font,'15px');assert.equal(style.label,'15px');assert(!style.overflow);
   writeFileSync(join(output,'office-desktop.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await delay(200);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
+  await evaluate('document.querySelector(".task-multi").scrollIntoView({block:"center"});true');
+  assert.equal(await evaluate('document.querySelectorAll(".task-multi .is-selected").length'),4);
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".task-multi input")).width'),'20px');
+  writeFileSync(join(output,'platform-mobile.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   await evaluate('document.querySelector(".work-actions").scrollIntoView();true');writeFileSync(join(output,'office-mobile.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   await fill('select',options.agents[1].id);
   assert.equal(await evaluate('document.querySelectorAll("select")[1].value'),'');
@@ -50,5 +61,5 @@ try{
   assert.equal(await evaluate('document.querySelectorAll("select")[1].textContent.includes("Bawaan ads")'),true);
   assert.equal(await evaluate('document.querySelectorAll("select")[1].textContent.includes("Template umum")'),true);
   await evaluate('document.querySelector(".btns").click();true');await wait('window.cancelled===true');assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({passed:true,checks:['template-to-task','template-prefilled','AI-off-error-preserves-input','submit-double-click-guard','styled-readable-buttons','desktop-mobile-no-overflow','division-filter-and-agent-switch','cancel'],screenshots:output,providerCalls:0,databaseConnections:0}));
+  console.log(JSON.stringify({passed:true,checks:['template-to-task','template-prefilled','multi-select-four-without-ctrl','AI-off-error-preserves-input','submit-double-click-guard','styled-readable-buttons','desktop-mobile-no-overflow','division-filter-and-agent-switch','cancel'],screenshots:output,providerCalls:0,databaseConnections:0}));
 }finally{socket?.close();browser?.kill();await server.close();}

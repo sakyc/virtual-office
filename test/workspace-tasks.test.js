@@ -139,6 +139,8 @@ test('builtin defaults, multi selections and financial calculations remain serve
   await f.create({ ...input(), builtinId: 'content_planner', values: { bulan: '2026-11' } });
   assert.equal(f.jobs[0].params.task.values.jumlah, '12');
   assert.deepEqual(f.jobs[0].params.task.values.platform, ['Instagram']);
+  await f.create({ ...input(), builtinId: 'content_planner', values: { bulan:'2026-11', platform:['Instagram','Facebook','TikTok','LinkedIn'] } });
+  assert.equal(f.jobs[1].params.task.values.platform.length,4);
   await assert.rejects(f.create({ ...input(), builtinId: 'content_planner', values: { bulan: '2026-11', platform: ['forged'] } }), { status: 400 });
   const task = { ...f.jobs[0].params.task, template: { builtin: true, id: 'billing_recap' }, values: { data: 'A | 1000 | lunas\nB | 2000 | belum lunas' } };
   const output = await generateWorkspaceTask({ apiClient: f.client, task });
@@ -173,6 +175,13 @@ test('015 is expand-only and preserves nullable legacy idempotency; workspace co
     assert.deepEqual(templatesForAgent(divided,'social-agent').builtins.map(t=>t.id),['carousel']);
     assert.deepEqual(templatesForAgent(divided,'ads-agent').builtins.map(t=>t.id),['ads-copy']);
     assert.equal(templatesForAgent(divided,'').builtins.length,0);
+    const {TaskMultiChoice}=await vite.ssrLoadModule('/src/react/task-multi-choice.jsx');
+    const multiProps={field:{name:'platform',label:'Platform',options:['Instagram','Facebook','TikTok','LinkedIn'],default:['Instagram']},onChange(){}};
+    const multi=renderToStaticMarkup(React.createElement(TaskMultiChoice,multiProps));
+    assert.equal((multi.match(/type="checkbox"/g)||[]).length,4);assert.equal((multi.match(/checked=""/g)||[]).length,1);
+    assert(multi.includes('1 dipilih: Instagram'));assert(!multi.includes('<select'));
+    const empty=renderToStaticMarkup(React.createElement(TaskMultiChoice,{...multiProps,value:[]}));
+    assert(empty.includes('Belum ada pilihan.'));assert(!empty.includes('checked=""'));
     const html = renderToStaticMarkup(React.createElement(WorkspaceTaskFields, { data: { agents: [{ id: agentId, name: 'Sua', role: 'Writer' }], models: [{ id: 'test-model', label: 'Economy', costLabel: 'Hemat' }], templates: [], builtins: [], clients: [] }, form: { agentId, template: '', title: '', instructions: '', values: {}, clientId: '', modelId: '' }, setForm() {} }));
     for (const text of ['Agen pelaksana', 'Sua', 'Tugas bebas', 'Instruksi tugas', 'Model AI', 'Hemat', 'Saldo AI']) assert.ok(html.includes(text), text);
     const { AdminPlanCatalog } = await vite.ssrLoadModule('/src/react/admin-billing.jsx');
