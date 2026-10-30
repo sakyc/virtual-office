@@ -5,6 +5,8 @@ import {readFile} from 'node:fs/promises';
 import express from 'express';
 import {createSharedDemoService,validateVisitApproval,validateVisitRequest,validateGuestVisitRequest,installSharedDemoRoutes,sharedDemoFirewall} from '../server/shared-demo.js';
 import {upgradeGuestDemo} from '../scripts/upgrade-deployment-guest-demo.mjs';
+import {upgradeFlexibleDemo} from '../scripts/upgrade-deployment-flexible-demo.mjs';
+import {validateFlexibleDemoSchema} from '../server/migrations/flexible-demo-contract.js';
 import {validateGuestDemoSchema} from '../server/migrations/guest-demo-contract.js';
 import {SHARED_DEMO_ISSUER,sharedDemoRouteAllowed,activeSharedDemo} from '../server/shared-demo-policy.js';
 import {resolveSession} from '../server/auth/sessions.js';
@@ -42,8 +44,8 @@ function fixture() {
         return [found?[{...found,otp_valid:found.otp_expires_at>time,cooling:found.last_sent_at>time-60000,in_window:found.send_window_at>time-86400000}]:[]];
       }
       if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE applicant_id'))return [db.bookings.filter(r=>r.applicant_id===v[0] && ['verifying','pending'].includes(r.status))];
-      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE guest_token_hash'))return [db.bookings.filter(r=>r.guest_token_hash===v[0] && (['verifying','pending'].includes(r.status) || (['approved','active'].includes(r.status)&&+r.ends_at>time)))];
-      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE phone='))return [db.bookings.filter(r=>r.phone===v[0] && r.id!==v[1] && (r.status==='pending' || (['approved','active'].includes(r.status)&&+r.ends_at>time)))];
+      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE guest_token_hash'))return [db.bookings.filter(r=>r.guest_token_hash===v[0] && (['verifying','pending'].includes(r.status) || (r.status==='approved'&&+(r.code_expires_at||r.ends_at)>time) || (r.status==='active'&&+r.ends_at>time)))];
+      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE phone='))return [db.bookings.filter(r=>r.phone===v[0] && r.id!==v[1] && (r.status==='pending' || (r.status==='approved'&&+(r.code_expires_at||r.ends_at)>time) || (r.status==='active'&&+r.ends_at>time)))];
       if(sql.startsWith('INSERT INTO shared_demo_bookings(id,applicant_id,guest_name')){db.bookings.push({id:v[0],applicant_id:null,guest_name:v[1],guest_email:v[2],guest_token_hash:v[3],company:v[4],needs:v[5],requested_at:v[6],phone:v[7],status:'verifying',enabled:1,otp_attempts:0,code_attempts:0,sends:0,send_window_at:time});return [{}];}
       if(sql.startsWith('INSERT INTO shared_demo_bookings')){db.bookings.push({id:v[0],applicant_id:v[1],company:v[2],needs:v[3],requested_at:v[4],phone:v[5],status:'verifying',enabled:1,otp_attempts:0,code_attempts:0,sends:0,send_window_at:time});return [{}];}
       if(sql.startsWith('SELECT COALESCE(SUM(sends)'))return [[{sends:db.bookings.filter(r=>r.phone===v[0] && r.send_window_at>time-86400000).reduce((s,r)=>s+r.sends,0)}]];
@@ -58,7 +60,9 @@ function fixture() {
       if(sql.startsWith('UPDATE shared_demo_bookings SET verified_at')){b.verified_at=time;b.otp_hash=null;b.status='pending';return [{}];}
       if(sql.startsWith('UPDATE users SET whatsapp_verified_at'))return [{}];
       if(sql.startsWith("SELECT id FROM shared_demo_bookings WHERE status IN"))return [db.bookings.filter(r=>['approved','active'].includes(r.status) && +r.starts_at<+v[0] && +r.ends_at>+v[1])];
+      if(sql.startsWith("UPDATE shared_demo_bookings SET status='approved',starts_at=NULL")){Object.assign(b,{status:'approved',starts_at:null,ends_at:null,duration_minutes:v[0],code_expires_at:v[1],credit_idr:v[2]});return [{}];}
       if(sql.startsWith("UPDATE shared_demo_bookings SET status='approved'")){Object.assign(b,{status:'approved',starts_at:v[0],ends_at:v[1],credit_idr:v[2]});return [{}];}
+      if(sql.startsWith('UPDATE shared_demo_bookings SET starts_at=')){Object.assign(b,{starts_at:v[0],ends_at:v[1]});return [{}];}
       if(sql.startsWith('INSERT INTO shared_demo_audit')){
         const insert=sql.match(/^INSERT INTO shared_demo_audit\(([^)]+)\) VALUES \(([^)]+)\)$/);
         assert.ok(insert,'Audit must use an explicit column list and VALUES');
@@ -70,6 +74,7 @@ function fixture() {
       if(sql.startsWith('UPDATE shared_demo_bookings SET enabled')){b.enabled=v[0];return [{}];}
       if(sql.startsWith('UPDATE shared_demo_bookings SET status=?')){b.status=v[0];b.enabled=0;b.code_hash=null;return [{}];}
       if(sql.startsWith("SELECT id FROM shared_demo_bookings WHERE status='active'"))return [db.bookings.filter(r=>r.status==='active' && +r.ends_at>time)];
+      if(sql.startsWith('SELECT b.ends_at AS endsAt'))return [db.bookings.filter(r=>r.status==='active' && +r.ends_at>time && db.sessions.some(s=>s.id===r.session_id && !s.revoked && +s.endsAt>time && s.workspaceId===r.workspace_id && s.userId===db.control.user_id && db.users.some(u=>u.id===s.userId && u.status==='active'))).slice(0,1).map(r=>({endsAt:r.ends_at}))];
       if(sql.startsWith('INSERT INTO users')){db.users.push({id:100,provider_issuer:v[0],external_subject:v[1],status:'active'});return [{insertId:100}];}
       if(sql.startsWith('SELECT provider_issuer,external_subject,status FROM users'))return [db.users.filter(u=>u.id===v[0])];
       if(sql.startsWith('UPDATE shared_demo_control SET user_id')){db.control.user_id=v[0];return [{}];}
@@ -97,16 +102,111 @@ function fixture() {
 const otp=f=>f.messages.at(-1).message.match(/\b\d{6}\b/)[0];
 const code=f=>f.messages.at(-1).message.match(/KRY-VISIT-[A-F0-9]{32}/)[0];
 const guest={guestHash:'b'.repeat(64)},otherGuest={guestHash:'c'.repeat(64)};
-const guestBody={name:'Rifki Demo',email:'RIFKI@example.com',phone:'081234567890',company:'Acme',needs:'Mencoba tugas pemasaran',requestedAt:null};
+const guestBody={name:'Rifki Demo',email:'RIFKI@example.com',phone:'081234567890',company:'Acme',needs:'Mencoba tugas pemasaran'};
 async function guestPending(f,identity=guest,body=guestBody) {
   const {id}=await f.service.request(identity,body);
   await f.service.sendOtp(identity,id);await f.service.verify(identity,id,otp(f));return id;
 }
+const flexibleTerms={durationMinutes:30,creditIdr:1000,reason:'Persetujuan demo tanpa jadwal'};
+async function flexibleApproved(f,identity=guest,body=guestBody) {
+  const id=await guestPending(f,identity,body);
+  const result=await f.service.adminAction(99,id,'approve',flexibleTerms);
+  assert.deepEqual(result,{sent:true,saved:true});return {id,code:code(f)};
+}
 
-test('guest biodata requires real fields, normalized contacts and optional future schedule; identity/role fields rejected',()=>{
+test('flexible approval validates bounded integer duration/rupiah and refuses forged schedule fields',()=>{
+  const terms=validateVisitApproval(flexibleTerms,now);
+  assert.equal(terms.durationMinutes,30);assert.equal(+terms.codeExpiresAt,now+7*86400000);
+  for(const extra of [{durationMinutes:14},{durationMinutes:241},{durationMinutes:30.5},{durationMinutes:'30'},{creditIdr:99},{creditIdr:10001},{reason:'x'},{startsAt:dt(60000)},{userId:1}])assert.throws(()=>validateVisitApproval({...flexibleTerms,...extra},now));
+});
+
+test('approval automatically sends code immediately after OTP; two approvals need no schedule and no extra send click',async()=>{
+  const f=fixture(),a=await flexibleApproved(f),b=await flexibleApproved(f,otherGuest,{...guestBody,phone:'081234567891'});
+  assert.equal(f.db().bookings.length,2);assert.equal(f.messages.length,4);
+  for(const row of f.db().bookings) {
+    assert.equal(row.starts_at,null);assert.equal(row.ends_at,null);assert.equal(row.duration_minutes,30);
+    assert.equal(+row.code_expires_at,now+7*86400000);assert.ok(row.code_hash);
+  }
+  assert.match(f.messages.at(-1).message,/dimulai saat berhasil masuk/);
+  assert.notEqual(a.code,b.code);assert.equal(f.db().users.length,2);assert.equal(f.db().sessions.length,0);
+  await assert.rejects(f.service.request(guest,guestBody),{code:'VISIT_REQUEST_EXISTS'});
+  // Code reissue cannot extend its approval's seven-day activation deadline.
+  f.setTime(now+61000);await f.service.adminAction(99,a.id,'send-code',{reason:'Kirim ulang kode akses'});
+  assert.equal(+f.db().bookings[0].code_expires_at,now+7*86400000);
+});
+
+test('duration and credit expiry start on successful entry days after approval, not on code issuance',async()=>{
+  const f=fixture(),a=await flexibleApproved(f);f.setTime(now+2*86400000);
+  const result=await f.service.enter({guestEntry:true},a.id,a.code),row=f.db().bookings[0];
+  assert.equal(result.entered,true);assert.equal(+row.starts_at,f.time());assert.equal(+row.ends_at,f.time()+30*60000);
+  assert.equal(+f.db().grants[0].at(-1),+row.ends_at);assert.equal(+f.db().sessions[0].endsAt,+row.ends_at);
+  assert.equal(row.code_hash,null);assert.equal(f.db().divisions.length,6);
+});
+
+test('second visitor sees only remaining deadline; occupied entry does not consume code, attempts, duration, credit or create account',async()=>{
+  const f=fixture(),a=await flexibleApproved(f),b=await flexibleApproved(f,otherGuest,{...guestBody,phone:'081234567891'});
+  await f.service.enter({guestEntry:true},a.id,a.code);f.setTime(now+7*60000);
+  const before=structuredClone(f.db().bookings[1]),availability=await f.service.availability();
+  assert.deepEqual(Object.keys(availability).sort(),['available','enabled','occupiedUntil','serverNow']);
+  assert.equal(availability.available,false);assert.equal(+new Date(availability.occupiedUntil)-Date.parse(availability.serverNow),23*60000);
+  const result=await f.service.enter({guestEntry:true},b.id,b.code);
+  assert.equal(result.occupied,true);assert.equal(+result.occupiedUntil,+f.db().bookings[0].ends_at);
+  assert.doesNotMatch(JSON.stringify(result),/Rifki|phone|company|booking|token|KRY-VISIT/);
+  assert.deepEqual(f.db().bookings[1],before);assert.equal(f.db().sessions.length,1);assert.equal(f.db().grants.length,1);
+});
+
+test('concurrent visitors serialize: exactly one enters; waiting code works after logout with full duration and isolated data',async()=>{
+  const f=fixture(),a=await flexibleApproved(f),b=await flexibleApproved(f,otherGuest,{...guestBody,phone:'081234567891'});
+  const people=[a,b],results=await Promise.all(people.map(p=>f.service.enter({guestEntry:true},p.id,p.code)));
+  assert.equal(results.filter(r=>r.entered).length,1);assert.equal(results.filter(r=>r.occupied).length,1);
+  const waiting=people[results.findIndex(r=>r.occupied)];
+  f.setTime(now+7*60000);f.db().sessions[0].revoked=true; // Auth logout persists this revocation.
+  assert.equal((await f.service.availability()).available,true);
+  const entered=await f.service.enter({guestEntry:true},waiting.id,waiting.code);
+  assert.equal(entered.entered,true);assert.equal(+entered.endsAt,f.time()+30*60000);
+  assert.equal(f.db().orgs.length,2);assert.equal(f.db().grants.length,2);
+  assert.notEqual(f.db().bookings[0].workspace_id,f.db().bookings[1].workspace_id);
+  assert.equal(f.db().users.filter(u=>u.provider_issuer===SHARED_DEMO_ISSUER).length,1);
+});
+
+test('availability follows end, expiry, revocation and global control; a paused visit holds its slot until ended or expired',async()=>{
+  const f=fixture(),a=await flexibleApproved(f);
+  assert.equal((await f.service.availability()).available,true);
+  await f.service.enter({guestEntry:true},a.id,a.code);
+  await f.service.adminAction(99,a.id,'pause',{reason:'Jeda sesi pengunjung'});
+  assert.equal((await f.service.availability()).available,false);
+  await f.service.adminAction(99,a.id,'resume',{reason:'Lanjutkan sesi pengunjung'});
+  await f.service.adminAction(99,null,'control',{enabled:false,reason:'Tutup akses global'});
+  assert.equal((await f.service.availability()).enabled,false);assert.equal((await f.service.availability()).available,false);
+  await f.service.adminAction(99,null,'control',{enabled:true,reason:'Buka akses global'});
+  f.setTime(now+30*60000);assert.equal((await f.service.availability()).available,true);
+  const another=fixture(),next=await flexibleApproved(another);await another.service.enter({guestEntry:true},next.id,next.code);
+  await another.service.adminAction(99,next.id,'end',{reason:'Selesai lebih awal'});
+  assert.equal((await another.service.availability()).available,true);assert.equal(another.db().sessions[0].revoked,true);
+});
+
+test('unused codes expire after exactly seven days; resend does not renew lifetime; failed provisioning does not start duration',async()=>{
+  const f=fixture(),a=await flexibleApproved(f);f.failProvision(true);f.setTime(now+86400000);
+  await assert.rejects(f.service.enter({guestEntry:true},a.id,a.code));
+  assert.equal(f.db().bookings[0].starts_at,null);assert.equal(f.db().bookings[0].ends_at,null);assert.ok(f.db().bookings[0].code_hash);
+  assert.equal(f.db().users.length,2);assert.equal(f.db().grants.length,0);f.failProvision(false);
+  f.setTime(now+7*86400000);await assert.rejects(f.service.enter({guestEntry:true},a.id,a.code),{code:'VISIT_CODE_EXPIRED'});
+  await assert.rejects(f.service.adminAction(99,a.id,'send-code',{reason:'Kode sudah kedaluwarsa'}),{code:'VISIT_STATUS_CONFLICT'});
+});
+
+test('automatic WA failure commits approval with recovery marker, invalidates code and allows bounded resend without reapproval',async()=>{
+  const f=fixture(),id=await guestPending(f);f.failSend(true);
+  await assert.rejects(f.service.adminAction(99,id,'approve',flexibleTerms),{code:'VISIT_SEND_UNCONFIRMED',saved:true});
+  const b=f.db().bookings[0];assert.equal(b.status,'approved');assert.equal(b.code_hash,null);assert.equal(b.sends,2);
+  assert.equal(f.db().audit.at(-1)[3],'send_failed');assert.equal(f.db().sessions.length,0);
+  f.failSend(false);await assert.rejects(f.service.adminAction(99,id,'send-code',{reason:'Kirim ulang kode akses'}),{code:'VISIT_SEND_LIMIT'});
+  f.setTime(now+61000);await f.service.adminAction(99,id,'send-code',{reason:'Kirim ulang kode akses'});
+  assert.ok(f.db().bookings[0].code_hash);assert.equal(+f.db().bookings[0].code_expires_at,now+7*86400000);
+});
+
+test('guest biodata requires real fields and normalized contacts; schedule, identity and role fields rejected',()=>{
   const result=validateGuestVisitRequest(guestBody,now);
   assert.equal(result.email,'rifki@example.com');assert.equal(result.phone,'+6281234567890');assert.equal(result.requestedAt,null);
-  assert.ok(validateGuestVisitRequest({...guestBody,requestedAt:dt(60000)},now).requestedAt instanceof Date);
   for(const extra of [{name:'a'},{email:'bad'},{phone:'abc'},{requestedAt:''},{requestedAt:dt(-60000)},{requestedAt:dt(91*86400000)},{userId:1},{role:'admin'},{guestHash:'forged'}])assert.throws(()=>validateGuestVisitRequest({...guestBody,...extra},now));
 });
 
@@ -353,6 +453,35 @@ test('public HTTP rejects forged identity, missing origin, malformed biodata; se
   const disabled=express();installSharedDemoRoutes(disabled,{env:{...env,SHARED_DEMO_ENABLED:'0'},getPool:()=>f.pool});
   assert.deepEqual(await (await fetch((await http(disabled,t))+'/api/shared-demo')).json(),{code:'VISIT_UNAVAILABLE'});
 });
+
+test('public availability and occupied entry return no visitor identity or cookie; code stays usable while another visitor is active',async t=>{
+  const f=fixture(),a=await flexibleApproved(f),b=await flexibleApproved(f,otherGuest,{...guestBody,phone:'081234567891'});
+  await f.service.enter({guestEntry:true},a.id,a.code);f.setTime(now+7*60000);
+  const app=express();app.use(express.json());installSharedDemoRoutes(app,{env,getPool:()=>f.pool,service:f.service});
+  const base=await http(app,t),response=await fetch(base+'/api/shared-demo/availability'),status=await response.json();
+  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.equal(status.available,false);assert.deepEqual(Object.keys(status).sort(),['available','enabled','occupiedUntil','serverNow']);
+  const entered=await fetch(base+`/api/shared-demo/${b.id}/enter`,{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({code:b.code})});
+  assert.equal(entered.status,200);assert.equal(entered.headers.get('set-cookie'),null);
+  const result=await entered.json();assert.equal(result.occupied,true);
+  assert.doesNotMatch(JSON.stringify(result),/Rifki|company|phone|email|token|KRY-VISIT/);
+  assert.equal(f.db().bookings[1].starts_at,null);assert.equal(f.db().bookings[1].code_attempts,0);assert.ok(f.db().bookings[1].code_hash);
+  f.db().sessions[0].revoked=true;
+  assert.equal((await (await fetch(base+'/api/shared-demo/availability')).json()).available,true);
+  assert.equal((await fetch(base+`/api/shared-demo/${b.id}/enter`,{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({code:b.code})})).status,200);
+  assert.equal(f.db().bookings[1].status,'active');
+});
+
+test('code entry from separate devices does not share a global anonymous identity rate-limit bucket',async t=>{
+  const app=express();app.set('trust proxy','loopback');app.use(express.json());let calls=0;
+  installSharedDemoRoutes(app,{env,getPool:()=>({}),service:{enter:async()=>{calls++;return {occupied:true};}}});
+  const base=await http(app,t);
+  for(let i=1;i<=15;i++) {
+    const r=await fetch(base+'/api/shared-demo/00000000-0000-0000-0000-000000000000/enter',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json','X-Forwarded-For':`198.51.100.${i}`},body:JSON.stringify({code:'test-access-code'})});
+    assert.equal(r.status,200);
+  }
+  assert.equal(calls,15);
+});
 test('HTTP allows public guest status but rejects unauthenticated admin, cross origin and forged fields',async t=>{
   let calls=0;const app=express();app.use(express.json());
   installSharedDemoRoutes(app,{env,getPool:()=>({getConnection:async()=>({execute:async()=>[[]],release(){}})}),service:new Proxy({},{get(){return ()=>{calls++;return {rows:[],accepting:true};};}})});
@@ -407,7 +536,7 @@ test('upgrade validates exact target and prior history, refuses pending/partial 
 });
 
 test('020 upgrade refuses wrong target, missing history, partial DDL; applies only additive guest migration and validates',async()=>{
-  const {migrations,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
+  const {migrations:all,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url))),migrations=all.slice(0,20);
   assert.equal(diagnostics.length,0);assert.equal(migrations.at(-1).id,'020_guest_scheduled_demo');
   assert.doesNotMatch(migrations.at(-1).source,/DROP |DELETE FROM|INSERT INTO users|TRUNCATE/i);
   let partial=false,nullable=false,historyLength=19,applied=0,valid=true;
@@ -432,13 +561,49 @@ test('020 upgrade refuses wrong target, missing history, partial DDL; applies on
   assert.ok(missing.some(d=>d.column==='guest_token_hash'));assert.ok(missing.some(d=>d.constraint==='ck_shared_demo_guest_identity'));
 });
 
+test('021 upgrade supports verified 019 or 020 deployments, refuses partial DDL and wrong history, and is validation-only when requested',async()=>{
+  const {migrations,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
+  assert.equal(diagnostics.length,0);assert.equal(migrations.at(-1).id,'021_flexible_shared_demo');
+  assert.doesNotMatch(migrations.at(-1).source,/DROP |DELETE FROM|INSERT INTO users|TRUNCATE/i);
+  let length=20,partial=false,guestPartial=false,valid=true,applied=0;
+  const c={execute:async sql=>{
+    if(sql.startsWith('SELECT DATABASE'))return [[{db:'app'}]];
+    if(sql.includes('FROM schema_migrations'))return [migrations.slice(0,length).map(m=>({migration_id:m.id,status:'applied',checksum:m.checksum}))];
+    if(sql.includes("'duration_minutes','code_expires_at'"))return [partial?[{column_name:'duration_minutes'}]:[]];
+    if(sql.includes('information_schema.columns'))return [guestPartial?[{column_name:'guest_name'}]:[]];
+    throw Error(sql);
+  }};
+  const options={apply:true,validate:async()=>({validation:{valid,differences:[]}}),applyPending:async()=>{applied++;return migrations.slice(length).map(m=>({name:m.id}));}};
+  await assert.rejects(upgradeFlexibleDemo(c,'other',migrations,options),/MISMATCH/);
+  await assert.rejects(upgradeFlexibleDemo(c,'app',migrations),/PENDING/);
+  partial=true;await assert.rejects(upgradeFlexibleDemo(c,'app',migrations,options),/PARTIAL/);partial=false;
+  length=18;await assert.rejects(upgradeFlexibleDemo(c,'app',migrations,options),/HISTORY/);
+  length=19;guestPartial=true;await assert.rejects(upgradeFlexibleDemo(c,'app',migrations,options),/PARTIAL/);guestPartial=false;
+  valid=false;await assert.rejects(upgradeFlexibleDemo(c,'app',migrations,options),/BASE_SCHEMA/);valid=true;assert.equal(applied,0);
+  assert.deepEqual((await upgradeFlexibleDemo(c,'app',migrations,options)).applied,['020_guest_scheduled_demo','021_flexible_shared_demo']);
+  length=20;assert.deepEqual((await upgradeFlexibleDemo(c,'app',migrations,options)).applied,['021_flexible_shared_demo']);
+  length=21;await upgradeFlexibleDemo(c,'app',migrations,options);assert.equal(applied,2);
+  valid=false;await assert.rejects(upgradeFlexibleDemo(c,'app',migrations,options),/SCHEMA_INVALID/);
+  const missing=await validateFlexibleDemoSchema({execute:async()=>[[]]});
+  assert.ok(missing.some(d=>d.column==='duration_minutes'));assert.ok(missing.some(d=>d.constraint==='ck_shared_demo_activation'));
+  assert.deepEqual(await validateFlexibleDemoSchema({execute:async sql=>sql.includes('information_schema.columns')?[[{name:'duration_minutes',type:'smallint(5) unsigned',nullable:'YES'},{name:'code_expires_at',type:'datetime',nullable:'YES'}]]:[[{name:'ck_shared_demo_duration'},{name:'ck_shared_demo_activation'}]]}),[]);
+});
+
 test('public and admin UI expose request, OTP, scheduling and audit without mixing up Trial',async()=>{
   const vite=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom',logLevel:'silent'});
   try {
     const {ScheduledDemoPage}=await vite.ssrLoadModule('/src/react/shared-demo.jsx');
+    const {visitRemaining,DemoAvailability}=await vite.ssrLoadModule('/src/react/shared-demo.jsx');
     const {AdminDemo}=await vite.ssrLoadModule('/src/react/admin-demo.jsx');
     const {AdminSidebar}=await vite.ssrLoadModule('/src/react/admin-billing.jsx');
-    assert.match(renderToStaticMarkup(React.createElement(ScheduledDemoPage)),/DEMO TERJADWAL/);
+    assert.match(renderToStaticMarkup(React.createElement(ScheduledDemoPage)),/DEMO BERGANTIAN/);
+    assert.match(renderToStaticMarkup(React.createElement(DemoAvailability)),/Memeriksa ketersediaan/);
+    const snapshot={serverNow:new Date(now).toISOString(),occupiedUntil:new Date(now+23*60000+40000).toISOString()};
+    assert.equal(visitRemaining(snapshot),1420);assert.equal(visitRemaining(snapshot,1000),1419);assert.equal(visitRemaining(snapshot,86400000),0);assert.equal(visitRemaining({}),null);
+    const page=await readFile(new URL('../src/react/shared-demo.jsx',import.meta.url),'utf8');
+    assert.doesNotMatch(page,/type="datetime-local"/);assert.match(page,/setInterval\(check,15000\)/);
+    const admin=await readFile(new URL('../src/react/admin-demo.jsx',import.meta.url),'utf8');assert.doesNotMatch(admin,/type="datetime-local"/);assert.match(admin,/durationMinutes/);
+    const banner=await readFile(new URL('../src/react/shared-demo-banner.jsx',import.meta.url),'utf8');assert.match(banner,/'Content-Type':'application\/json'/);
     assert.match(renderToStaticMarkup(React.createElement(AdminDemo,{onDenied(){}})),/satu pengunjung aktif/);
     assert.match(renderToStaticMarkup(React.createElement(AdminSidebar,{section:'demo',onNavigate(){}})),/href="\/admin\/demo"/);
   }finally{await vite.close();}

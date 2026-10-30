@@ -8,6 +8,12 @@ import { validatePaymentSchema } from './payment-contract.js';
 import { validateDemoSchema } from './demo-contract.js';
 import {validateSharedDemoSchema} from './shared-demo-contract.js';
 import {validateGuestDemoSchema} from './guest-demo-contract.js';
+import {validateFlexibleDemoSchema} from './flexible-demo-contract.js';
+
+export async function validateDeploymentFlexibleDemo(connection,result) {
+  const differences=[...result.differences,...await validateFlexibleDemoSchema(connection)];
+  return {valid:differences.length===0,differences};
+}
 
 export async function validateDeploymentGuestDemo(connection,result) {
   const differences=[...result.differences,...await validateGuestDemoSchema(connection)];

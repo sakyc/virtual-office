@@ -43,6 +43,12 @@ else {
       result.differences.push(...await validateGuestDemoSchema(connection));
       result.valid=result.differences.length===0;
     }
+    const [flexibleDemoHistory] = await connection.execute("SELECT migration_id FROM schema_migrations WHERE migration_id = '021_flexible_shared_demo' AND status = 'applied'");
+    if(flexibleDemoHistory.length) {
+      const {validateFlexibleDemoSchema}=await import('../server/migrations/flexible-demo-contract.js');
+      result.differences.push(...await validateFlexibleDemoSchema(connection));
+      result.valid=result.differences.length===0;
+    }
     console.log(JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } catch (error) { console.error(JSON.stringify({ error: safeDatabaseError(error) })); process.exitCode = 1; }

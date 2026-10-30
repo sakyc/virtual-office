@@ -26,15 +26,20 @@ export function validateVisitRequest(body,now=Date.now()) {
   return {company:body.company.trim(),needs:body.needs.trim(),requestedAt};
 }
 export function validateGuestVisitRequest(body,now=Date.now()) {
-  fields(body,['name','email','phone','company','needs','requestedAt']);
+  fields(body,['name','email','phone','company','needs']);
   if(!text(body.name,2,150) || !normalizeEmail(body.email) || !normalizeWhatsapp(body.phone)
     || !text(body.company,2,150) || !text(body.needs,5,2000))fail('VISIT_FIELDS_INVALID',400);
-  const requestedAt=body.requestedAt===null?null:date(body.requestedAt);
-  if(requestedAt && (+requestedAt<now || +requestedAt>now+90*86400000))fail('VISIT_DATE_INVALID',400);
-  return {...body,name:body.name.trim(),email:normalizeEmail(body.email),phone:normalizeWhatsapp(body.phone),company:body.company.trim(),needs:body.needs.trim(),requestedAt};
+  return {...body,name:body.name.trim(),email:normalizeEmail(body.email),phone:normalizeWhatsapp(body.phone),company:body.company.trim(),needs:body.needs.trim(),requestedAt:null};
 }
 const guestHash=token=>typeof token==='string' && /^[a-f0-9]{64}$/.test(token)?createHash('sha256').update(token).digest('hex'):null;
 export function validateVisitApproval(body,now=Date.now()) {
+  if(Object.hasOwn(body||{},'durationMinutes')) {
+    fields(body,['durationMinutes','creditIdr','reason']);
+    if(!Number.isInteger(body.durationMinutes) || body.durationMinutes<15 || body.durationMinutes>240
+      || !Number.isInteger(body.creditIdr) || body.creditIdr<100 || body.creditIdr>10000 || !text(body.reason,5,500))fail('VISIT_APPROVAL_INVALID',400);
+    return {...body,reason:body.reason.trim(),codeExpiresAt:new Date(now+7*86400000)};
+  }
+  // Read-compatible with previously scheduled bookings, not exposed by the new approval API.
   fields(body,['startsAt','endsAt','creditIdr','reason']);
   const startsAt=date(body.startsAt),endsAt=date(body.endsAt),duration=+endsAt-+startsAt;
   if(+startsAt<now || +startsAt>now+90*86400000 || duration<15*60000 || duration>4*3600000
@@ -43,9 +48,9 @@ export function validateVisitApproval(body,now=Date.now()) {
 }
 const ready=env=>sharedDemoEnabled(env) && Boolean(env.BLITZMES_API_KEY?.trim()) && (env.DEMO_CODE_SECRET?.length||0)>=32;
 const projection=`b.id,b.company,b.needs,b.requested_at AS requestedAt,b.status,b.enabled,b.applicant_id IS NOT NULL AS legacy,
-  b.verified_at AS verifiedAt,b.starts_at AS startsAt,b.ends_at AS endsAt,
+  b.verified_at AS verifiedAt,b.starts_at AS startsAt,b.ends_at AS endsAt,b.duration_minutes AS durationMinutes,b.code_expires_at AS codeExpiresAt,
   CAST(b.credit_idr AS CHAR) AS creditIdr,b.entered_at AS enteredAt,b.created_at AS createdAt,
-  b.code_hash IS NOT NULL AS codeSent,b.ends_at<=UTC_TIMESTAMP() AS expired`;
+  b.code_hash IS NOT NULL AS codeSent,CASE WHEN b.status='approved' AND b.duration_minutes IS NOT NULL THEN b.code_expires_at<=UTC_TIMESTAMP() ELSE b.ends_at<=UTC_TIMESTAMP() END AS expired`;
 
 export function createSharedDemoService({getPool,env=process.env,whatsapp=createWhatsapp({env}),clock=()=>Date.now()}) {
   const digest=(id,purpose,code)=>demoDigest(env.DEMO_CODE_SECRET,id,`shared:${purpose}`,code);
@@ -53,7 +58,7 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
     const c=await getPool().getConnection();
     try {
       await c.beginTransaction();const result=await action(c);await c.commit();
-      if(result?.failure)fail(result.failure,result.status||400);
+      if(result?.failure)throw Object.assign(Error(result.failure),{code:result.failure,status:result.status||400,saved:result.saved});
       return result;
     }catch(e){await c.rollback().catch(()=>{});throw e;}finally{c.release();}
   }
@@ -75,6 +80,22 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
     if(!b)fail('VISIT_NOT_FOUND',404);return b;
   }
   const audit=(c,actor,id,action,reason)=>c.execute('INSERT INTO shared_demo_audit(id,booking_id,actor_user_id,action,reason) VALUES (?,?,?,?,?)',[randomUUID(),id,actor,action,reason]);
+  async function occupied(c) {
+    const [[row]]=await c.execute(`SELECT b.ends_at AS endsAt FROM shared_demo_bookings b
+      JOIN sessions s ON s.id=b.session_id AND s.active_workspace_id=b.workspace_id AND s.revoked_at IS NULL
+      JOIN shared_demo_control d ON d.id=1 AND s.user_id=d.user_id
+      JOIN users u ON u.id=s.user_id AND u.status='active'
+      WHERE b.status='active' AND b.ends_at>UTC_TIMESTAMP()
+      AND s.absolute_expires_at>UTC_TIMESTAMP() AND s.idle_expires_at>UTC_TIMESTAMP() LIMIT 1`);
+    return row;
+  }
+  async function availability() {
+    return tx(async c=>{
+      const control=await lockControl(c),current=await occupied(c);
+      return {enabled:Boolean(control.enabled),available:Boolean(control.enabled)&&!current,
+        occupiedUntil:current?.endsAt||null,serverNow:new Date(clock()).toISOString()};
+    });
+  }
   async function list(userId) {
     return tx(async c=>{
       const [[control]]=await c.execute('SELECT enabled FROM shared_demo_control WHERE id=1');
@@ -89,7 +110,7 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       const u=await applicant(c,userId),phone=guest?data.phone:normalizeWhatsapp(u.whatsapp_number);
       if(!phone)fail('VISIT_PHONE_REQUIRED',400);
       const [[exists]]=await c.execute(`SELECT id FROM shared_demo_bookings WHERE ${guest?'guest_token_hash=?':'applicant_id=?'}
-        AND (status IN ('verifying','pending') OR (status IN ('approved','active') AND ends_at>UTC_TIMESTAMP())) LIMIT 1`,[guest?userId.guestHash:userId]);
+        AND (status IN ('verifying','pending') OR (status='approved' AND COALESCE(code_expires_at,ends_at)>UTC_TIMESTAMP()) OR (status='active' AND ends_at>UTC_TIMESTAMP())) LIMIT 1`,[guest?userId.guestHash:userId]);
       if(exists)fail('VISIT_REQUEST_EXISTS');
       const id=randomUUID();
       if(guest)await c.execute('INSERT INTO shared_demo_bookings(id,applicant_id,guest_name,guest_email,guest_token_hash,company,needs,requested_at,phone) VALUES (?,NULL,?,?,?,?,?,?,?)',[id,data.name,data.email,userId.guestHash,data.company,data.needs,data.requestedAt,phone]);
@@ -106,8 +127,8 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       return send(c,b,'otp');
     });
   }
-  async function send(c,b,kind) {
-    if(b.cooling || (b.in_window && b.sends>=10))return {failure:'VISIT_SEND_LIMIT',status:429};
+  async function send(c,b,kind,{firstApproval=false}={}) {
+    if((b.cooling && !firstApproval) || (b.in_window && b.sends>=10))return {failure:'VISIT_SEND_LIMIT',status:429};
     const [[budget]]=await c.execute('SELECT COALESCE(SUM(sends),0) AS sends FROM shared_demo_bookings WHERE phone=? AND send_window_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY)',[b.phone]);
     if(Number(budget.sends)>=10)return {failure:'VISIT_SEND_LIMIT',status:429};
     const otp=kind==='otp',code=otp?String(randomInt(100000,1000000)):`KRY-VISIT-${randomBytes(16).toString('hex').toUpperCase()}`;
@@ -117,10 +138,10 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       sends=CASE WHEN send_window_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) THEN sends+1 ELSE 1 END,
       send_window_at=CASE WHEN send_window_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) THEN send_window_at ELSE UTC_TIMESTAMP() END,
       last_sent_at=UTC_TIMESTAMP() WHERE id=?`,[digest(b.id,kind,code),b.id]);
-    const schedule=otp?'':`${new Date(b.starts_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} s/d ${new Date(b.ends_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB`;
+    const schedule=otp?'':b.duration_minutes?`Durasi ${b.duration_minutes} menit, dimulai saat berhasil masuk. Aktifkan sebelum ${new Date(b.code_expires_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB.`:`Jadwal lama: ${new Date(b.starts_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} s/d ${new Date(b.ends_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB`;
     const origin=env.APP_ORIGIN || 'http://localhost:5173';
-    try {await whatsapp.send(b.phone,otp?`OTP pengajuan Demo Terjadwal Karyora: ${code}\nBerlaku 5 menit. Jangan bagikan kode ini.`
-      :`Pengajuan demo Karyora disetujui.\nJadwal: ${schedule}\nSaldo AI: Rp${b.credit_idr}\nKode akses: ${code}\nBuka ${origin}/scheduled-demo?booking=${b.id}${b.applicant_id?'&legacy=1':''}\n${b.applicant_id?'Pengajuan lama: masuk dengan akun pemohon. ':'Tidak perlu login atau daftar akun. '}Masukkan kode sesuai jadwal. Sekali pakai; jangan bagikan kode.`);}
+    try {await whatsapp.send(b.phone,otp?`OTP pengajuan Demo Karyora: ${code}\nBerlaku 5 menit. Jangan bagikan kode ini.`
+      :`Pengajuan demo Karyora disetujui.\n${schedule}\nSaldo AI: Rp${b.credit_idr}\nKode akses: ${code}\nBuka ${origin}/scheduled-demo?booking=${b.id}${b.applicant_id?'&legacy=1':''}\n${b.applicant_id?'Pengajuan lama: masuk dengan akun pemohon. ':'Tidak perlu login atau daftar akun. '}Sekali pakai; jangan bagikan kode. Jika demo sedang dipakai, kode dan durasi belum terpakai. Tidak ada reservasi urutan antrean.`);}
     catch {await c.execute(`UPDATE shared_demo_bookings SET ${prefix}_hash=NULL WHERE id=?`,[b.id]);return {failure:'VISIT_SEND_UNCONFIRMED',status:503};}
     return {sent:true};
   }
@@ -133,7 +154,7 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       if(!b.otp_valid || !b.otp_hash || b.otp_attempts>=5)fail('VISIT_CODE_EXPIRED',400);
       if(!matchingCode(b.otp_hash,digest(b.id,'otp',code))){await c.execute('UPDATE shared_demo_bookings SET otp_attempts=otp_attempts+1 WHERE id=?',[id]);return {failure:'VISIT_CODE_INVALID'};}
       if(userId?.guestHash) {
-        const [[exists]]=await c.execute("SELECT id FROM shared_demo_bookings WHERE phone=? AND id<>? AND (status='pending' OR (status IN ('approved','active') AND ends_at>UTC_TIMESTAMP())) LIMIT 1",[b.phone,id]);
+        const [[exists]]=await c.execute("SELECT id FROM shared_demo_bookings WHERE phone=? AND id<>? AND (status='pending' OR (status='approved' AND COALESCE(code_expires_at,ends_at)>UTC_TIMESTAMP()) OR (status='active' AND ends_at>UTC_TIMESTAMP())) LIMIT 1",[b.phone,id]);
         if(exists)fail('VISIT_REQUEST_EXISTS');
       }
       await c.execute("UPDATE shared_demo_bookings SET verified_at=UTC_TIMESTAMP(),otp_hash=NULL,status='pending' WHERE id=?",[id]);
@@ -167,6 +188,14 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       if(action==='approve') {
         const data=validateVisitApproval(body,clock());
         if(b.status!=='pending' || !b.verified_at)fail('VISIT_VERIFY_FIRST');
+        if(data.durationMinutes) {
+          if(!control.enabled || !b.enabled)fail('VISIT_PAUSED');
+          await c.execute("UPDATE shared_demo_bookings SET status='approved',starts_at=NULL,ends_at=NULL,duration_minutes=?,code_expires_at=?,credit_idr=? WHERE id=?",[data.durationMinutes,data.codeExpiresAt,data.creditIdr,id]);
+          await audit(c,actor,id,'approve',data.reason);
+          const result=await send(c,{...b,duration_minutes:data.durationMinutes,code_expires_at:data.codeExpiresAt,credit_idr:data.creditIdr},'access',{firstApproval:true});
+          await audit(c,actor,id,result.failure?'send_failed':'send_code',data.reason);
+          return {...result,saved:true};
+        }
         const [[overlap]]=await c.execute(`SELECT id FROM shared_demo_bookings WHERE status IN ('approved','active') AND starts_at<? AND ends_at>? LIMIT 1`,[data.endsAt,data.startsAt]);
         if(overlap)fail('VISIT_SCHEDULE_CONFLICT');
         await c.execute("UPDATE shared_demo_bookings SET status='approved',starts_at=?,ends_at=?,credit_idr=? WHERE id=?",[data.startsAt,data.endsAt,data.creditIdr,id]);
@@ -174,13 +203,13 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       }
       fields(body,['reason']);if(!text(body.reason,5,500))fail('VISIT_FIELDS_INVALID',400);
       if(action==='send-code') {
-        if(!control.enabled || !b.enabled || b.status!=='approved' || new Date(b.ends_at)<=new Date(clock()))fail('VISIT_STATUS_CONFLICT');
+        if(!control.enabled || !b.enabled || b.status!=='approved' || new Date(b.code_expires_at||b.ends_at)<=new Date(clock()))fail('VISIT_STATUS_CONFLICT');
         const result=await send(c,b,'access');await audit(c,actor,id,result.failure?'send_failed':'send_code',body.reason.trim());return result;
       }
       if(!['pause','resume','end','reject'].includes(action))fail('VISIT_FIELDS_INVALID',400);
       if(action==='reject' && !['verifying','pending','approved'].includes(b.status))fail('VISIT_STATUS_CONFLICT');
       if(action!=='reject' && !['approved','active'].includes(b.status))fail('VISIT_STATUS_CONFLICT');
-      if(action==='resume' && new Date(b.ends_at)<=new Date(clock()))fail('VISIT_WINDOW_CLOSED');
+      if(action==='resume' && new Date(b.status==='approved'?(b.code_expires_at||b.ends_at):b.ends_at)<=new Date(clock()))fail('VISIT_WINDOW_CLOSED');
       if(['end','reject'].includes(action)) {
         await c.execute('UPDATE shared_demo_bookings SET status=?,enabled=0,code_hash=NULL WHERE id=?',[action==='end'?'ended':'rejected',id]);
         if(b.session_id)await c.execute("UPDATE sessions SET revoked_at=UTC_TIMESTAMP(),revoked_reason='demo_ended' WHERE id=?",[b.session_id]);
@@ -194,10 +223,16 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       if(!control.enabled || !b.enabled)fail('VISIT_PAUSED');
       if(b.status!=='approved' || !b.verified_at || !b.code_hash || b.code_attempts>=5)fail('VISIT_CODE_EXPIRED',400);
       if(u && b.phone!==normalizeWhatsapp(u.whatsapp_number))fail('VISIT_PHONE_CHANGED');
-      if(now<+new Date(b.starts_at) || now>=+new Date(b.ends_at))fail('VISIT_WINDOW_CLOSED');
+      if(b.duration_minutes) {
+        if(!b.code_expires_at || now>=+new Date(b.code_expires_at))fail('VISIT_CODE_EXPIRED',400);
+      } else if(now<+new Date(b.starts_at) || now>=+new Date(b.ends_at))fail('VISIT_WINDOW_CLOSED');
       if(!matchingCode(b.code_hash,digest(id,'access',code))) {await c.execute('UPDATE shared_demo_bookings SET code_attempts=code_attempts+1 WHERE id=?',[id]);return {failure:'VISIT_CODE_INVALID'};}
-      const [[occupied]]=await c.execute("SELECT id FROM shared_demo_bookings WHERE status='active' AND ends_at>UTC_TIMESTAMP() LIMIT 1");
-      if(occupied)fail('VISIT_OCCUPIED');
+      const current=await occupied(c);
+      if(current)return {occupied:true,occupiedUntil:current.endsAt,serverNow:new Date(now).toISOString()};
+      if(b.duration_minutes) {
+        b.starts_at=new Date(now);b.ends_at=new Date(now+Number(b.duration_minutes)*60000);
+        await c.execute('UPDATE shared_demo_bookings SET starts_at=?,ends_at=? WHERE id=?',[b.starts_at,b.ends_at,id]);
+      }
       let sharedUser=control.user_id;
       if(!sharedUser) {
         const [result]=await c.execute('INSERT INTO users(provider_issuer,external_subject,email,display_name) VALUES (?,?,?,?)',[SHARED_DEMO_ISSUER,'singleton','demo@internal.karyora.invalid','Demo Karyora']);
@@ -232,7 +267,7 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       return {token:session.token,entered:true,endsAt:b.ends_at};
     });
   }
-  return {list,request,sendOtp,verify,adminList,adminAction,enter};
+  return {list,request,sendOtp,verify,adminList,adminAction,enter,availability};
 }
 
 export function installSharedDemoRoutes(app,{getPool,env=process.env,service=createSharedDemoService({getPool,env})}) {
@@ -257,12 +292,13 @@ export function installSharedDemoRoutes(app,{getPool,env=process.env,service=cre
         c.release();c=null;
         if(!p || p.sharedDemo)fail('VISIT_SESSION_REQUIRED',401);
       }
-      if(req.method==='POST' && !limit(req.ip,`visit:${p.userId || p.guestHash}`))fail('VISIT_SEND_LIMIT',429);
+      const identity=p.userId || (p.guestHash==='0'.repeat(64)?`anonymous:${req.ip}`:p.guestHash);
+      if(req.method==='POST' && !limit(req.ip,`visit:${identity}`))fail('VISIT_SEND_LIMIT',429);
       const result=await action(p,req);
       if(newGuest)res.setHeader('Set-Cookie',`vo_demo_guest=${guestToken}; Path=/api/shared-demo; HttpOnly; SameSite=Lax; Max-Age=7776000${env.NODE_ENV==='production'?'; Secure':''}`);
       if(result.token){res.setHeader('Set-Cookie',sessionCookie('vo_session',result.token,{production:env.NODE_ENV==='production'}));delete result.token;}
       res.json(result);
-    }catch(e){const safe=/^(VISIT_|SESSION_REQUIRED$|PLATFORM_ADMIN_REQUIRED$)/.test(e.code||'');res.status(safe?e.status||400:503).json({code:safe?e.code:'VISIT_SERVICE_ERROR'});}
+    }catch(e){const safe=/^(VISIT_|SESSION_REQUIRED$|PLATFORM_ADMIN_REQUIRED$)/.test(e.code||'');res.status(safe?e.status||400:503).json({code:safe?e.code:'VISIT_SERVICE_ERROR',...(safe && e.saved===true?{saved:true}:{})});}
     finally{c?.release();}
   };
   app.get('/api/shared-demo',handle(async(p,r)=>{
@@ -274,7 +310,8 @@ export function installSharedDemoRoutes(app,{getPool,env=process.env,service=cre
     }
     return result;
   },{publicVisit:true}));
-  app.post('/api/shared-demo',handle((p,r)=>service.request(p,r.body),{publicVisit:true,newGuest:true,keys:['name','email','phone','company','needs','requestedAt']}));
+  app.get('/api/shared-demo/availability',handle(()=>service.availability(),{publicVisit:true}));
+  app.post('/api/shared-demo',handle((p,r)=>service.request(p,r.body),{publicVisit:true,newGuest:true,keys:['name','email','phone','company','needs']}));
   app.post('/api/shared-demo/:id/otp',handle((p,r)=>service.sendOtp(p,r.params.id),{publicVisit:true}));
   for(const action of ['verify','enter'])app.post(`/api/shared-demo/:id/${action}`,handle((p,r)=>{
     if(!text(r.body.code,1,50))fail('VISIT_FIELDS_INVALID',400);
@@ -292,7 +329,7 @@ export function installSharedDemoRoutes(app,{getPool,env=process.env,service=cre
   },{keys:['code']}));
   app.get('/api/admin/demo',handle(()=>service.adminList(),{admin:true}));
   app.post('/api/admin/demo/control',handle((p,r)=>service.adminAction(p.userId,null,'control',r.body),{admin:true,keys:['enabled','reason']}));
-  for(const action of ['approve','send-code','pause','resume','end','reject'])app.post(`/api/admin/demo/:id/${action}`,handle((p,r)=>service.adminAction(p.userId,r.params.id,action,r.body),{admin:true,keys:action==='approve'?['startsAt','endsAt','creditIdr','reason']:['reason']}));
+  for(const action of ['approve','send-code','pause','resume','end','reject'])app.post(`/api/admin/demo/:id/${action}`,handle((p,r)=>service.adminAction(p.userId,r.params.id,action,r.body),{admin:true,keys:action==='approve'?['durationMinutes','creditIdr','reason']:['reason']}));
 }
 
 // Installed BEFORE every auth/API handler. Even a future endpoint is unavailable

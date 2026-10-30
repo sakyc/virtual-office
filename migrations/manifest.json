@@ -80,6 +80,10 @@
     {
       "id": "020_guest_scheduled_demo",
       "file": "020_guest_scheduled_demo.sql"
+    },
+    {
+      "id": "021_flexible_shared_demo",
+      "file": "021_flexible_shared_demo.sql"
     }
   ]
 }

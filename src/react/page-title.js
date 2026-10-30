@@ -1,5 +1,5 @@
 const titles = {
-  '/scheduled-demo':'Demo terjadwal', '/admin/demo':'Kelola demo bersama',
+  '/scheduled-demo':'Demo bergantian', '/admin/demo':'Kelola demo bersama',
   '/': 'Karyora — Kantor AI untuk Tim Anda',
   '/login': 'Masuk', '/register': 'Daftar', '/login/complete': 'Menyelesaikan login', '/demo': 'Aktivasi Trial',
   '/join': 'Undangan workspace', '/onboarding': 'Siapkan kantor',
