@@ -47,7 +47,13 @@ function fixture() {
       if(sql.startsWith('UPDATE users SET whatsapp_verified_at'))return [{}];
       if(sql.startsWith("SELECT id FROM shared_demo_bookings WHERE status IN"))return [db.bookings.filter(r=>['approved','active'].includes(r.status) && +r.starts_at<+v[0] && +r.ends_at>+v[1])];
       if(sql.startsWith("UPDATE shared_demo_bookings SET status='approved'")){Object.assign(b,{status:'approved',starts_at:v[0],ends_at:v[1],credit_idr:v[2]});return [{}];}
-      if(sql.startsWith('INSERT INTO shared_demo_audit')){db.audit.push(v);return [{}];}
+      if(sql.startsWith('INSERT INTO shared_demo_audit')){
+        const insert=sql.match(/^INSERT INTO shared_demo_audit\(([^)]+)\) VALUES \(([^)]+)\)$/);
+        assert.ok(insert,'Audit must use an explicit column list and VALUES');
+        assert.equal(insert[1].split(',').length,insert[2].split(',').length,'Audit column and value counts must match (MariaDB error 1136)');
+        assert.equal((insert[2].match(/\?/g)||[]).length,v.length,'Audit bind count must match supplied values');
+        db.audit.push(v);return [{}];
+      }
       if(sql.startsWith('UPDATE shared_demo_control SET enabled')){db.control.enabled=v[0];return [{}];}
       if(sql.startsWith('UPDATE shared_demo_bookings SET enabled')){b.enabled=v[0];return [{}];}
       if(sql.startsWith('UPDATE shared_demo_bookings SET status=?')){b.status=v[0];b.enabled=0;b.code_hash=null;return [{}];}
@@ -92,6 +98,19 @@ test('request and approval enforce exact fields, future schedule, bounded durati
   for(const body of [{company:'A',needs:'x',requestedAt:dt(60000)},{company:'Acme',needs:'Tes produk',requestedAt:dt(-60000)},{company:'Acme',needs:'Tes produk',requestedAt:dt(60000),userId:9}])assert.throws(()=>validateVisitRequest(body,now));
   assert.equal(validateVisitApproval(approval,now).creditIdr,1000);
   for(const extra of [{creditIdr:10001},{creditIdr:'1000'},{endsAt:dt(12*3600000)},{startsAt:dt(-60000)},{reason:'x'},{userId:9}])assert.throws(()=>validateVisitApproval({...approval,...extra},now));
+});
+
+test('global activation/deactivation binds exactly five audit values including nullable booking, and persists both actions',async()=>{
+  const f=fixture();
+  await f.service.adminAction(99,null,'control',{enabled:false,reason:'Nonaktifkan demo bersama'});
+  assert.equal(f.db().control.enabled,false);
+  await f.service.adminAction(99,null,'control',{enabled:true,reason:'Aktifkan demo bersama'});
+  assert.equal(f.db().control.enabled,true);
+  assert.deepEqual(f.db().audit.map(row=>row.slice(1)),[
+    [null,99,'disable_global','Nonaktifkan demo bersama'],
+    [null,99,'enable_global','Aktifkan demo bersama'],
+  ]);
+  assert.ok(f.db().audit.every(row=>row.length===5));
 });
 
 test('OTP and access codes are distinct, hashed, applicant-bound; failed attempts persist and messages never return secrets',async()=>{

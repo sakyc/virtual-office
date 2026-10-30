@@ -64,7 +64,7 @@ export function createSharedDemoService({getPool,env=process.env,whatsapp=create
       FROM shared_demo_bookings WHERE id=?${userId===undefined?'':' AND applicant_id=?'} FOR UPDATE`,userId===undefined?[id]:[id,userId]);
     if(!b)fail('VISIT_NOT_FOUND',404);return b;
   }
-  const audit=(c,actor,id,action,reason)=>c.execute('INSERT INTO shared_demo_audit(id,booking_id,actor_user_id,action,reason) VALUES (?,?,?,?,?,?)',[randomUUID(),id,actor,action,reason]);
+  const audit=(c,actor,id,action,reason)=>c.execute('INSERT INTO shared_demo_audit(id,booking_id,actor_user_id,action,reason) VALUES (?,?,?,?,?)',[randomUUID(),id,actor,action,reason]);
   async function list(userId) {
     return tx(async c=>{
       const [[control]]=await c.execute('SELECT enabled FROM shared_demo_control WHERE id=1');
