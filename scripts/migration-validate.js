@@ -37,6 +37,12 @@ else {
       result.differences.push(...await validateSharedDemoSchema(connection));
       result.valid=result.differences.length===0;
     }
+    const [guestDemoHistory] = await connection.execute("SELECT migration_id FROM schema_migrations WHERE migration_id = '020_guest_scheduled_demo' AND status = 'applied'");
+    if(guestDemoHistory.length) {
+      const {validateGuestDemoSchema}=await import('../server/migrations/guest-demo-contract.js');
+      result.differences.push(...await validateGuestDemoSchema(connection));
+      result.valid=result.differences.length===0;
+    }
     console.log(JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } catch (error) { console.error(JSON.stringify({ error: safeDatabaseError(error) })); process.exitCode = 1; }

@@ -7,6 +7,12 @@ import { validateTenantMemberSchema } from './tenant-member-contract.js';
 import { validatePaymentSchema } from './payment-contract.js';
 import { validateDemoSchema } from './demo-contract.js';
 import {validateSharedDemoSchema} from './shared-demo-contract.js';
+import {validateGuestDemoSchema} from './guest-demo-contract.js';
+
+export async function validateDeploymentGuestDemo(connection,result) {
+  const differences=[...result.differences,...await validateGuestDemoSchema(connection)];
+  return {valid:differences.length===0,differences};
+}
 
 export async function validateDeploymentSharedDemo(connection, result) {
   const differences=[...result.differences,...await validateSharedDemoSchema(connection)];

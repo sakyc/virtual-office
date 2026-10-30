@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectMigrationDirectory, hasErrors } from '../server/migrations/status.js';
 import { acquireMigrationLock, releaseMigrationLock, applyMigrations, validateHistory } from '../server/migrations/framework.js';
-import { validateCurrentSchema,validateDeploymentSharedDemo } from '../server/migrations/schema-contract.js';
+import { validateCurrentSchema,validateDeploymentSharedDemo,validateDeploymentGuestDemo } from '../server/migrations/schema-contract.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -34,6 +34,7 @@ export async function bootstrapDeployment(connection, database, migrations, oper
   await history(connection, migrations);
   let validation = await validate(connection, fullSchemaOptions);
   if(migrations.some(m=>m.id==='019_scheduled_demo')) validation=await validateDeploymentSharedDemo(connection,validation);
+  if(migrations.some(m=>m.id==='020_guest_scheduled_demo')) validation=await validateDeploymentGuestDemo(connection,validation);
   if (!validation.valid) {
     console.log(JSON.stringify({ validation }, null, 2));
     throw new Error('DEPLOYMENT_SCHEMA_INVALID');
@@ -61,6 +62,7 @@ export async function validateDeployment(connection, database, migrations) {
   }
   let validation = await validateCurrentSchema(connection, {...fullSchemaOptions,requireDemo:migrations.some(m=>m.id==='018_whatsapp_demo')});
   if(migrations.some(m=>m.id==='019_scheduled_demo')) validation=await validateDeploymentSharedDemo(connection,validation);
+  if(migrations.some(m=>m.id==='020_guest_scheduled_demo')) validation=await validateDeploymentGuestDemo(connection,validation);
   return { database, migrations: rows.length, validation };
 }
 
@@ -69,8 +71,8 @@ async function main() {
   try {
     const options = deploymentOptions(process.argv.slice(2), process.env);
     const report = await inspectMigrationDirectory(resolve(root, 'migrations'));
-    if (hasErrors(report.diagnostics) || report.migrations.length !== 19
-      || report.migrations.at(-1)?.id !== '019_scheduled_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
+    if (hasErrors(report.diagnostics) || report.migrations.length !== 20
+      || report.migrations.at(-1)?.id !== '020_guest_scheduled_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     connection = await mysql.createConnection(options);
     await acquireMigrationLock(connection); locked = true;
     if (process.argv.includes('--validate')) {

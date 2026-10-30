@@ -40,8 +40,8 @@ async function main() {
   try {
     const options = modelSeedOptions(process.argv.slice(2), process.env);
     const report = await inspectMigrationDirectory(fileURLToPath(new URL('../migrations', import.meta.url)));
-    if (hasErrors(report.diagnostics) || report.migrations.length !== 19
-      || report.migrations.at(-1)?.id !== '019_scheduled_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
+    if (hasErrors(report.diagnostics) || report.migrations.length !== 20
+      || report.migrations.at(-1)?.id !== '020_guest_scheduled_demo') throw new Error('DEPLOYMENT_MIGRATION_SOURCE_INVALID');
     connection = await mysql.createConnection(options);
     await acquireMigrationLock(connection); locked = true;
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

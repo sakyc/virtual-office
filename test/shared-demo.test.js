@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 import {readFile} from 'node:fs/promises';
 import express from 'express';
-import {createSharedDemoService,validateVisitApproval,validateVisitRequest,installSharedDemoRoutes,sharedDemoFirewall} from '../server/shared-demo.js';
+import {createSharedDemoService,validateVisitApproval,validateVisitRequest,validateGuestVisitRequest,installSharedDemoRoutes,sharedDemoFirewall} from '../server/shared-demo.js';
+import {upgradeGuestDemo} from '../scripts/upgrade-deployment-guest-demo.mjs';
+import {validateGuestDemoSchema} from '../server/migrations/guest-demo-contract.js';
 import {SHARED_DEMO_ISSUER,sharedDemoRouteAllowed,activeSharedDemo} from '../server/shared-demo-policy.js';
 import {resolveSession} from '../server/auth/sessions.js';
 import {loadSessionProfile,selectActiveWorkspace} from '../server/auth/profile.js';
@@ -26,13 +28,23 @@ function fixture() {
     async beginTransaction(){const previous=queue;queue=new Promise(r=>{unlock=r;});await previous;snapshot=structuredClone(db);},
     async commit(){snapshot=null;},async rollback(){if(snapshot)db=snapshot;},release(){unlock?.();},
     async execute(raw,v=[]){const sql=raw.replace(/\s+/g,' ').trim(),b=db.bookings.find(r=>r.id===v.at(-1));
+      if(sql.startsWith('INSERT INTO ')) {
+        assert.equal((sql.match(/\?/g)||[]).length,v.length,'SQL placeholder/bind count must match');
+        const insert=sql.match(/^INSERT INTO \w+\(([^)]+)\) VALUES \((.*)\)$/);
+        if(insert)assert.equal(insert[1].split(',').length,insert[2].split(',').length,'INSERT column/value arity (MariaDB 1136)');
+      }
       if(sql==='SELECT id,enabled,user_id FROM shared_demo_control WHERE id=1 FOR UPDATE')return [[db.control]];
+      if(sql.startsWith('SELECT enabled'))return [[db.control]];
+      if(sql.startsWith('SELECT b.id,b.company'))return [db.bookings.filter(r=>sql.includes('b.guest_token_hash=')?r.applicant_id===null && r.guest_token_hash===v[0]:r.applicant_id===v[0]).map(r=>({id:r.id,company:r.company,status:r.status}))];
       if(sql.startsWith('SELECT id,whatsapp_number,status FROM users'))return [db.users.filter(u=>u.id===v[0] && u.status==='active')];
       if(sql.startsWith('SELECT *,otp_expires_at')) {
-        const found=db.bookings.find(r=>r.id===v[0] && (v.length===1 || r.applicant_id===v[1]));
+        const found=db.bookings.find(r=>r.id===v[0] && (sql.includes('guest_token_hash=?')?r.applicant_id===null && r.guest_token_hash===v[1]:sql.includes('AND applicant_id IS NULL')?r.applicant_id===null:v.length===1 || r.applicant_id===v[1]));
         return [found?[{...found,otp_valid:found.otp_expires_at>time,cooling:found.last_sent_at>time-60000,in_window:found.send_window_at>time-86400000}]:[]];
       }
       if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE applicant_id'))return [db.bookings.filter(r=>r.applicant_id===v[0] && ['verifying','pending'].includes(r.status))];
+      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE guest_token_hash'))return [db.bookings.filter(r=>r.guest_token_hash===v[0] && (['verifying','pending'].includes(r.status) || (['approved','active'].includes(r.status)&&+r.ends_at>time)))];
+      if(sql.startsWith('SELECT id FROM shared_demo_bookings WHERE phone='))return [db.bookings.filter(r=>r.phone===v[0] && r.id!==v[1] && (r.status==='pending' || (['approved','active'].includes(r.status)&&+r.ends_at>time)))];
+      if(sql.startsWith('INSERT INTO shared_demo_bookings(id,applicant_id,guest_name')){db.bookings.push({id:v[0],applicant_id:null,guest_name:v[1],guest_email:v[2],guest_token_hash:v[3],company:v[4],needs:v[5],requested_at:v[6],phone:v[7],status:'verifying',enabled:1,otp_attempts:0,code_attempts:0,sends:0,send_window_at:time});return [{}];}
       if(sql.startsWith('INSERT INTO shared_demo_bookings')){db.bookings.push({id:v[0],applicant_id:v[1],company:v[2],needs:v[3],requested_at:v[4],phone:v[5],status:'verifying',enabled:1,otp_attempts:0,code_attempts:0,sends:0,send_window_at:time});return [{}];}
       if(sql.startsWith('SELECT COALESCE(SUM(sends)'))return [[{sends:db.bookings.filter(r=>r.phone===v[0] && r.send_window_at>time-86400000).reduce((s,r)=>s+r.sends,0)}]];
       if(sql.startsWith('UPDATE shared_demo_bookings SET otp_hash=') || sql.startsWith('UPDATE shared_demo_bookings SET code_hash=')) {
@@ -80,10 +92,86 @@ function fixture() {
     },
   };}};
   const service=createSharedDemoService({getPool:()=>pool,env,clock:()=>time,whatsapp:{async send(phone,message){messages.push({phone,message});if(failSend)throw Error('secret gateway key');}}});
-  return {service,db:()=>db,messages,time:()=>time,setTime:t=>{time=t;},failSend:v=>{failSend=v;},failProvision:v=>{failProvision=v;}};
+  return {service,pool,db:()=>db,messages,time:()=>time,setTime:t=>{time=t;},failSend:v=>{failSend=v;},failProvision:v=>{failProvision=v;}};
 }
 const otp=f=>f.messages.at(-1).message.match(/\b\d{6}\b/)[0];
 const code=f=>f.messages.at(-1).message.match(/KRY-VISIT-[A-F0-9]{32}/)[0];
+const guest={guestHash:'b'.repeat(64)},otherGuest={guestHash:'c'.repeat(64)};
+const guestBody={name:'Rifki Demo',email:'RIFKI@example.com',phone:'081234567890',company:'Acme',needs:'Mencoba tugas pemasaran',requestedAt:null};
+async function guestPending(f,identity=guest,body=guestBody) {
+  const {id}=await f.service.request(identity,body);
+  await f.service.sendOtp(identity,id);await f.service.verify(identity,id,otp(f));return id;
+}
+
+test('guest biodata requires real fields, normalized contacts and optional future schedule; identity/role fields rejected',()=>{
+  const result=validateGuestVisitRequest(guestBody,now);
+  assert.equal(result.email,'rifki@example.com');assert.equal(result.phone,'+6281234567890');assert.equal(result.requestedAt,null);
+  assert.ok(validateGuestVisitRequest({...guestBody,requestedAt:dt(60000)},now).requestedAt instanceof Date);
+  for(const extra of [{name:'a'},{email:'bad'},{phone:'abc'},{requestedAt:''},{requestedAt:dt(-60000)},{requestedAt:dt(91*86400000)},{userId:1},{role:'admin'},{guestHash:'forged'}])assert.throws(()=>validateGuestVisitRequest({...guestBody,...extra},now));
+});
+
+test('guest request creates no personal account, list/OTP/verification are capability-bound and UUID alone reveals nothing',async()=>{
+  const f=fixture(),{id}=await f.service.request(guest,guestBody);
+  assert.equal(f.db().users.length,2);assert.equal(f.db().bookings[0].applicant_id,null);
+  assert.equal(f.db().bookings[0].requested_at,null);assert.equal(f.db().bookings[0].guest_name,guestBody.name);
+  assert.equal((await f.service.list(guest)).rows.length,1);assert.equal((await f.service.list(otherGuest)).rows.length,0);
+  await assert.rejects(f.service.sendOtp(otherGuest,id),{code:'VISIT_NOT_FOUND'});
+  await f.service.sendOtp(guest,id);
+  await assert.rejects(f.service.verify(otherGuest,id,otp(f)),{code:'VISIT_NOT_FOUND'});
+  await assert.rejects(f.service.adminAction(99,id,'approve',approval),{code:'VISIT_VERIFY_FIRST'});
+  await assert.rejects(f.service.verify(guest,id,'000000'),{code:'VISIT_CODE_INVALID'});
+  assert.equal(f.db().bookings[0].otp_attempts,1);
+  await f.service.verify(guest,id,otp(f));assert.equal(f.db().bookings[0].status,'pending');
+  assert.equal(f.db().users.length,2);assert.equal(f.db().sessions.length,0);
+  await assert.rejects(f.service.request(guest,guestBody),{code:'VISIT_REQUEST_EXISTS'});
+});
+
+test('verified phone cannot have duplicate pending bookings; send budget persists across browser capabilities',async()=>{
+  const f=fixture(),id=await guestPending(f),second=(await f.service.request(otherGuest,guestBody)).id;
+  f.setTime(now+61000);await f.service.sendOtp(otherGuest,second);
+  await assert.rejects(f.service.verify(otherGuest,second,otp(f)),{code:'VISIT_REQUEST_EXISTS'});
+  f.db().bookings.find(b=>b.id===id).sends=10;f.setTime(now+122000);
+  await assert.rejects(f.service.sendOtp(otherGuest,second),{code:'VISIT_SEND_LIMIT'});
+});
+
+test('guest access works on another device without applicant/capability, remains scheduled, single-use and audited',async()=>{
+  const f=fixture(),id=await guestPending(f);
+  await f.service.adminAction(99,id,'approve',approval);f.setTime(now+61000);
+  await f.service.adminAction(99,id,'send-code',{reason:'Kirim kode untuk presentasi'});
+  const access=code(f),message=f.messages.at(-1).message;
+  assert.match(message,new RegExp(`/scheduled-demo\\?booking=${id}`));assert.match(message,/Tidak perlu login/);
+  assert.doesNotMatch(message,/guest_token|guestHash/);
+  const results=await Promise.allSettled([f.service.enter({guestEntry:true},id,access),f.service.enter({guestEntry:true},id,access)]);
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(f.db().divisions.length,6);assert.equal(f.db().grants.length,1);assert.equal(f.db().sessions.length,1);
+  assert.equal(f.db().audit.find(a=>a[3]==='enter')[2],null);
+  assert.equal(f.db().users.filter(u=>u.provider_issuer===SHARED_DEMO_ISSUER).length,1);
+});
+
+test('guest access rejects legacy account bookings and persists five failed code attempts across browsers',async()=>{
+  const legacy=fixture(),a=await approved(legacy);
+  await assert.rejects(legacy.service.enter({guestEntry:true},a.id,a.code),{code:'VISIT_NOT_FOUND'});
+  const f=fixture(),id=await guestPending(f);await f.service.adminAction(99,id,'approve',approval);f.setTime(now+61000);
+  await f.service.adminAction(99,id,'send-code',{reason:'Kode untuk pengujian'});
+  const access=code(f);
+  f.setTime(now);await assert.rejects(f.service.enter({guestEntry:true},id,access),{code:'VISIT_WINDOW_CLOSED'});f.setTime(now+61000);
+  for(let i=0;i<5;i++)await assert.rejects(f.service.enter({guestEntry:true},id,'wrong'),{code:'VISIT_CODE_INVALID'});
+  assert.equal(f.db().bookings[0].code_attempts,5);
+  await assert.rejects(f.service.enter({guestEntry:true},id,access),{code:'VISIT_CODE_EXPIRED'});
+});
+
+test('guest OTP expiration, send failures and provisioning rollback remain fail-closed without personal accounts',async()=>{
+  const f=fixture(),{id}=await f.service.request(guest,guestBody);
+  f.failSend(true);await assert.rejects(f.service.sendOtp(guest,id),{code:'VISIT_SEND_UNCONFIRMED'});
+  assert.equal(f.db().bookings[0].sends,1);assert.equal(f.db().bookings[0].otp_hash,null);
+  f.failSend(false);f.setTime(now+61000);await f.service.sendOtp(guest,id);const oldOtp=otp(f);
+  f.setTime(now+400000);await assert.rejects(f.service.verify(guest,id,oldOtp),{code:'VISIT_CODE_EXPIRED'});
+  await f.service.sendOtp(guest,id);await f.service.verify(guest,id,otp(f));
+  const terms={...approval,startsAt:dt(500000),endsAt:dt(3600000)};
+  await f.service.adminAction(99,id,'approve',terms);f.setTime(now+501000);await f.service.adminAction(99,id,'send-code',{reason:'Kode pengujian rollback'});
+  f.failProvision(true);await assert.rejects(f.service.enter({guestEntry:true},id,code(f)));
+  assert.equal(f.db().users.length,2);assert.equal(f.db().orgs.length,0);assert.equal(f.db().sessions.length,0);assert.ok(f.db().bookings[0].code_hash);
+});
 async function pending(f,user=1) {
   const {id}=await f.service.request(user,{company:'Acme',needs:'Mencoba tugas pemasaran',requestedAt:dt(240000)});
   await f.service.sendOtp(user,id);await f.service.verify(user,id,otp(f));return id;
@@ -228,15 +316,52 @@ test('shared demo entitlement is server-side and expires before any new AI reser
 async function http(app,t) {
   const s=app.listen(0,'127.0.0.1');await new Promise(r=>s.once('listening',r));t.after(()=>s.close());return `http://127.0.0.1:${s.address().port}`;
 }
-test('HTTP rejects unauthenticated access, cross origin, forged fields and disabled service without calling WA',async t=>{
+
+test('public HTTP guest flow issues only private cookie, never returns capability/token; another browser cannot view or verify it',async t=>{
+  const f=fixture(),app=express();app.use(express.json());
+  installSharedDemoRoutes(app,{env:{...env,NODE_ENV:'production'},getPool:()=>f.pool,service:f.service});
+  const base=await http(app,t),headers={Origin:env.APP_ORIGIN,'Content-Type':'application/json'};
+  const post=(path,body,cookie)=>fetch(base+path,{method:'POST',headers:{...headers,...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)});
+  const response=await post('/api/shared-demo',guestBody),body=await response.json();
+  assert.equal(response.status,200);assert.deepEqual(Object.keys(body),['id']);
+  const cookieHeader=response.headers.get('set-cookie'),cookie=cookieHeader.split(';')[0];
+  assert.match(cookieHeader,/HttpOnly/);assert.match(cookieHeader,/SameSite=Lax/);assert.match(cookieHeader,/Secure/);assert.match(cookieHeader,/Path=\/api\/shared-demo/);
+  assert.match(cookie,/vo_demo_guest=[a-f0-9]{64}$/);assert.notEqual(cookie.split('=')[1],f.db().bookings[0].guest_token_hash);
+  assert.equal((await (await fetch(base+'/api/shared-demo')).json()).rows.length,0);
+  assert.equal((await (await fetch(base+'/api/shared-demo',{headers:{Cookie:cookie}})).json()).rows.length,1);
+  assert.equal((await post(`/api/shared-demo/${body.id}/otp`,{})).status,404);
+  assert.equal((await post(`/api/shared-demo/${body.id}/otp`,{},cookie)).status,200);
+  assert.equal((await post(`/api/shared-demo/${body.id}/verify`,{code:otp(f)})).status,404);
+  assert.equal((await post(`/api/shared-demo/${body.id}/verify`,{code:otp(f)},cookie)).status,200);
+  await f.service.adminAction(99,body.id,'approve',approval);f.setTime(now+61000);await f.service.adminAction(99,body.id,'send-code',{reason:'Kode HTTP guest flow'});
+  const entered=await post(`/api/shared-demo/${body.id}/enter`,{code:code(f)});
+  assert.equal(entered.status,200);assert.match(entered.headers.get('set-cookie'),/^vo_session=/);
+  assert.doesNotMatch(JSON.stringify(await entered.json()),/token|hash|KRY-VISIT/);
+});
+
+test('public HTTP rejects forged identity, missing origin, malformed biodata; service/storage failures are not reported as missing config',async t=>{
+  const f=fixture(),app=express();app.use(express.json());
+  installSharedDemoRoutes(app,{env,getPool:()=>f.pool,service:f.service});const base=await http(app,t);
+  for(const body of [{...guestBody,userId:1},{...guestBody,phone:'bad'},{...guestBody,creditIdr:10000}]) {
+    const r=await fetch(base+'/api/shared-demo',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    assert.equal(r.status,400);
+  }
+  assert.equal((await fetch(base+'/api/shared-demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(guestBody)})).status,403);
+  assert.equal(f.db().bookings.length,0);assert.equal(f.messages.length,0);
+  const broken=express();broken.use(express.json());installSharedDemoRoutes(broken,{env,getPool:()=>f.pool,service:{list:async()=>{throw Error('private SQL/password');}}});
+  const r=await fetch((await http(broken,t))+'/api/shared-demo');assert.equal(r.status,503);assert.deepEqual(await r.json(),{code:'VISIT_SERVICE_ERROR'});
+  const disabled=express();installSharedDemoRoutes(disabled,{env:{...env,SHARED_DEMO_ENABLED:'0'},getPool:()=>f.pool});
+  assert.deepEqual(await (await fetch((await http(disabled,t))+'/api/shared-demo')).json(),{code:'VISIT_UNAVAILABLE'});
+});
+test('HTTP allows public guest status but rejects unauthenticated admin, cross origin and forged fields',async t=>{
   let calls=0;const app=express();app.use(express.json());
-  installSharedDemoRoutes(app,{env,getPool:()=>({getConnection:async()=>({execute:async()=>[[]],release(){}})}),service:new Proxy({},{get(){return ()=>{calls++;};}})});
+  installSharedDemoRoutes(app,{env,getPool:()=>({getConnection:async()=>({execute:async()=>[[]],release(){}})}),service:new Proxy({},{get(){return ()=>{calls++;return {rows:[],accepting:true};};}})});
   const base=await http(app,t);
-  assert.equal((await fetch(base+'/api/shared-demo')).status,401);
+  assert.equal((await fetch(base+'/api/shared-demo')).status,200);
   for(const [body,origin,status] of [[{},'https://evil.test',403],[{code:'x',userId:1},env.APP_ORIGIN,400]]) {
     const r=await fetch(base+'/api/shared-demo/00000000-0000-0000-0000-000000000000/enter',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,status);
   }
-  assert.equal((await fetch(base+'/api/admin/demo')).status,401);assert.equal(calls,0);
+  assert.equal((await fetch(base+'/api/admin/demo')).status,401);assert.equal(calls,1);
 });
 
 test('HTTP firewall and platform guard deny the real shared principal while allowing scoped chat and logout',async t=>{
@@ -258,15 +383,15 @@ test('HTTP firewall and platform guard deny the real shared principal while allo
 
 test('019 migration is additive, guarded, no destructive reset or hardcoded model allowlist; schema catches missing security structures',async()=>{
   const m=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
-  assert.equal(m.diagnostics.length,0);assert.equal(m.migrations.at(-1).id,'019_scheduled_demo');
-  assert.doesNotMatch(m.migrations.at(-1).source,/DROP |ALTER |DELETE FROM|INSERT INTO users/i);
+  assert.equal(m.diagnostics.length,0);
+  assert.doesNotMatch(m.migrations.find(m=>m.id==='019_scheduled_demo').source,/DROP |ALTER |DELETE FROM|INSERT INTO users/i);
   const missing=await validateSharedDemoSchema({execute:async sql=>sql.startsWith('SELECT COUNT')?[[{count:0}]]:[[]]});
   assert.ok(missing.some(d=>d.index==='uq_shared_demo_session'));assert.ok(missing.some(d=>d.constraint==='ck_shared_demo_window'));assert.ok(missing.some(d=>d.constraint==='fk_shared_booking_applicant'));
   const source=await readFile(new URL('../server/shared-demo.js',import.meta.url),'utf8');assert.doesNotMatch(source,/claude-haiku|claude-sonnet|allowedModels|DELETE FROM/);
 });
 
 test('upgrade validates exact target and prior history, refuses pending/partial schema, and applies only 019',async()=>{
-  const {migrations}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
+  const report=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url))),migrations=report.migrations.slice(0,19);
   let partial=false,applied=0;
   const c={execute:async sql=>{
     if(sql.startsWith('SELECT DATABASE'))return [[{db:'app'}]];
@@ -279,6 +404,32 @@ test('upgrade validates exact target and prior history, refuses pending/partial 
   await assert.rejects(upgradeSharedDemo(c,'app',migrations),/PENDING/);
   partial=true;await assert.rejects(upgradeSharedDemo(c,'app',migrations,options),/WITHOUT_HISTORY/);assert.equal(applied,0);
   partial=false;const result=await upgradeSharedDemo(c,'app',migrations,options);assert.deepEqual(result.applied,['019_scheduled_demo']);assert.equal(applied,1);
+});
+
+test('020 upgrade refuses wrong target, missing history, partial DDL; applies only additive guest migration and validates',async()=>{
+  const {migrations,diagnostics}=await inspectMigrationDirectory(fileURLToPath(new URL('../migrations',import.meta.url)));
+  assert.equal(diagnostics.length,0);assert.equal(migrations.at(-1).id,'020_guest_scheduled_demo');
+  assert.doesNotMatch(migrations.at(-1).source,/DROP |DELETE FROM|INSERT INTO users|TRUNCATE/i);
+  let partial=false,nullable=false,historyLength=19,applied=0,valid=true;
+  const c={execute:async sql=>{
+    if(sql.startsWith('SELECT DATABASE'))return [[{db:'app'}]];
+    if(sql.includes('FROM schema_migrations'))return [migrations.slice(0,historyLength).map(m=>({migration_id:m.id,status:'applied',checksum:m.checksum}))];
+    if(sql.includes('is_nullable='))return [nullable?[{column_name:'applicant_id'}]:[]];
+    if(sql.includes('information_schema.columns'))return [partial?[{column_name:'guest_name'}]:[]];
+    throw Error(sql);
+  }};
+  const options={apply:true,validate:async()=>({validation:{valid,differences:[]}}),applyPending:async()=>{applied++;return [{name:'020_guest_scheduled_demo'}];}};
+  await assert.rejects(upgradeGuestDemo(c,'other',migrations,options),/MISMATCH/);
+  await assert.rejects(upgradeGuestDemo(c,'app',migrations),/PENDING/);
+  historyLength=18;await assert.rejects(upgradeGuestDemo(c,'app',migrations,options),/HISTORY/);historyLength=19;
+  partial=true;await assert.rejects(upgradeGuestDemo(c,'app',migrations,options),/PARTIAL/);partial=false;
+  nullable=true;await assert.rejects(upgradeGuestDemo(c,'app',migrations,options),/PARTIAL/);nullable=false;
+  valid=false;await assert.rejects(upgradeGuestDemo(c,'app',migrations,options),/BASE_SCHEMA/);valid=true;assert.equal(applied,0);
+  assert.deepEqual((await upgradeGuestDemo(c,'app',migrations,options)).applied,['020_guest_scheduled_demo']);
+  historyLength=20;await upgradeGuestDemo(c,'app',migrations,options);assert.equal(applied,1);
+  valid=false;await assert.rejects(upgradeGuestDemo(c,'app',migrations,options),/SCHEMA_INVALID/);
+  const missing=await validateGuestDemoSchema({execute:async()=>[[]]});
+  assert.ok(missing.some(d=>d.column==='guest_token_hash'));assert.ok(missing.some(d=>d.constraint==='ck_shared_demo_guest_identity'));
 });
 
 test('public and admin UI expose request, OTP, scheduling and audit without mixing up Trial',async()=>{
