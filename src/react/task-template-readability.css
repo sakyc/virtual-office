@@ -1,0 +1,37 @@
+/* Scoped to the template page; uses the dashboard's light/dark tokens. */
+.tt-page{font-size:15px;line-height:1.6;min-width:0}
+.tt-page *{box-sizing:border-box}
+.tt-page .tt-eyebrow,.tt-page .tt-tag{font-size:12px}
+.tt-page .tt-heading p,.tt-page .tt-muted,.tt-page .tt-card p,.tt-page .tt-notice,.tt-page .tt-instructions,.tt-page .tt-empty p{font-size:15px}
+.tt-page .tt-meta{font-size:14px}
+.tt-page button,.tt-page .tt-use-template{font-size:15px;min-height:44px;padding:10px 16px}
+.tt-page input:not([type=checkbox]),.tt-page select,.tt-page textarea{font-size:16px;min-height:46px;line-height:1.5;min-width:0;max-width:100%;padding:12px 14px}
+.tt-page input::placeholder,.tt-page textarea::placeholder{color:var(--soft,#697164);opacity:1}
+.tt-page .tt-editor{padding:28px}
+.tt-page .tt-editor h2{font-size:23px;margin:4px 0}
+.tt-page .tt-editor h3{font-size:18px}
+.tt-page .tt-editor label{font-size:15px;font-weight:650;gap:9px;min-width:0}
+.tt-page .tt-editor>fieldset{gap:22px;margin:26px 0}
+.tt-page .tt-editor small,.tt-page .tt-field-help{font-size:14px;font-weight:400;line-height:1.6;color:var(--soft,#697164)}
+.tt-page .tt-field-help{margin:-14px 0 0}
+.tt-page .tt-division-settings{padding:20px;background:var(--surface2,var(--surface,#fff))}
+.tt-page .tt-division-settings>.tt-muted{margin:8px 0 16px}
+.tt-page button.tt-scope-all{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface,#fff);border:1px solid var(--line,#dce1eb);color:inherit}
+.tt-page .tt-scope-all small,.tt-page .tt-required-option small{display:block;margin-top:2px}
+.tt-page .tt-division-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.tt-page label.tt-division-option{display:flex;align-items:center;gap:12px;min-height:52px;margin:0;padding:12px 14px;border:1px solid var(--line,#dce1eb);border-radius:10px;background:var(--surface,#fff);cursor:pointer;overflow-wrap:anywhere}
+.tt-page label.tt-division-option.is-selected,.tt-page button.tt-scope-all[aria-pressed=true]{border-color:var(--accent,#3b63e0);background:var(--accentSoft,#eaf0ff)}
+.tt-page input[type=checkbox]{appearance:auto;flex-shrink:0;width:20px;height:20px;min-height:20px;margin:0;accent-color:var(--accent,#3b63e0)}
+.tt-page .tt-scope-summary{font-size:14px;font-weight:550;margin:16px 0 0;color:var(--ink,#20231f)}
+.tt-page .tt-field-card{padding:20px;border:1px solid var(--line,#dce1eb);border-radius:12px;background:var(--surface2,var(--surface,#fff));min-width:0}
+.tt-page .tt-field-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.tt-page .tt-field-card-heading h4{margin:0;font-size:17px}
+.tt-page .tt-field-row{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:18px}
+.tt-page .tt-field-row small{min-height:44px}
+.tt-page label.tt-required-option{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line,#dce1eb);cursor:pointer}
+.tt-page .tt-fields-empty{padding:16px;border:1px dashed var(--line,#dce1eb);border-radius:10px;font-size:15px;margin:0}
+.tt-page .tt-editor footer{gap:12px;padding-top:20px;border-top:1px solid var(--line,#dce1eb)}
+.tt-page .tt-division-option:focus-within{outline:2px solid var(--accent,#3b63e0);outline-offset:2px}
+.tt-page fieldset:disabled .tt-division-option,.tt-page fieldset:disabled .tt-required-option{opacity:.6;cursor:not-allowed}
+@media(max-width:900px){.tt-page .tt-division-options{grid-template-columns:repeat(2,minmax(0,1fr))}.tt-page .tt-field-row{grid-template-columns:1fr}.tt-page .tt-field-row small{min-height:0}}
+@media(max-width:560px){.tt-page .tt-editor{padding:18px}.tt-page .tt-editor header{align-items:flex-start}.tt-page .tt-editor h2{font-size:21px}.tt-page .tt-division-settings,.tt-page .tt-field-card{padding:16px}.tt-page .tt-division-options{grid-template-columns:1fr}.tt-page .tt-editor footer>button{flex:1}.tt-page .tt-fields-heading{flex-wrap:wrap}}

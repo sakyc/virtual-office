@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { draftFromBuiltin, templateInput, templateMatchesDivision } from '../../shared/task-templates.js';
 import './task-templates.css';
 import './task-template-actions.css';
+import './task-template-readability.css';
 
 export const emptyTemplate = () => ({ name: '', description: '', instructions: '', outputFormat: 'Dokumen', fields: [], divisionIds: [] });
 export const templateTaskPath = (template,builtin=false) => `/dashboard/jobs?template=${encodeURIComponent(builtin?`builtin:${template.id}`:template.id)}`;
@@ -22,25 +23,31 @@ export function TemplateEditor({ value, onChange, onSubmit, onCancel, busy, copi
     <fieldset disabled={busy}><label>Nama template<input required maxLength={150} value={value.name} onChange={change('name')} placeholder="Mis. Carousel edukasi produk"/></label>
       <label>Deskripsi singkat<textarea rows={2} maxLength={500} value={value.description} onChange={change('description')}/></label>
       <div className="tt-division-settings"><h3>Tersedia untuk divisi</h3>
-        <label className="tt-checkbox"><input type="checkbox" checked={!value.divisionIds?.length} onChange={e => { if(e.target.checked)onChange({...value,divisionIds:[]}); }}/> Umum · semua divisi</label>
-        <p className="tt-muted">Pilih satu atau beberapa divisi untuk membatasi template. Tanpa pilihan divisi, template tersedia untuk semua agen.</p>
-        {divisions.map(d => <label className="tt-checkbox" key={d.id}><input type="checkbox" checked={value.divisionIds?.includes(d.id) || false} onChange={e => onChange({...value,divisionIds:e.target.checked?[...(value.divisionIds || []),d.id]:(value.divisionIds || []).filter(id=>id!==d.id)})}/>{d.name}</label>)}
+        <p className="tt-muted">Pilih beberapa divisi, atau gunakan Umum agar template bisa dipakai semua agen.</p>
+        <button type="button" className="tt-scope-all" aria-pressed={!value.divisionIds?.length} onClick={()=>onChange({...value,divisionIds:[]})}><span aria-hidden="true">{!value.divisionIds?.length ? '✓' : '○'}</span><span>Umum · semua divisi<small>Tidak dibatasi divisi tertentu</small></span></button>
+        <div className="tt-division-options">{divisions.map(d => <label className={`tt-checkbox tt-division-option${value.divisionIds?.includes(d.id) ? ' is-selected' : ''}`} key={d.id}><input type="checkbox" checked={value.divisionIds?.includes(d.id) || false} onChange={e => onChange({...value,divisionIds:e.target.checked?[...(value.divisionIds || []),d.id]:(value.divisionIds || []).filter(id=>id!==d.id)})}/><span>{d.name}</span></label>)}</div>
+        <p className="tt-scope-summary" role="status">{value.divisionIds?.length ? `${value.divisionIds.length} divisi dipilih. Template hanya muncul untuk agen di divisi tersebut.` : 'Umum dipilih. Template tersedia untuk semua divisi.'}</p>
         {(value.divisionIds || []).some(id=>!divisions.some(d=>d.id===id)) && <p className="tt-muted">Ada divisi yang sudah tidak aktif. Pilih ulang divisi atau jadikan template umum sebelum menyimpan.</p>}
       </div>
       <label>Instruksi tugas<textarea required rows={5} maxLength={8000} value={value.instructions} onChange={change('instructions')} placeholder="Jelaskan tujuan, langkah kerja, gaya bahasa, dan hasil yang diharapkan."/></label>
+      <p className="tt-field-help">Arahan tetap untuk AI setiap kali template dipakai. Contoh: buat carousel edukasi 7 slide dengan bahasa santai, berdasarkan topik yang diisi pengguna.</p>
       <label>Format hasil<input required maxLength={100} value={value.outputFormat} onChange={change('outputFormat')} placeholder="Mis. Carousel 7 slide"/></label>
+      <p className="tt-field-help">Bentuk draft yang diinginkan, misalnya Dokumen, Caption, atau Carousel 7 slide. Ini bukan pilihan unduh PDF/PPT.</p>
       <div className="tt-fields-heading"><h3>Kolom input <small>{value.fields.length}/12</small></h3><button type="button" disabled={value.fields.length >= 12} onClick={() => {
         let n = 1; while (value.fields.some(f => f.name === `input_${n}`)) n++;
         onChange({ ...value, fields: [...value.fields, { name: `input_${n}`, label: '', type: 'text', required: true }] });
       }}>+ Tambah kolom</button></div>
-      <p className="tt-muted">Kolom yang perlu diisi saat template digunakan. Kunci harus unik, huruf kecil tanpa spasi.</p>
-      {value.fields.map((field, index) => <div className="tt-field-row" key={index}>
-        <label>Label<input required maxLength={100} value={field.label} onChange={e => fieldChange(index, { label: e.target.value })}/></label>
-        <label>Kunci<input required pattern="[a-z][a-z0-9_]{0,39}" value={field.name} onChange={e => fieldChange(index, { name: e.target.value })}/></label>
-        <label>Jenis<select value={field.type} onChange={e => fieldChange(index, { type: e.target.value })}><option value="text">Teks</option><option value="textarea">Teks panjang</option><option value="number">Angka</option></select></label>
-        <label className="tt-checkbox"><input type="checkbox" checked={field.required} onChange={e => fieldChange(index, { required: e.target.checked })}/> Wajib</label>
-        <button type="button" aria-label={`Hapus kolom ${index + 1}`} onClick={() => onChange({ ...value, fields: value.fields.filter((_, i) => i !== index) })}>Hapus</button>
-      </div>)}
+      <p className="tt-muted">Form yang diisi pengguna saat menjalankan template, maksimal 12 kolom. Contoh: Topik konten, Target audiens, dan Jumlah slide.</p>
+      {!value.fields.length && <p className="tt-fields-empty">Belum ada kolom input. Tambahkan kolom jika AI membutuhkan informasi berbeda untuk setiap tugas.</p>}
+      {value.fields.map((field, index) => <section className="tt-field-card" key={index} aria-label={`Pengaturan kolom ${index + 1}`}>
+        <div className="tt-field-card-heading"><h4>Kolom {index + 1}</h4><button type="button" aria-label={`Hapus kolom ${index + 1}`} onClick={() => onChange({ ...value, fields: value.fields.filter((_, i) => i !== index) })}>Hapus</button></div>
+        <div className="tt-field-row">
+          <label>Label<input required maxLength={100} value={field.label} placeholder="Mis. Topik konten" onChange={e => fieldChange(index, { label: e.target.value })}/><small>Nama kolom yang terlihat oleh pengguna.</small></label>
+          <label>Kunci (ID kolom)<input required maxLength={40} pattern="[a-z][a-z0-9_]{0,39}" title="Gunakan huruf kecil, angka, atau garis bawah; awali dengan huruf. Kunci harus unik." value={field.name} placeholder="Mis. topik_konten" onChange={e => fieldChange(index, { name: e.target.value })}/><small>ID unik: huruf kecil, angka, atau garis bawah; tanpa spasi.</small></label>
+          <label>Jenis<select value={field.type} onChange={e => fieldChange(index, { type: e.target.value })}><option value="text">Teks</option><option value="textarea">Teks panjang</option><option value="number">Angka</option></select><small>Teks singkat, uraian panjang, atau angka.</small></label>
+        </div>
+        <label className="tt-checkbox tt-required-option"><input type="checkbox" checked={field.required} onChange={e => fieldChange(index, { required: e.target.checked })}/><span>Wajib diisi<small>Tugas tidak dapat dikirim jika kolom ini kosong.</small></span></label>
+      </section>)}
     </fieldset><footer><button type="button" disabled={busy} onClick={onCancel}>Batal</button><button className="tt-primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan template'}</button></footer>
   </form>;
 }

@@ -10,12 +10,17 @@ const options={canCreate:true,templates:[template,{...template,id:'general',name
 const server=await createServer({configFile:false,optimizeDeps:{noDiscovery:true,include:['react','react-dom/client','react/jsx-dev-runtime']},server:{port:5191,host:'127.0.0.1',hmr:false},plugins:[{name:'presentation-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{
   if(!req.url.startsWith('/__qa/')&&!req.url.startsWith('/dashboard/jobs'))return next();
   const content=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body class="chatting"><div id="panel"><header class="panel-head"><div class="who"><strong>Rina · Penulis konten</strong><span>Kantor demo presentasi</span></div></header><div class="jobs" id="fixture"></div></div><script type="module">
-  import React from 'react';import {createRoot} from 'react-dom/client';import {WorkspaceTaskComposer} from '/src/react/workspace-task-composer.jsx';import {TemplateLibrary} from '/src/react/task-templates.jsx';import '/src/style.css';import '/src/board.css';import '/src/office-readability.css';
+  import React from 'react';import {createRoot} from 'react-dom/client';import {WorkspaceTaskComposer} from '/src/react/workspace-task-composer.jsx';import {TemplateLibrary,TemplateEditor} from '/src/react/task-templates.jsx';import '/src/style.css';import '/src/board.css';import '/src/office-readability.css';import '/src/react/reference/dashboard.css';
   const options=${JSON.stringify(options)};window.submissions=[];window.deny=false;window.cancelled=false;
   const api={taskOptions:async()=>options,createWorkspaceJob:async(body)=>{window.submissions.push(body);await new Promise(r=>setTimeout(r,80));if(window.deny)throw Error('Akses AI demo sedang dinonaktifkan. Hubungi admin.');return {jobId:45};}};
   const root=createRoot(document.getElementById('fixture'));
   if(location.pathname==='/__qa/templates'){document.body.className='';document.getElementById('panel').style.cssText='position:static;transform:none;opacity:1;pointer-events:auto;width:auto;height:auto;margin:20px';root.render(React.createElement(TemplateLibrary,{data:{templates:options.templates,builtins:[],canManage:true},tab:'custom',search:'',onTab(){},onSearch(){},onCreate(){},onInspect(){},onCopy(){},onEdit(){},onArchive(){}}));}
-  else root.render(React.createElement(WorkspaceTaskComposer,{api,embedded:true,initialTemplate:new URLSearchParams(location.search).get('template')||'',onCancel(){window.cancelled=true;root.render(React.createElement('p',null,'Form ditutup'));},onCreated(id){window.created=id;}}));
+  else if(location.pathname==='/__qa/editor'){
+    document.body.className='reference-dashboard dark';const panel=document.getElementById('panel');panel.removeAttribute('id');panel.style.cssText='margin:0 auto;max-width:1200px;padding:16px';panel.querySelector('header').remove();document.getElementById('fixture').className='tt-page';
+    const divisions=['Proposal Writer','Ads Copywriter','Social Media','Web QA','Developer Helper','Reporting'].map((name,i)=>({id:String(i+1).repeat(8)+'-1111-1111-1111-111111111111',name}));
+    function EditorFixture(){const [value,setValue]=React.useState({name:'Carousel edukasi produk',description:'Template konten edukasi untuk media sosial.',instructions:'Buat carousel edukasi 7 slide dengan bahasa santai sesuai topik dan audiens pengguna.',outputFormat:'Carousel 7 slide',divisionIds:[divisions[1].id],fields:[{name:'topik_konten',label:'Topik konten',type:'text',required:true}]});window.editorValue=value;return React.createElement(TemplateEditor,{value,onChange:setValue,divisions,onCancel(){window.editorCancelled=true;},onSubmit(e){e.preventDefault();window.editorSaved=value;}});}
+    root.render(React.createElement(EditorFixture));
+  }else root.render(React.createElement(WorkspaceTaskComposer,{api,embedded:true,initialTemplate:new URLSearchParams(location.search).get('template')||'',onCancel(){window.cancelled=true;root.render(React.createElement('p',null,'Form ditutup'));},onCreated(id){window.created=id;}}));
   </script></body></html>`;
   res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,content));
 });}}]});
@@ -61,5 +66,29 @@ try{
   assert.equal(await evaluate('document.querySelectorAll("select")[1].textContent.includes("Bawaan ads")'),true);
   assert.equal(await evaluate('document.querySelectorAll("select")[1].textContent.includes("Template umum")'),true);
   await evaluate('document.querySelector(".btns").click();true');await wait('window.cancelled===true');assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({passed:true,checks:['template-to-task','template-prefilled','multi-select-four-without-ctrl','AI-off-error-preserves-input','submit-double-click-guard','styled-readable-buttons','desktop-mobile-no-overflow','division-filter-and-agent-switch','cancel'],screenshots:output,providerCalls:0,databaseConnections:0}));
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:1000,deviceScaleFactor:1,mobile:false});
+  await send('Page.navigate',{url:base+'/__qa/editor'});await wait('!!document.querySelector(".tt-field-card")');
+  assert.equal(await evaluate('document.querySelectorAll(".tt-division-option.is-selected").length'),1);
+  await evaluate('document.querySelectorAll(".tt-division-option input")[2].click();true');
+  assert.equal(await evaluate('window.editorValue.divisionIds.length'),2);
+  await evaluate('document.querySelector(".tt-scope-all").click();true');assert.equal(await evaluate('window.editorValue.divisionIds.length'),0);
+  assert.equal(await evaluate('document.querySelector(".tt-scope-all").getAttribute("aria-pressed")'),'true');
+  await evaluate('document.querySelectorAll(".tt-division-option input")[1].click();true');
+  await evaluate('document.querySelector(".tt-fields-heading button").click();true');assert.equal(await evaluate('window.editorValue.fields.length'),2);
+  await evaluate('document.querySelector("[aria-label=\\"Hapus kolom 2\\"]").click();true');assert.equal(await evaluate('window.editorValue.fields.length'),1);
+  const editorStyle=await evaluate('({label:getComputedStyle(document.querySelector(".tt-field-row label")).fontSize,input:getComputedStyle(document.querySelector(".tt-field-row input")).fontSize,help:getComputedStyle(document.querySelector(".tt-field-row small")).fontSize,checkbox:getComputedStyle(document.querySelector(".tt-division-option input")).width})');
+  assert.deepEqual(editorStyle,{label:'15px',input:'16px',help:'14px',checkbox:'20px'});
+  await evaluate('document.querySelector(".tt-division-settings").scrollIntoView();true');await delay(400);
+  writeFileSync(join(output,'template-editor-dark-desktop.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate('document.querySelector(".tt-field-card").scrollIntoView();true');
+  writeFileSync(join(output,'template-fields-dark-desktop.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
+  await evaluate('document.querySelector(".tt-division-settings").scrollIntoView();true');
+  writeFileSync(join(output,'template-editor-dark-mobile.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate('document.body.classList.remove("dark");document.querySelector(".tt-field-card").scrollIntoView();true');await delay(400);
+  writeFileSync(join(output,'template-fields-light-mobile.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate('document.querySelector(".tt-editor .tt-primary").click();true');await wait('!!window.editorSaved');
+  assert.equal(await evaluate('window.editorSaved.fields[0].name'),'topik_konten');assert.equal(await evaluate('window.editorSaved.divisionIds.length'),1);
+  console.log(JSON.stringify({passed:true,checks:['template-to-task','template-prefilled','multi-select-four-without-ctrl','AI-off-error-preserves-input','submit-double-click-guard','styled-readable-buttons','desktop-mobile-no-overflow','division-filter-and-agent-switch','cancel','editor-division-controls','editor-add-remove-save','editor-readable-fonts-dark-light-mobile'],screenshots:output,providerCalls:0,databaseConnections:0}));
 }finally{socket?.close();browser?.kill();await server.close();}

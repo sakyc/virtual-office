@@ -160,6 +160,8 @@ test('React template page exposes scoped management, public readonly templates a
     assert(socialOnly.includes('Buat carousel'));assert(!socialOnly.includes('Copy Meta Ads'));
     const editor = renderToStaticMarkup(React.createElement(TemplateEditor, { value: input })); assert.ok(editor.includes('Instruksi tugas')); assert.ok(editor.includes('Tambah kolom'));
     assert(editor.includes('Tersedia untuk divisi'));assert(editor.includes('Umum · semua divisi'));
+    const configured=renderToStaticMarkup(React.createElement(TemplateEditor,{value:{...input,divisionIds:[divisionId]},divisions:[{id:divisionId,name:'Social Media'}]}));
+    for(const text of ['tt-division-option is-selected','aria-pressed="false"','Kunci (ID kolom)','tt-field-card','Wajib diisi','Nama kolom yang terlihat oleh pengguna.','Ini bukan pilihan unduh PDF/PPT.'])assert(configured.includes(text),text);
     const navigated = [];
     const navigation = dashboardNavigation({ baseGroups: [], section: 'templates', onNavigate: path => navigated.push(path), setView() {} });
     const templateLink = navigation.flatMap(group => group.items).find(item => item.id === 'templates');
